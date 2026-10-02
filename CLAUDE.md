@@ -1,0 +1,67 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Qué es
+
+"Second Brain": app personal de productividad de **un solo usuario** (Cesar). Los docs están en español:
+- `docs/PRD.md`: fuente de verdad del comportamiento
+- `docs/DATA-MODEL.md`: modelo y métricas derivadas
+- `docs/ROADMAP.md`: fases
+- `docs/API.md`: diseño REST original; ya no hay API propia
+- `design/mockup.html`: referencia visual; sus tokens CSS están en `apps/web/src/index.css`
+
+Estado: Fases 0–4 sobre la pantalla Hoy. Faltan las alertas (Fase 5: `pg_cron` + Edge Function con Web Push) y la PWA (Fase 6).
+
+Producción:
+- Frontend estático en **GitHub Pages**: https://csr9497.github.io/second-brain/ (repo `csr9497/second-brain`).
+- Backend en **Supabase**, project ref `cwmqgjeqtpilhcagotmn`.
+- **No hay servidor propio**: el navegador habla directo con Supabase vía `supabase-js`.
+
+## Comandos (desde la raíz)
+
+```bash
+pnpm db:start           # Supabase local (Docker): aplica migraciones + supabase/seed.sql
+pnpm db:reset           # recrea la DB local desde migraciones + seed
+pnpm db:env             # genera apps/web/.env.local (URL + anon key locales)
+pnpm dev                # Vite :5173 — usuario demo local: dev@local.test / devpassword
+pnpm test               # vitest de packages/shared
+supabase test db        # tests pgTAP de RLS y triggers (supabase/tests/database)
+pnpm typecheck
+pnpm build              # apps/web/dist
+
+# un solo test
+pnpm --filter @sb/shared exec vitest run src/domain/domain.test.ts -t "computeStreak"
+```
+
+Studio local: http://127.0.0.1:54323. Deploy: cada push a `main` ejecuta `.github/workflows/pages.yml` (typecheck, test, build y Pages). Usa las variables del repo `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`.
+
+## Arquitectura
+
+- **`supabase/migrations/`** es el esquema fuente de verdad. Todas las tablas tienen `user_id default auth.uid()` y RLS con la política `owner_all`. **La anon key es pública**: toda tabla nueva debe activar RLS y su política de dueño, o queda expuesta. `anon` no tiene grants.
+  - Hay tres reglas en **triggers** (no en el cliente): `completed_at` solo cuando `status = 'hecha'`; los pasos sincronizan el estado de su tarea (`steps_sync_task`); y tocar una tarea actualiza `projects.last_activity_at`.
+  - Cambios de esquema: `supabase migration new <nombre>`. Prueba con `pnpm db:reset` y `supabase test db`, y en producción aplica con `supabase db push`. Hay que añadir un pgTAP si tocas RLS o triggers.
+- **`packages/shared`** (sin build: exporta `src/index.ts`):
+  - Esquemas Zod y tipos de salida (`Task`, `TodayPayload`, `WeeklyReport`…).
+  - En `src/domain/`, la lógica pura con tests: fechas, `positionBetween`, `computeStreak`, `bucketTasks`, y `buildToday`/`buildWeeklyReport`, que agregan filas ya cargadas.
+  - Los esquemas `*Fields` no llevan `.default()`, para que `.partial()` en los updates no pise campos (en Zod 4 `.partial()` conserva los defaults internos; lo cubre `schemas.test.ts`).
+- **`apps/web`** (React 19 + TanStack Query + Tailwind v4 + dnd-kit; sin router):
+  - `lib/api.ts` es la **única** capa de datos. Hace las consultas con supabase-js, traduce snake_case ↔ camelCase y pasa las filas a la lógica de `@sb/shared`. PostgREST limita a 1000 filas por petición: para listas que pueden crecer, usa `fetchAll`.
+  - Toda la pantalla sale de **una query `['today']`**. Las mutaciones usan `useTodayMutation`, que aplica un cambio optimista opcional y siempre invalida `['today']`. Los modales de tarea y de proyecto sirven para crear y para editar, según reciban o no la entidad.
+  - Sesión: `useSession`. Si no hay sesión, se muestra `<Login>`.
+  - `vite.config.ts` usa `base: './'`, para servir igual en `/` (local) y en `/second-brain/` (Pages).
+
+## Reglas de dominio no obvias
+
+- **La mezcla de idiomas es intencional.** Las columnas mezclan español e inglés (`nombre`, `estado`, `fecha`, `texto` junto a `title`, `status`, `deadline`). Los enums van en español sin tildes (`por_hacer|en_curso|hecha`, `manana|tarde|noche`, `alta|media|baja`) y la base los valida con CHECKs. No "normalices" nada.
+- **"Hoy", la semana y la franja de hábitos** se calculan con la **hora del navegador**. La DB está en UTC; por eso `seed.sql` usa `America/Lima` para que la demo cuadre.
+- **Reordenar:** `beforeId` es el vecino que queda **arriba** y `afterId` el de **abajo**. Se guarda el punto medio en `position numeric` y nunca se renumera la lista.
+- **Listas de tareas (`bucketTasks`):**
+  - Las hechas solo se ven el día en que se completaron.
+  - Las vencidas sin terminar van **solo** a `incumplimiento`.
+  - `hoy` = deadline hoy, o sin deadline y con `start_date` hoy.
+  - `semana` = hoy + deadline hasta el domingo.
+- **Semana:** de lunes a domingo. **`schedule_days`:** enteros 0–6, con 0 = domingo.
+- **Racha:** días consecutivos al 100% de los hábitos activos (los cuenta con el nº *actual* de hábitos activos). Hoy suma si está completo, pero si no lo está no rompe la racha.
+- **Revisión semanal:** se calcula en el cliente. "Archivar" hace upsert en `reviews` por `(user_id, week_start)`.
+- **Auth:** el registro está desactivado (`[auth] enable_signup = false`). No desactives `[auth.email] enable_signup`: eso apaga el login por email.

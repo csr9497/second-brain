@@ -1,0 +1,172 @@
+import { z } from 'zod';
+
+// Fechas ISO YYYY-MM-DD
+export const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida (YYYY-MM-DD)');
+
+// Enums: valores en español sin tildes, igual que los CHECK de supabase/migrations
+export const priority = z.enum(['alta', 'media', 'baja']);
+export const taskStatus = z.enum(['por_hacer', 'en_curso', 'hecha']);
+export const taskType = z.enum(['Estudio', 'Trabajo', 'Tesis', 'Personal', 'Revisión']);
+export const habitSlot = z.enum(['manana', 'tarde', 'noche']);
+export const projectStatus = z.enum(['idea', 'en_curso', 'en_pausa', 'completado', 'archivado']);
+export const ideaStatus = z.enum(['inbox', 'procesada', 'archivada']);
+export const taskFilter = z.enum(['hoy', 'semana', 'todas', 'incumplimiento']);
+
+export type Priority = z.infer<typeof priority>;
+export type TaskStatus = z.infer<typeof taskStatus>;
+export type HabitSlot = z.infer<typeof habitSlot>;
+export type TaskFilter = z.infer<typeof taskFilter>;
+
+// ---------- Entradas ----------
+
+// Los esquemas `*Fields` no llevan defaults: así `.partial()` en los PATCH no
+// rellena valores por defecto y no pisa datos existentes.
+const taskFields = z.object({
+  title: z.string().trim().min(1),
+  description: z.string().nullish(),
+  type: taskType.nullish(),
+  projectId: z.uuid().nullish(),
+  priority: priority,
+  startDate: isoDate.nullish(),
+  deadline: isoDate.nullish(),
+  notes: z.string().nullish(),
+});
+
+export const createTaskInput = taskFields.extend({
+  priority: priority.default('media'),
+  steps: z.array(z.object({ title: z.string().trim().min(1) })).default([]),
+});
+export type CreateTaskInput = z.input<typeof createTaskInput>;
+
+export const updateTaskInput = taskFields.partial().extend({ status: taskStatus.optional() });
+export type UpdateTaskInput = z.input<typeof updateTaskInput>;
+
+export const reorderInput = z.object({
+  id: z.uuid(),
+  beforeId: z.uuid().nullish(),
+  afterId: z.uuid().nullish(),
+});
+export type ReorderInput = z.input<typeof reorderInput>;
+
+export const createStepInput = z.object({ title: z.string().trim().min(1) });
+
+const nonEmpty = (o: object) => Object.values(o).some((v) => v !== undefined);
+
+const habitFields = z.object({ nombre: z.string().trim().min(1), slot: habitSlot });
+export const createHabitInput = habitFields.extend({ slot: habitSlot.default('manana') });
+export const updateHabitInput = habitFields
+  .partial()
+  .extend({ active: z.boolean().optional() })
+  .refine(nonEmpty, 'Nada que actualizar');
+export const toggleHabitInput = z.object({ fecha: isoDate.optional() });
+
+const projectFields = z.object({
+  nombre: z.string().trim().min(1),
+  estado: projectStatus,
+  prioridad: priority,
+  nextAction: z.string().nullish(),
+  scheduleDays: z.array(z.number().int().min(0).max(6)),
+  totalProgress: z.number().int().min(0).max(100),
+});
+export const createProjectInput = projectFields.extend({
+  estado: projectStatus.default('en_curso'),
+  prioridad: priority.default('media'),
+  scheduleDays: projectFields.shape.scheduleDays.default([]),
+  totalProgress: projectFields.shape.totalProgress.default(0),
+});
+export const updateProjectInput = projectFields.partial().refine(nonEmpty, 'Nada que actualizar');
+export type ProjectInput = z.input<typeof projectFields>;
+
+export const createIdeaInput = z.object({ texto: z.string().trim().min(1) });
+export const updateIdeaInput = z.object({ estado: ideaStatus });
+
+export const archiveReviewInput = z.object({ nota: z.string().nullish() });
+
+// ---------- Salidas ----------
+
+export interface Step {
+  id: string;
+  taskId: string;
+  title: string;
+  done: boolean;
+  position: number;
+}
+
+export interface Task {
+  id: string;
+  projectId: string | null;
+  projectName: string | null;
+  title: string;
+  description: string | null;
+  type: string | null;
+  priority: Priority;
+  status: TaskStatus;
+  startDate: string | null;
+  deadline: string | null;
+  position: number;
+  notes: string | null;
+  completedAt: string | null;
+  steps: Step[];
+}
+
+export interface Habit {
+  id: string;
+  nombre: string;
+  slot: HabitSlot;
+  position: number;
+  done: boolean; // para la fecha consultada
+}
+
+export interface Project {
+  id: string;
+  nombre: string;
+  estado: string;
+  prioridad: string | null;
+  nextAction: string | null;
+  scheduleDays: number[];
+  totalProgress: number;
+  pctSemana: number;
+  hoyToca: boolean;
+}
+
+export interface Idea {
+  id: string;
+  texto: string;
+  estado: string;
+  createdAt: string;
+}
+
+export interface TodayPayload {
+  date: string;
+  habits: {
+    slotActual: HabitSlot;
+    porFranja: Record<HabitSlot, Habit[]>;
+    pctDia: number;
+    streak: number;
+  };
+  tasks: { hoy: Task[]; semana: Task[]; todas: Task[]; incumplimiento: Task[] };
+  projects: Project[];
+}
+
+export interface WeeklyReport {
+  weekStart: string;
+  weekEnd: string;
+  habitsPct: number;
+  tasksDone: number;
+  tasksTotal: number;
+  overdue: number;
+  streak: number;
+  perProject: { id: string; nombre: string; pct: number }[];
+  untouched: { id: string; nombre: string }[];
+  archived: boolean;
+}
+
+export interface ApiError {
+  error: { code: string; message: string };
+}
+
+// ---------- Lógica de dominio (pura, sin acceso a datos) ----------
+export * from './domain/dates';
+export * from './domain/ordering';
+export * from './domain/metrics';
+export * from './domain/dashboard';

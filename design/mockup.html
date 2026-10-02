@@ -1,0 +1,445 @@
+<title>Second Brain · Cesar</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root{
+    color-scheme:dark;
+    --bg:#191817; --surface:#232221; --surface2:#2b2a28; --line:#3a3836;
+    --text:#ededec; --muted:#a6a29b; --faint:#726f69;
+    --accent:#7c9cff; --good:#7bc86c; --good-ink:#153c10; --warn:#e6b450; --hot:#e2725b;
+    --radius:14px;
+    --sans:"IBM Plex Sans",system-ui,sans-serif;
+    --display:"Bricolage Grotesque",system-ui,sans-serif;
+  }
+  :root[data-theme="light"]{
+    color-scheme:light;
+    --bg:#f7f5f1; --surface:#fff; --surface2:#efece6; --line:#e2ddd4;
+    --text:#26241f; --muted:#6b6862; --faint:#9a958c;
+    --accent:#3d5bd6; --good:#3b7d2c; --good-ink:#e7f4e2; --warn:#a5751a; --hot:#b8442e;
+  }
+  @media (prefers-color-scheme:light){:root:not([data-theme="dark"]){
+    color-scheme:light;
+    --bg:#f7f5f1; --surface:#fff; --surface2:#efece6; --line:#e2ddd4;
+    --text:#26241f; --muted:#6b6862; --faint:#9a958c;
+    --accent:#3d5bd6; --good:#3b7d2c; --good-ink:#e7f4e2; --warn:#a5751a; --hot:#b8442e;
+  }}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:780px;margin:0 auto;padding:26px 16px 72px}
+  .eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);font-weight:600}
+  h1{font-family:var(--display);font-weight:700;font-size:33px;line-height:1.05;margin:6px 0 4px;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:14px;margin:0}
+  .demo-tag{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--faint);border:1px solid var(--line);border-radius:999px;padding:3px 9px;margin-top:14px}
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  section{margin-top:24px}
+  h2{font-family:var(--display);font-weight:600;font-size:18px;margin:0;letter-spacing:-.01em}
+  .sechead{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;gap:10px}
+  .sechead small{color:var(--faint);font-size:12px;white-space:nowrap}
+
+  .actions{display:flex;gap:8px}
+  .action{flex:1;appearance:none;cursor:pointer;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:10px 12px;display:flex;gap:8px;align-items:center;justify-content:center;color:var(--text);font-size:13px;font-weight:600;transition:transform .08s,border-color .15s;white-space:nowrap}
+  .action:hover{border-color:var(--accent);transform:translateY(-1px)}
+  .action .ic{font-size:15px}
+  .action.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  @media(max-width:520px){.action b{display:none}.action{padding:11px}.action .ic{font-size:17px}}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+  .habits-top{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+  .ring{--p:0;width:54px;height:54px;border-radius:50%;flex:0 0 auto;background:conic-gradient(var(--good) calc(var(--p)*1%),var(--surface2) 0);display:grid;place-items:center}
+  .ring i{width:42px;height:42px;border-radius:50%;background:var(--surface);display:grid;place-items:center;font-style:normal;font-weight:700;font-size:13px;font-family:var(--display)}
+  .habits-top b{font-family:var(--display);font-size:15px}
+  .habits-top p{margin:2px 0 0;color:var(--muted);font-size:12.5px}
+  .streak{margin-left:auto;text-align:center;background:color-mix(in srgb,var(--hot) 16%,transparent);border-radius:12px;padding:6px 12px;flex:0 0 auto}
+  .streak b{display:block;font-family:var(--display);font-size:18px;color:var(--hot);line-height:1}
+  .streak span{font-size:10.5px;color:var(--muted)}
+  .tabs{display:flex;gap:6px;background:var(--surface2);border-radius:10px;padding:4px;margin-bottom:12px}
+  .tab{flex:1;appearance:none;cursor:pointer;border:0;background:transparent;color:var(--muted);font-family:var(--sans);font-size:13px;font-weight:600;padding:7px;border-radius:7px;transition:.14s}
+  .tab[aria-selected="true"]{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.2)}
+  .habitrow{display:flex;flex-wrap:wrap;gap:8px}
+  .habit{appearance:none;cursor:pointer;display:inline-flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:8px 13px 8px 10px;font-size:13px;font-weight:500;transition:.14s}
+  .habit .box{width:18px;height:18px;border-radius:6px;border:1.5px solid var(--faint);display:grid;place-items:center;font-size:12px;color:transparent;transition:.14s}
+  .habit[aria-pressed="true"]{background:var(--good-ink);border-color:var(--good);color:var(--good)}
+  .habit[aria-pressed="true"] .box{background:var(--good);border-color:var(--good);color:#fff}
+
+  .filter{display:flex;gap:6px}
+  .fbtn{appearance:none;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--muted);font-size:12px;font-weight:600;border-radius:999px;padding:4px 12px;transition:.14s}
+  .fbtn[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+
+  .task{display:flex;align-items:flex-start;gap:9px;padding:11px 0;border-top:1px solid var(--line)}
+  .task:first-of-type{border-top:0}
+  .task.dragging{opacity:.35}
+  .task.over{border-top:2px solid var(--accent)}
+  .drag{cursor:grab;color:var(--faint);font-size:15px;line-height:1.4;flex:0 0 auto;user-select:none;touch-action:none}
+  .drag:active{cursor:grabbing}
+  .check{appearance:none;cursor:pointer;flex:0 0 auto;width:20px;height:20px;margin-top:1px;border-radius:6px;border:1.5px solid var(--faint);background:transparent;display:grid;place-items:center;color:transparent;font-size:12px;transition:.14s}
+  .check[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+  .task .body{min-width:0;flex:1}
+  .tline{display:flex;align-items:center;gap:8px}
+  .tline .tt{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .task.done .tt{color:var(--faint);text-decoration:line-through}
+  .steps{appearance:none;cursor:pointer;border:1px solid var(--line);background:var(--surface2);color:var(--muted);font-size:11px;font-weight:600;border-radius:999px;padding:2px 8px;white-space:nowrap;flex:0 0 auto;font-family:var(--sans)}
+  .steps .car{display:inline-block;transition:transform .15s}
+  .steps[aria-expanded="true"] .car{transform:rotate(90deg)}
+  .subs{margin-top:8px;display:flex;flex-direction:column;gap:6px;padding-left:2px;border-left:2px solid var(--line);padding-left:12px}
+  .subitem{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text)}
+  .subitem input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+  .subitem.sdone span{color:var(--faint);text-decoration:line-through}
+  .row2{display:flex;gap:6px;align-items:center;margin-top:5px;flex-wrap:wrap}
+  .pill{font-size:11px;border-radius:999px;padding:2px 8px;white-space:nowrap;color:var(--muted);background:var(--surface2)}
+  .chip{font-size:10.5px;font-weight:600;border-radius:999px;padding:2px 8px;white-space:nowrap}
+  .chip.alta{background:color-mix(in srgb,var(--hot) 22%,transparent);color:var(--hot)}
+  .chip.media{background:color-mix(in srgb,var(--warn) 24%,transparent);color:var(--warn)}
+  .due{font-size:11px;color:var(--muted);white-space:nowrap}
+  .due.over{color:var(--hot);font-weight:600}
+  .overdue-card{border-color:color-mix(in srgb,var(--hot) 45%,var(--line))}
+  .overdue-head{display:flex;align-items:center;gap:8px;color:var(--hot);font-weight:600;font-size:13px;margin-bottom:4px}
+
+  .proj{padding:13px 0;border-top:1px solid var(--line)}
+  .proj:first-of-type{border-top:0}
+  .proj .top{display:flex;align-items:center;gap:11px}
+  .proj .pic{width:30px;height:30px;border-radius:8px;background:var(--surface2);display:grid;place-items:center;font-size:15px;flex:0 0 auto}
+  .proj .top b{font-size:14px;font-weight:600;flex:1;min-width:0}
+  .badge-hoy{font-size:10.5px;font-weight:700;color:var(--accent);background:color-mix(in srgb,var(--accent) 18%,transparent);border-radius:999px;padding:3px 9px;white-space:nowrap}
+  .sched{font-size:11px;color:var(--faint);white-space:nowrap}
+  .proj .next{font-size:12.5px;color:var(--muted);margin:7px 0 0 41px}
+  .bars{margin:9px 0 0 41px;display:flex;flex-direction:column;gap:5px}
+  .bar{display:flex;align-items:center;gap:9px}
+  .bar .lbl{font-size:10.5px;color:var(--faint);width:52px;flex:0 0 auto}
+  .track{flex:1;height:6px;border-radius:999px;background:var(--surface2);overflow:hidden}
+  .fill{height:100%;border-radius:999px;background:var(--good)}
+  .fill.tot{background:var(--accent)}
+  .pct{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;width:34px;text-align:right}
+
+  .backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:flex-start;justify-content:center;padding:28px 16px;overflow:auto;z-index:50}
+  .modal{background:var(--surface);border:1px solid var(--line);border-radius:16px;width:100%;max-width:480px;padding:20px}
+  .modal h3{font-family:var(--display);font-size:19px;margin:0 0 2px}
+  .modal .mhint{color:var(--muted);font-size:12.5px;margin:0 0 16px}
+  .field{margin-bottom:13px}
+  .field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px}
+  .field input,.field textarea,.field select{width:100%;background:var(--surface2);border:1px solid var(--line);color:var(--text);border-radius:9px;padding:9px 11px;font-family:var(--sans);font-size:14px}
+  .field textarea{resize:vertical;min-height:56px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+  .subadd{display:flex;flex-direction:column;gap:6px;margin-bottom:6px}
+  .subadd .sr{display:flex;gap:7px;align-items:center}
+  .subadd .sr input{flex:1}
+  .subadd .del{cursor:pointer;color:var(--faint);border:0;background:transparent;font-size:16px}
+  .addstep{align-self:flex-start;cursor:pointer;border:1px dashed var(--line);background:transparent;color:var(--muted);font-size:12px;font-weight:600;border-radius:8px;padding:5px 10px;font-family:var(--sans)}
+  .mactions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+  .btn{appearance:none;cursor:pointer;border-radius:9px;padding:9px 16px;font-family:var(--sans);font-size:13.5px;font-weight:600;border:1px solid var(--line);background:var(--surface2);color:var(--text)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .idea{display:flex;gap:9px;align-items:flex-start;background:var(--surface2);border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:13px;margin-bottom:8px}
+  .idea .k{color:var(--faint);flex:0 0 auto}
+
+  .rev-hero{display:flex;gap:12px;margin-bottom:16px}
+  .rev-kpi{flex:1;background:var(--surface2);border:1px solid var(--line);border-radius:11px;padding:11px;text-align:center}
+  .rev-kpi b{display:block;font-family:var(--display);font-size:22px}
+  .rev-kpi span{font-size:11px;color:var(--muted)}
+  .rev-sec{font-size:12px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.05em;margin:16px 0 8px}
+  .rev-line{display:flex;align-items:center;gap:9px;font-size:13px;padding:5px 0}
+  .rev-line .nm{flex:1;min-width:0}
+  .rev-line .track{max-width:120px}
+
+  .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--text);color:var(--bg);font-size:13px;font-weight:500;padding:10px 16px;border-radius:999px;opacity:0;pointer-events:none;transition:.25s;z-index:60}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .foot{margin-top:34px;color:var(--faint);font-size:12px;text-align:center;line-height:1.6}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Sábado · 26 sep</div>
+    <h1>🧠 Second Brain</h1>
+    <p class="sub">Todo a un toque. Empieza el día aquí.</p>
+    <div class="demo-tag"><span class="dot"></span> Vista previa v4 — arrastra tareas, despliega pasos, todo interactivo</div>
+  </header>
+
+  <section>
+    <div class="actions">
+      <button class="action primary" data-modal="m-tarea"><span class="ic">➕</span><b>Tarea rápida</b></button>
+      <button class="action" data-modal="m-rev"><span class="ic">📝</span><b>Revisión semanal</b></button>
+      <button class="action" data-modal="m-idea"><span class="ic">⚡</span><b>Captura rápida</b></button>
+    </div>
+  </section>
+
+  <section>
+    <div class="sechead"><h2>Hábitos de hoy</h2><small>se abre según la hora</small></div>
+    <div class="card">
+      <div class="habits-top">
+        <div class="ring" id="ring"><i id="ringn">0%</i></div>
+        <div><b>Progreso del día</b><p id="habitsub">Toca cada hábito al completarlo</p></div>
+        <div class="streak"><b>🔥 5</b><span>días seguidos</span></div>
+      </div>
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" aria-selected="false" data-tab="t-man">🌅 Mañana</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="t-tar">☀️ Tarde</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="t-noc">🌙 Noche</button>
+      </div>
+      <div class="habitrow" id="t-man" hidden>
+        <button class="habit" aria-pressed="false"><span class="box">✓</span>Ejercicio</button>
+        <button class="habit" aria-pressed="false"><span class="box">✓</span>Inglés</button>
+      </div>
+      <div class="habitrow" id="t-tar" hidden>
+        <button class="habit" aria-pressed="false"><span class="box">✓</span>Estudiar</button>
+        <button class="habit" aria-pressed="false"><span class="box">✓</span>Leer</button>
+      </div>
+      <div class="habitrow" id="t-noc" hidden>
+        <button class="habit" aria-pressed="false"><span class="box">✓</span>Revisar pendientes</button>
+        <button class="habit" aria-pressed="false"><span class="box">✓</span>Planear mañana</button>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sechead"><h2>Pendientes</h2>
+      <div class="filter" id="filter">
+        <button class="fbtn" aria-selected="true" data-f="hoy">Hoy</button>
+        <button class="fbtn" aria-selected="false" data-f="semana">Semana</button>
+        <button class="fbtn" aria-selected="false" data-f="todas">Todas</button>
+      </div>
+    </div>
+    <div class="card" id="tasklist" style="margin-bottom:14px">
+      <div class="task" draggable="true" data-when="hoy">
+        <span class="drag">⠿</span><button class="check" aria-pressed="false">✓</button>
+        <div class="body">
+          <div class="tline"><span class="tt">Repasar AWS serverless</span><button class="steps" aria-expanded="false"><span class="car">▸</span> <span class="scount">0/3</span> pasos</button></div>
+          <div class="row2"><span class="chip alta">Alta</span><span class="pill">NTT</span><span class="due">vence hoy</span></div>
+          <div class="subs" hidden>
+            <label class="subitem"><input type="checkbox"><span>Lambda</span></label>
+            <label class="subitem"><input type="checkbox"><span>API Gateway</span></label>
+            <label class="subitem"><input type="checkbox"><span>DynamoDB</span></label>
+          </div>
+        </div>
+      </div>
+      <div class="task" draggable="true" data-when="hoy">
+        <span class="drag">⠿</span><button class="check" aria-pressed="false">✓</button>
+        <div class="body">
+          <div class="tline"><span class="tt">Avanzar módulo Docker/K8s</span></div>
+          <div class="row2"><span class="chip alta">Alta</span><span class="pill">DevOps</span><span class="due">vence hoy</span></div>
+        </div>
+      </div>
+      <div class="task" draggable="true" data-when="semana">
+        <span class="drag">⠿</span><button class="check" aria-pressed="false">✓</button>
+        <div class="body">
+          <div class="tline"><span class="tt">Escribir alcance de tesis</span><button class="steps" aria-expanded="false"><span class="car">▸</span> <span class="scount">1/3</span> pasos</button></div>
+          <div class="row2"><span class="chip media">Media</span><span class="pill">Tesis</span><span class="due">vence vie 2</span></div>
+          <div class="subs" hidden>
+            <label class="subitem sdone"><input type="checkbox" checked><span>Definir objetivos</span></label>
+            <label class="subitem"><input type="checkbox"><span>Delimitar alcance</span></label>
+            <label class="subitem"><input type="checkbox"><span>Bosquejar cronograma</span></label>
+          </div>
+        </div>
+      </div>
+      <div class="task" draggable="true" data-when="semana">
+        <span class="drag">⠿</span><button class="check" aria-pressed="false">✓</button>
+        <div class="body">
+          <div class="tline"><span class="tt">Leer 20 págs. Math for ML</span></div>
+          <div class="row2"><span class="chip media">Media</span><span class="pill">Aprendizaje</span><span class="due">vence mié 30</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card overdue-card">
+      <div class="overdue-head">⚠ En incumplimiento</div>
+      <div class="task">
+        <span class="drag">⠿</span><button class="check" aria-pressed="false">✓</button>
+        <div class="body">
+          <div class="tline"><span class="tt">Elegir certificación AWS</span></div>
+          <div class="row2"><span class="chip media">Media</span><span class="pill">Cert AWS</span><span class="due over">venció hace 2 días</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sechead"><h2>Proyectos en curso</h2><small>hoy toca primero</small></div>
+    <div class="card">
+      <div class="proj">
+        <div class="top"><span class="pic">💻</span><b>Preparación rol Node.js (NTT)</b><span class="badge-hoy">Hoy toca</span></div>
+        <div class="next">→ Repasar AWS serverless · Lun · Mié · Sáb</div>
+        <div class="bars">
+          <div class="bar"><span class="lbl">Semana</span><div class="track"><div class="fill" style="width:66%"></div></div><span class="pct">66%</span></div>
+          <div class="bar"><span class="lbl">Total</span><div class="track"><div class="fill tot" style="width:40%"></div></div><span class="pct">40%</span></div>
+        </div>
+      </div>
+      <div class="proj">
+        <div class="top"><span class="pic">🐳</span><b>Roadmap DevOps → MLOps</b><span class="badge-hoy">Hoy toca</span></div>
+        <div class="next">→ Módulo Docker/K8s · Mar · Jue · Sáb</div>
+        <div class="bars">
+          <div class="bar"><span class="lbl">Semana</span><div class="track"><div class="fill" style="width:33%"></div></div><span class="pct">33%</span></div>
+          <div class="bar"><span class="lbl">Total</span><div class="track"><div class="fill tot" style="width:15%"></div></div><span class="pct">15%</span></div>
+        </div>
+      </div>
+      <div class="proj">
+        <div class="top"><span class="pic">🔬</span><b>Tesis — definir tema</b><span class="sched">Dom</span></div>
+        <div class="next">→ Validar dirección GNN con el asesor · Dom</div>
+        <div class="bars">
+          <div class="bar"><span class="lbl">Semana</span><div class="track"><div class="fill" style="width:0%"></div></div><span class="pct">0%</span></div>
+          <div class="bar"><span class="lbl">Total</span><div class="track"><div class="fill tot" style="width:20%"></div></div><span class="pct">20%</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <p class="foot">Mockup de diseño v4 · no es tu Notion real.<br>Dime qué ajustar y lo construyo así.</p>
+</div>
+
+<!-- MODAL: Tarea rápida -->
+<div class="backdrop" id="m-tarea" hidden>
+  <div class="modal">
+    <h3>➕ Nueva tarea</h3>
+    <p class="mhint">Completa lo que necesites; solo el título es obligatorio.</p>
+    <div class="field"><label>Título</label><input placeholder="p. ej. Limpiar la casa"></div>
+    <div class="field"><label>Descripción</label><textarea placeholder="Qué hay que hacer…"></textarea></div>
+    <div class="field"><label>Pasos (subtareas)</label>
+      <div class="subadd" id="subadd">
+        <div class="sr"><input placeholder="Limpiar cuarto"><button class="del" title="Quitar">✕</button></div>
+        <div class="sr"><input placeholder="Sacar la basura"><button class="del" title="Quitar">✕</button></div>
+      </div>
+      <button class="addstep" onclick="addStepRow()">+ Añadir paso</button>
+    </div>
+    <div class="two">
+      <div class="field"><label>Tipo de actividad</label><select><option>Estudio</option><option>Trabajo</option><option>Tesis</option><option>Personal</option><option>Revisión</option></select></div>
+      <div class="field"><label>Proyecto relacionado</label><select><option>— Ninguno —</option><option>Preparación rol Node.js (NTT)</option><option>Roadmap DevOps → MLOps</option><option>Tesis — definir tema</option><option>App de inglés</option><option>Cert AWS</option></select></div>
+    </div>
+    <div class="two">
+      <div class="field"><label>Fecha inicio</label><input type="date"></div>
+      <div class="field"><label>Deadline</label><input type="date"></div>
+    </div>
+    <div class="field"><label>Notas por tomar</label><textarea placeholder="Enlaces, ideas, recordatorios…"></textarea></div>
+    <div class="mactions"><button class="btn" data-close>Cancelar</button><button class="btn primary" data-close data-toast="✅ Tarea creada">Crear tarea</button></div>
+  </div>
+</div>
+
+<!-- MODAL: Revisión semanal (reporte) -->
+<div class="backdrop" id="m-rev" hidden>
+  <div class="modal">
+    <h3>📝 Revisión · Semana del 22–28 sep</h3>
+    <p class="mhint">Tu cumplimiento de la semana, de un vistazo.</p>
+    <div class="rev-hero">
+      <div class="rev-kpi"><b style="color:var(--good)">78%</b><span>Hábitos</span></div>
+      <div class="rev-kpi"><b>8/11</b><span>Tareas hechas</span></div>
+      <div class="rev-kpi"><b style="color:var(--hot)">1</b><span>Incumplida</span></div>
+    </div>
+    <div class="rev-sec">Cumplimiento por proyecto</div>
+    <div class="rev-line"><span class="nm">💻 NTT</span><div class="track"><div class="fill" style="width:66%"></div></div><span class="pct">66%</span></div>
+    <div class="rev-line"><span class="nm">🐳 DevOps</span><div class="track"><div class="fill" style="width:33%"></div></div><span class="pct">33%</span></div>
+    <div class="rev-line"><span class="nm">🔬 Tesis</span><div class="track"><div class="fill" style="width:0%"></div></div><span class="pct">0%</span></div>
+    <div class="rev-sec">Señales</div>
+    <div class="rev-line">🔥 Racha de hábitos: <b>&nbsp;5 días</b></div>
+    <div class="rev-line">⚠ Sin tocar esta semana: <b>&nbsp;Tesis</b></div>
+    <div class="field" style="margin-top:16px"><label>Nota de cierre (opcional)</label><textarea placeholder="Un aprendizaje o ajuste para la próxima semana…"></textarea></div>
+    <div class="mactions"><button class="btn" data-close>Cerrar</button><button class="btn primary" data-close data-toast="📝 Semana archivada">Archivar semana</button></div>
+  </div>
+</div>
+
+<!-- MODAL: Captura rápida -->
+<div class="backdrop" id="m-idea" hidden>
+  <div class="modal">
+    <h3>⚡ Captura rápida</h3>
+    <p class="mhint">Suéltala aquí; la ordenas después en la revisión.</p>
+    <div class="field" style="display:flex;gap:8px;margin-bottom:14px">
+      <input id="ideaInput" placeholder="Nueva idea…" style="flex:1" onkeydown="if(event.key==='Enter')addIdea()">
+      <button class="btn primary" onclick="addIdea()">Añadir</button>
+    </div>
+    <div id="ideaList">
+      <div class="idea"><span class="k">💡</span><span>Probar Qdrant con embeddings de mis apuntes</span></div>
+      <div class="idea"><span class="k">💡</span><span>Escribir post sobre RAG en producción</span></div>
+    </div>
+    <div class="mactions"><button class="btn" data-close>Cerrar</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  var toast=document.getElementById('toast'),tt;
+  function say(m){toast.textContent=m;toast.classList.add('show');clearTimeout(tt);tt=setTimeout(function(){toast.classList.remove('show')},1700)}
+
+  function openM(id){document.getElementById(id).hidden=false;document.body.style.overflow='hidden'}
+  function closeAll(m){if(m)m.hidden=true;document.body.style.overflow=''}
+  document.querySelectorAll('[data-modal]').forEach(function(b){b.addEventListener('click',function(){openM(b.dataset.modal)})});
+  document.querySelectorAll('.backdrop').forEach(function(bd){
+    bd.addEventListener('click',function(e){if(e.target===bd)closeAll(bd)});
+    bd.querySelectorAll('[data-close]').forEach(function(c){c.addEventListener('click',function(){closeAll(bd);if(c.dataset.toast)say(c.dataset.toast)})});
+  });
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')document.querySelectorAll('.backdrop:not([hidden])').forEach(closeAll)});
+
+  function addStepRow(){
+    var w=document.getElementById('subadd'),r=document.createElement('div');r.className='sr';
+    r.innerHTML='<input placeholder="Otro paso…"><button class="del" title="Quitar">✕</button>';
+    r.querySelector('.del').addEventListener('click',function(){r.remove()});
+    w.appendChild(r)
+  }
+  document.querySelectorAll('#subadd .del').forEach(function(d){d.addEventListener('click',function(){d.parentElement.remove()})});
+
+  function addIdea(){
+    var i=document.getElementById('ideaInput'),v=i.value.trim();if(!v)return;
+    var d=document.createElement('div');d.className='idea';d.innerHTML='<span class="k">💡</span><span></span>';d.lastChild.textContent=v;
+    document.getElementById('ideaList').prepend(d);i.value='';say('⚡ Idea guardada')
+  }
+
+  // habit tabs + open by time of day
+  function showTab(id){
+    document.querySelectorAll('.tab').forEach(function(x){x.setAttribute('aria-selected',x.dataset.tab===id)});
+    ['t-man','t-tar','t-noc'].forEach(function(p){document.getElementById(p).hidden=(p!==id)});
+  }
+  document.querySelectorAll('.tab').forEach(function(t){t.addEventListener('click',function(){showTab(t.dataset.tab)})});
+  var hr=new Date().getHours();
+  showTab(hr<12?'t-man':(hr<19?'t-tar':'t-noc'));
+
+  var ring=document.getElementById('ring'),ringn=document.getElementById('ringn'),hsub=document.getElementById('habitsub');
+  var allHabits=document.querySelectorAll('.habit');
+  function upd(){
+    var done=document.querySelectorAll('.habit[aria-pressed="true"]').length,p=Math.round(done/allHabits.length*100);
+    ring.style.setProperty('--p',p);ringn.textContent=p+'%';
+    hsub.textContent=done+' de '+allHabits.length+' hechos'+(p===100?' — día completo 🎉':'');
+  }
+  allHabits.forEach(function(h){h.addEventListener('click',function(){h.setAttribute('aria-pressed',h.getAttribute('aria-pressed')==='true'?'false':'true');upd()})});
+  upd();
+
+  // task checkbox
+  document.querySelectorAll('.task > .check').forEach(function(c){c.addEventListener('click',function(){var on=c.getAttribute('aria-pressed')!=='true';c.setAttribute('aria-pressed',on);c.closest('.task').classList.toggle('done',on)})});
+
+  // steps expand + subtask counting
+  document.querySelectorAll('.steps').forEach(function(s){s.addEventListener('click',function(){
+    var subs=s.closest('.body').querySelector('.subs'),open=subs.hidden;subs.hidden=!open;s.setAttribute('aria-expanded',open)
+  })});
+  document.querySelectorAll('.task .subs').forEach(function(subs){
+    var task=subs.closest('.task'),badge=task.querySelector('.scount');
+    function refresh(){
+      var boxes=subs.querySelectorAll('input'),done=subs.querySelectorAll('input:checked').length;
+      if(badge)badge.textContent=done+'/'+boxes.length;
+      var allDone=done===boxes.length;
+      var chk=task.querySelector('.check');chk.setAttribute('aria-pressed',allDone);task.classList.toggle('done',allDone);
+    }
+    subs.querySelectorAll('input').forEach(function(cb){cb.addEventListener('change',function(){cb.closest('.subitem').classList.toggle('sdone',cb.checked);refresh()})});
+    refresh();
+  });
+
+  // drag to reorder
+  var list=document.getElementById('tasklist'),dragEl=null;
+  list.querySelectorAll('.task').forEach(function(t){
+    t.addEventListener('dragstart',function(){dragEl=t;t.classList.add('dragging')});
+    t.addEventListener('dragend',function(){t.classList.remove('dragging');dragEl=null;list.querySelectorAll('.task').forEach(function(x){x.classList.remove('over')})});
+  });
+  list.addEventListener('dragover',function(e){
+    e.preventDefault();if(!dragEl)return;
+    var after=getAfter(e.clientY);
+    list.querySelectorAll('.task').forEach(function(x){x.classList.remove('over')});
+    if(after){after.classList.add('over');list.insertBefore(dragEl,after)}else{list.appendChild(dragEl)}
+  });
+  function getAfter(y){
+    var els=[].slice.call(list.querySelectorAll('.task:not(.dragging)'));
+    for(var i=0;i<els.length;i++){var b=els[i].getBoundingClientRect();if(y<b.top+b.height/2)return els[i]}
+    return null;
+  }
+
+  // filter
+  document.querySelectorAll('#filter .fbtn').forEach(function(b){b.addEventListener('click',function(){
+    document.querySelectorAll('#filter .fbtn').forEach(function(x){x.setAttribute('aria-selected','false')});
+    b.setAttribute('aria-selected','true');var f=b.dataset.f;
+    document.querySelectorAll('#tasklist .task').forEach(function(t){
+      var w=t.dataset.when;
+      t.hidden=(f==='hoy'&&w!=='hoy')||(f==='semana'&&(w!=='hoy'&&w!=='semana'));
+    });
+  })});
+  document.querySelectorAll('#tasklist .task').forEach(function(t){t.hidden=t.dataset.when!=='hoy'});
+</script>

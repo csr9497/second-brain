@@ -1,0 +1,58 @@
+@import 'tailwindcss';
+
+/* Tokens de design/mockup.html. Oscuro por defecto; claro con prefers-color-scheme o data-theme. */
+:root {
+  color-scheme: dark;
+  --bg: #191817; --surface: #232221; --surface2: #2b2a28; --line: #3a3836;
+  --text: #ededec; --muted: #a6a29b; --faint: #726f69;
+  --accent: #7c9cff; --good: #7bc86c; --good-ink: #153c10; --warn: #e6b450; --hot: #e2725b;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    color-scheme: light;
+    --bg: #f7f5f1; --surface: #fff; --surface2: #efece6; --line: #e2ddd4;
+    --text: #26241f; --muted: #6b6862; --faint: #9a958c;
+    --accent: #3d5bd6; --good: #3b7d2c; --good-ink: #e7f4e2; --warn: #a5751a; --hot: #b8442e;
+  }
+}
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f7f5f1; --surface: #fff; --surface2: #efece6; --line: #e2ddd4;
+  --text: #26241f; --muted: #6b6862; --faint: #9a958c;
+  --accent: #3d5bd6; --good: #3b7d2c; --good-ink: #e7f4e2; --warn: #a5751a; --hot: #b8442e;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface2: var(--surface2);
+  --color-line: var(--line);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-good: var(--good);
+  --color-good-ink: var(--good-ink);
+  --color-warn: var(--warn);
+  --color-hot: var(--hot);
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-display: 'Bricolage Grotesque', system-ui, sans-serif;
+}
+
+@layer base {
+  body { @apply bg-bg text-text font-sans antialiased; line-height: 1.5; }
+  button { cursor: pointer; }
+}
+
+@layer components {
+  .card { @apply bg-surface border border-line rounded-[14px] p-4; }
+  .field-label { @apply block text-xs font-semibold text-muted mb-1.5; }
+  .input { @apply w-full bg-surface2 border border-line text-text rounded-[9px] px-3 py-2 text-sm outline-none focus:border-accent; }
+  .btn { @apply rounded-[9px] px-4 py-2 text-[13.5px] font-semibold border border-line bg-surface2 text-text disabled:opacity-50; }
+  .btn-primary { @apply bg-accent border-accent text-white; }
+  .track { @apply flex-1 h-1.5 rounded-full bg-surface2 overflow-hidden; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
