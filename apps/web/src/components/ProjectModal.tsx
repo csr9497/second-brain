@@ -1,10 +1,13 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { projectStatus, type Project, type ProjectInput } from '@sb/shared';
+import { type Project, type ProjectInput } from '@sb/shared';
 import { api } from '../lib/api';
+import { PRIORITY_OPTIONS, PROJECT_STATUS_OPTIONS } from '../lib/options';
 import { TODAY_KEY } from '../lib/useToday';
 import { ConfirmDelete, Field, Modal, ModalActions } from './Modal';
 import { useToast } from './Toast';
+import { ColorPicker } from './ui/ColorPicker';
+import { Select } from './ui/Select';
 
 // Lunes primero; el valor es el de schedule_days (0 = domingo)
 const WEEK = [
@@ -16,14 +19,6 @@ const WEEK = [
   { d: 6, label: 'Sáb' },
   { d: 0, label: 'Dom' },
 ];
-
-const ESTADO_LABEL: Record<string, string> = {
-  idea: 'Idea',
-  en_curso: 'En curso',
-  en_pausa: 'En pausa',
-  completado: 'Completado',
-  archivado: 'Archivado',
-};
 
 /** Crea un proyecto o, si recibe `project`, lo edita. */
 export function ProjectModal({ project, onClose }: { project?: Project; onClose: () => void }) {
@@ -103,22 +98,15 @@ export function ProjectModal({ project, onClose }: { project?: Project; onClose:
         </Field>
         <div className="grid grid-cols-2 gap-[11px]">
           <Field label="Estado">
-            <select className="input" value={form.estado} onChange={(e) => set('estado', e.target.value as ProjectInput['estado'])}>
-              {projectStatus.options.map((s) => (
-                <option key={s} value={s}>
-                  {ESTADO_LABEL[s]}
-                </option>
-              ))}
-            </select>
+            <Select value={form.estado} onChange={(v) => set('estado', v)} options={PROJECT_STATUS_OPTIONS} />
           </Field>
           <Field label="Prioridad">
-            <select className="input" value={form.prioridad} onChange={(e) => set('prioridad', e.target.value as ProjectInput['prioridad'])}>
-              <option value="alta">Alta</option>
-              <option value="media">Media</option>
-              <option value="baja">Baja</option>
-            </select>
+            <Select value={form.prioridad} onChange={(v) => set('prioridad', v)} options={PRIORITY_OPTIONS} />
           </Field>
         </div>
+        <Field label="Color" group>
+          <ColorPicker value={form.color} onChange={(c) => set('color', c)} />
+        </Field>
         <Field label="Días de aplicación" group>
           <div className="flex flex-wrap gap-1.5">
             {WEEK.map(({ d, label }) => (
