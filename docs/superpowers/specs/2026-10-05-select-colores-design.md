@@ -13,7 +13,7 @@ Hay 8 claves fijas, en español y sin tildes como el resto de los enums: `azul |
 - La base guarda **la clave**, nunca el hex.
 - Cada clave es un token CSS `--c-<clave>` en `apps/web/src/index.css`, con un valor para tema oscuro y otro para claro, igual que los tokens actuales.
 - `azul`, `verde`, `ambar` y `rojo` toman los valores de `--accent`, `--good`, `--warn` y `--hot`, para que los colores de prioridad y estado no cambien de tono respecto a hoy.
-- Cada token se expone a Tailwind en `@theme inline` como `--color-c-<clave>`.
+- Los componentes pintan el color con `style={{ background: 'var(--c-<clave>)' }}`. No se usan clases de Tailwind, porque Tailwind no detecta nombres de clase construidos dinámicamente.
 
 ## Datos
 
@@ -57,8 +57,10 @@ Al tiparlos como `Record`, TypeScript obliga a asignar color a cualquier valor n
   - La lista se renderiza en un portal sobre `bg-surface` con borde `line`, y marca la opción elegida con ✓.
   - Las opciones sin `color` no llevan dot.
   - Radix no admite `value=""` en un item. Para las opciones vacías ("— Ninguno —" en proyecto, "—" en tipo), `Select` usa internamente un valor centinela `__none__` y lo traduce a `''` en `onChange`.
-- **`Dot.tsx`**: un círculo de 8 px con `bg-c-<color>`. Lo reutilizan `Select`, `ColorPicker` y, más adelante, el calendario y el Gantt.
+- **`Dot.tsx`**: un círculo de 8 px con `background: var(--c-<color>)`. Lo reutilizan `Select`, `ColorPicker` y, más adelante, el calendario y el Gantt.
 - **`ColorPicker.tsx`**: un radiogroup con los 8 círculos. El elegido lleva un anillo `accent`. Las flechas cambian la selección.
+
+- **`Modal.tsx`**: su listener de Escape ignora los eventos que ya tienen `defaultPrevented`. Radix cierra el select con Esc y marca el evento; sin este cambio, Esc también cerraría el modal entero.
 
 ## Dónde se usa
 
