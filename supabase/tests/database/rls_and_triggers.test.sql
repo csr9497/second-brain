@@ -2,7 +2,7 @@
 -- Verifica el aislamiento por usuario (RLS) y las reglas de negocio en triggers.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(23);
+select plan(24);
 
 -- Dos usuarios: A (dueño de los datos) y B (intruso)
 insert into auth.users (instance_id, id, aud, role, email) values
@@ -62,6 +62,11 @@ select isnt((select hasta from public.habit_periods where habit_id = 'aaaaaaaa-0
 update public.habits set archived_at = null where id = 'aaaaaaaa-0000-4000-8000-000000000005';
 select is((select count(*)::int from public.habit_periods where habit_id = 'aaaaaaaa-0000-4000-8000-000000000005' and hasta is null), 1,
   'reactivar abre un periodo nuevo');
+-- Reloj del navegador atrasado: archivar "en el pasado" no debe cerrar antes de abrir
+insert into public.habits (id, nombre) values ('aaaaaaaa-0000-4000-8000-000000000006', 'Hábito reloj');
+update public.habits set archived_at = now() - interval '1 minute' where id = 'aaaaaaaa-0000-4000-8000-000000000006';
+select is((select hasta = desde from public.habit_periods where habit_id = 'aaaaaaaa-0000-4000-8000-000000000006'), true,
+  'archivar con reloj atrasado cierra el periodo sin violar el CHECK');
 
 -- ---------- Como B ----------
 set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
