@@ -4,9 +4,10 @@ alter table public.habits
   add column created_at  timestamptz not null default now(),
   add column archived_at timestamptz;
 
--- Relleno: los hábitos existentes "nacen" el día de su primer registro
+-- Relleno: los hábitos existentes "nacen" el día de su primer registro. Se usa el mediodía UTC:
+-- cae en ese mismo día local en casi todas las zonas (medianoche UTC sería la víspera en América).
 update public.habits h
-   set created_at = coalesce((select min(l.fecha)::timestamptz from public.habit_logs l where l.habit_id = h.id), h.created_at);
+   set created_at = coalesce((select (min(l.fecha) + time '12:00')::timestamptz from public.habit_logs l where l.habit_id = h.id), h.created_at);
 -- Los inactivos nunca contaron: se archivan desde su creación para no alterar el historial
 update public.habits set archived_at = created_at where not active;
 
