@@ -1,10 +1,24 @@
-import { daysBetween, type GanttDraft, type Task } from '@sb/shared';
+import { daysBetween, type GanttDraft, type PaletteColor, type Task } from '@sb/shared';
 
 // Borradores del modal de tarea: strings de formulario ('' = vacío), compartidos con el planificador.
-export type StepDraft = { id?: string; title: string; startDate: string; dias: string };
+export type StepDraft = { id?: string; title: string; startDate: string; dias: string; /** Hecho (solo pasos ya guardados) */ done?: boolean };
 export type TareaPlan = { startDate: string; deadline: string };
 /** Qué se está colocando en el planificador: la tarea o el paso de ese índice. */
 export type Activo = 'tarea' | number;
+
+/** Props comunes de las vistas del planificador (Calendario y Gantt). */
+export interface PlanProps {
+  tarea: TareaPlan;
+  steps: StepDraft[];
+  color: PaletteColor;
+  activo: Activo;
+  setActivo: (a: Activo) => void;
+  /** Aplica tarea y pasos a la vez (mover la tarea mueve también sus pasos) */
+  onCambiar: (tarea: TareaPlan, steps: StepDraft[]) => void;
+}
+
+/** Nombre visible de un paso: su título o, si está vacío, «Paso N» (también al guardarlo). */
+export const nombrePaso = (s: StepDraft, i: number) => s.title.trim() || `Paso ${i + 1}`;
 
 /** Días escritos en el borrador (entero ≥ 1), o null si están vacíos o no son válidos. */
 export function diasDe(s: StepDraft) {
@@ -25,7 +39,7 @@ export function colocar(tarea: TareaPlan, steps: StepDraft[], activo: Activo, in
   return { tarea, steps: steps.map((s, i) => (i === activo ? { ...s, startDate: inicio, dias: String(dias) } : s)) };
 }
 
-/** Tarea virtual (los pasos llevan su índice como id) para reutilizar la lógica del Gantt. */
+/** Tarea virtual (los pasos llevan su índice como id y su `done`) para reutilizar la lógica del Gantt. */
 export function comoTask(tarea: TareaPlan, steps: StepDraft[]): Task {
   return {
     id: 'tarea',
@@ -42,7 +56,7 @@ export function comoTask(tarea: TareaPlan, steps: StepDraft[]): Task {
     position: 0,
     notes: null,
     completedAt: null,
-    steps: steps.map((s, i) => ({ id: String(i), taskId: 'tarea', title: s.title, done: false, position: i, ...programacion(s) })),
+    steps: steps.map((s, i) => ({ id: String(i), taskId: 'tarea', title: s.title, done: s.done ?? false, position: i, ...programacion(s) })),
   };
 }
 

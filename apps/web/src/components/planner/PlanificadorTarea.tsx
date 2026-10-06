@@ -1,20 +1,8 @@
 import { useState } from 'react';
-import type { PaletteColor } from '@sb/shared';
-import type { Activo, StepDraft, TareaPlan } from '../../lib/pasosBorrador';
+import { nombrePaso, type Activo, type PlanProps } from '../../lib/pasosBorrador';
 import { CalendarioPlan } from './CalendarioPlan';
 import { GanttPlan } from './GanttPlan';
 
-export interface PlanProps {
-  tarea: TareaPlan;
-  steps: StepDraft[];
-  color: PaletteColor;
-  activo: Activo;
-  setActivo: (a: Activo) => void;
-  /** Aplica tarea y pasos a la vez (mover la tarea mueve también sus pasos) */
-  onCambiar: (tarea: TareaPlan, steps: StepDraft[]) => void;
-}
-
-export const nombrePaso = (s: StepDraft, i: number) => s.title.trim() || `Paso ${i + 1}`;
 const chip = 'rounded-full border px-2.5 py-1 text-xs font-semibold transition';
 
 /** Panel derecho del modal de tarea: coloca la tarea o un paso marcando días en Calendario o Gantt. */

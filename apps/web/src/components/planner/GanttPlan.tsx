@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import {
   addDays,
   borradorVacio,
@@ -12,10 +12,9 @@ import {
   spanTarea,
   todayISO,
 } from '@sb/shared';
-import { colocar, comoTask, desdeBorrador, type Activo, type StepDraft, type TareaPlan } from '../../lib/pasosBorrador';
+import { colocar, comoTask, desdeBorrador, nombrePaso, type Activo, type PlanProps, type StepDraft, type TareaPlan } from '../../lib/pasosBorrador';
 import { Barra, type Fase, type Op } from '../gantt/Barra';
 import { COL } from '../gantt/constantes';
-import { nombrePaso, type PlanProps } from './PlanificadorTarea';
 
 const ETQ = 112;
 
@@ -88,7 +87,7 @@ export function GanttPlan({ tarea, steps, color, activo, setActivo, onCambiar }:
           width={(daysBetween(span.inicio, span.fin) + 1) * COL}
           color={color}
           deadline={tarea.deadline ? x(tarea.deadline) - x(span.inicio) : null}
-          alerta={virtual.steps.some((s) => fueraDePlazo(s, virtual))}
+          alerta={virtual.steps.some((s) => !s.done && fueraDePlazo(s, virtual))}
           modificada={false}
           editable
           etiqueta={`Tarea: ${span.inicio} a ${span.fin}`}
@@ -107,7 +106,7 @@ export function GanttPlan({ tarea, steps, color, activo, setActivo, onCambiar }:
           width={s.duracionDias * COL}
           color={color}
           deadline={null}
-          alerta={fueraDePlazo(s, virtual)}
+          alerta={!s.done && fueraDePlazo(s, virtual)}
           modificada={false}
           editable
           etiqueta={`${nombrePaso(steps[i], i)}: desde ${s.startDate}, ${s.duracionDias} días`}
@@ -181,7 +180,8 @@ function Pista({
   const sel = useRef<{ desde: number; hasta: number } | null>(null);
   const arrastrado = useRef(false);
   const [vista, setVista] = useState<{ a: number; b: number } | null>(null);
-  const [pendiente, setPendiente] = useState<number | null>(null);
+  // Primer toque como fecha (no como índice): si la ventana se desplaza, no se mueve
+  const [pendiente, setPendiente] = useState<string | null>(null);
   useEffect(() => {
     if (!activa) setPendiente(null);
   }, [activa]);
@@ -230,19 +230,28 @@ function Pista({
     if (e.target !== e.currentTarget) return; // clic en una barra
     const n = diaEn(e.clientX);
     if (pendiente == null) {
-      setPendiente(n);
+      setPendiente(fecha(n));
       onToque();
+      ref.current?.focus({ preventScroll: true }); // para que Esc lo cancele
     } else {
-      onRango(fecha(pendiente), fecha(n));
+      onRango(pendiente, fecha(n));
       setPendiente(null);
     }
   };
-  const marca = vista ?? (pendiente != null ? { a: pendiente, b: pendiente } : null);
+  const tecla = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Escape' && pendiente != null) {
+      e.preventDefault(); // el modal ignora los Esc ya atendidos
+      setPendiente(null);
+    }
+  };
+  const ip = pendiente != null ? daysBetween(inicio, pendiente) : null;
+  const marca = vista ?? (ip != null && ip >= 0 && ip < ancho / COL ? { a: ip, b: ip } : null);
 
   return (
     <div
       ref={ref}
-      className="relative cursor-crosshair"
+      tabIndex={-1}
+      className="relative cursor-crosshair outline-none"
       style={{
         width: ancho,
         height: 34,
@@ -253,6 +262,7 @@ function Pista({
       onPointerUp={up}
       onPointerCancel={cancelar}
       onClick={click}
+      onKeyDown={tecla}
     >
       {marca && (
         <span

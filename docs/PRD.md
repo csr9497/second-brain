@@ -60,8 +60,10 @@ Reglas:
   endpoint de reorder en el back.)
 - **Permanencia.** Una tarea con `status != hecha` sigue visible aunque pase el día.
 - **Filtro** de la lista:
-  - *Hoy*: deadline = hoy (o sin fecha marcadas para hoy).
-  - *Semana*: deadline dentro de la semana actual.
+  - *Hoy*: deadline = hoy, o sin deadline y con fecha de inicio hoy, o con un paso
+    pendiente programado que cubre hoy.
+  - *Semana*: lo de Hoy más deadline hasta el domingo, fecha de inicio dentro de la
+    semana (lun–dom) o un paso pendiente en algún día de la semana.
   - *Todas*.
 - **Incumplimiento.** Lista aparte con tareas donde `deadline < hoy` y `status != hecha`.
   Se muestra con acento rojo y "venció hace N días".

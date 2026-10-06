@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { encadenar, fueraDePlazo, todayISO, type CreateTaskInput, type Task, type TaskStatus } from '@sb/shared';
 import { api } from '../lib/api';
 import { rangoPaso } from '../lib/format';
-import { diasDe, programacion, type Activo, type StepDraft, type TareaPlan } from '../lib/pasosBorrador';
+import { diasDe, nombrePaso, programacion, type Activo, type StepDraft, type TareaPlan } from '../lib/pasosBorrador';
 import { PRIORITY_OPTIONS, TASK_STATUS_OPTIONS, TASK_TYPE_OPTIONS } from '../lib/options';
 import { TODAY_KEY } from '../lib/useToday';
 import { ConfirmDelete, Field, Modal, ModalActions } from './Modal';
@@ -40,10 +40,16 @@ export function TaskModal({
   });
   const [steps, setSteps] = useState<StepDraft[]>(
     task
-      ? task.steps.map((s) => ({ id: s.id, title: s.title, startDate: s.startDate ?? '', dias: s.duracionDias ? String(s.duracionDias) : '' }))
+      ? task.steps.map((s) => ({ id: s.id, title: s.title, startDate: s.startDate ?? '', dias: s.duracionDias ? String(s.duracionDias) : '', done: s.done }))
       : [{ title: '', startDate: '', dias: '' }],
   );
   const [activo, setActivo] = useState<Activo>('tarea');
+  // Foto del estado inicial (solo en el montaje) para avisar al cerrar con cambios sin guardar
+  const [foto] = useState(() => JSON.stringify({ form, steps }));
+  const cerrar = () => {
+    if (JSON.stringify({ form, steps }) !== foto && !window.confirm('¿Descartar los cambios de la tarea?')) return;
+    onClose();
+  };
   const setStep = (i: number, patch: Partial<StepDraft>) => setSteps((xs) => xs.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const setValue = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
@@ -85,26 +91,28 @@ export function TaskModal({
 
   const save = useMutation({
     mutationFn: async () => {
+      // Un paso sin título pero colocado se guarda como «Paso N»; sin título ni fecha, se descarta
+      const titulos = steps.map((s, i) => (s.title.trim() || s.startDate ? nombrePaso(s, i) : ''));
       if (!task) {
-        const newSteps = steps.filter((s) => s.title.trim()).map((s) => ({ title: s.title.trim(), ...programacion(s) }));
+        const newSteps = steps.flatMap((s, i) => (titulos[i] ? [{ title: titulos[i], ...programacion(s) }] : []));
         return api.createTask({ ...fields(), steps: newSteps });
       }
       await api.updateTask(task.id, { ...fields(), status: form.status });
       // Pasos: borrar los quitados (o vaciados), actualizar los cambiados y crear los nuevos
-      const kept = new Map(steps.filter((s) => s.id && s.title.trim()).map((s) => [s.id!, s]));
+      const kept = new Map(steps.flatMap((s, i) => (s.id && titulos[i] ? [[s.id, { draft: s, title: titulos[i] }] as const] : [])));
       for (const s of task.steps) {
-        const draft = kept.get(s.id);
-        if (!draft) {
+        const k = kept.get(s.id);
+        if (!k) {
           await api.deleteStep(s.id);
           continue;
         }
-        const title = draft.title.trim();
+        const { draft, title } = k;
         const prog = programacion(draft);
         if (title !== s.title || prog.startDate !== (s.startDate ?? null) || prog.duracionDias !== (s.duracionDias ?? null)) {
           await api.updateStep(s.id, { title, ...prog });
         }
       }
-      for (const s of steps) if (!s.id && s.title.trim()) await api.addStep(task.id, { title: s.title.trim(), ...programacion(s) });
+      for (const [i, s] of steps.entries()) if (!s.id && titulos[i]) await api.addStep(task.id, { title: titulos[i], ...programacion(s) });
     },
     onSuccess: () => {
       toast(editing ? '✅ Tarea actualizada' : '✅ Tarea creada');
@@ -133,7 +141,7 @@ export function TaskModal({
     <Modal
       title={editing ? '✏️ Editar tarea' : '➕ Nueva tarea'}
       hint={editing ? undefined : 'Completa lo que necesites; solo el título es obligatorio.'}
-      onClose={onClose}
+      onClose={cerrar}
       ancho="max-w-[1120px]"
     >
       <form onSubmit={submit}>
@@ -166,7 +174,7 @@ export function TaskModal({
                       >
                         📍
                       </button>
-                      <button type="button" title="Quitar paso" className="text-base text-faint" onClick={() => quitarPaso(i)}>
+                      <button type="button" title="Quitar paso" aria-label={`Quitar paso ${i + 1}`} className="text-base text-faint" onClick={() => quitarPaso(i)}>
                         ✕
                       </button>
                     </div>
@@ -190,7 +198,7 @@ export function TaskModal({
                         onChange={(e) => setStep(i, { dias: e.target.value })}
                       />
                       {rangoPaso(programacion(s)) && <span className="text-xs text-muted">{rangoPaso(programacion(s))}</span>}
-                      {fueraDePlazo(programacion(s), { startDate: form.startDate || null, deadline: form.deadline || null }) && (
+                      {!s.done && fueraDePlazo(programacion(s), { startDate: form.startDate || null, deadline: form.deadline || null }) && (
                         <span className="rounded-full bg-hot/15 px-2 py-0.5 text-[11px] font-semibold text-hot">fuera de plazo</span>
                       )}
                     </div>
@@ -270,7 +278,7 @@ export function TaskModal({
         </div>
         <ModalActions>
           {editing && <ConfirmDelete label="Eliminar tarea" disabled={remove.isPending} onConfirm={() => remove.mutate()} />}
-          <button type="button" className="btn" onClick={onClose}>
+          <button type="button" className="btn" onClick={cerrar}>
             Cancelar
           </button>
           <button type="submit" className="btn btn-primary" disabled={save.isPending || !form.title.trim()}>

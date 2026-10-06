@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { addDays, calendarGrid, finPaso, fueraDePlazo, mesDe, rangoSeleccion, sumarMeses, todayISO } from '@sb/shared';
 import { headerDate, mesLabel, shortDate } from '../../lib/format';
-import { colocar, programacion } from '../../lib/pasosBorrador';
-import type { PlanProps } from './PlanificadorTarea';
+import { colocar, programacion, type PlanProps } from '../../lib/pasosBorrador';
 
 const DIAS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 const navBtn = 'rounded-full border border-line px-2.5 py-0.5 text-xs font-semibold text-muted hover:text-text';
@@ -133,7 +132,7 @@ export function CalendarioPlan({ tarea, steps, color, activo, onCambiar }: PlanP
                   key={x.i}
                   aria-hidden
                   className={`h-1 rounded-full ${x.i === activo ? 'outline outline-1 outline-text' : ''}`}
-                  style={{ background: fueraDePlazo(x.p, plazo) ? 'var(--hot)' : `var(--c-${color})` }}
+                  style={{ background: !steps[x.i].done && fueraDePlazo(x.p, plazo) ? 'var(--hot)' : `var(--c-${color})` }}
                 />
               ))}
               {d === tarea.deadline && (
