@@ -79,6 +79,7 @@ Studio local: http://127.0.0.1:54323. Deploy: cada push a `main` ejecuta `.githu
   - `hoy` = deadline hoy, o sin deadline y con `start_date` hoy.
   - `semana` = hoy + deadline hasta el domingo.
 - **Semana:** de lunes a domingo. **`schedule_days`:** enteros 0–6, con 0 = domingo.
-- **Racha:** días consecutivos al 100% de los hábitos activos (los cuenta con el nº *actual* de hábitos activos). Hoy suma si está completo, pero si no lo está no rompe la racha.
+- **Racha:** días consecutivos al 100% de los hábitos **vigentes ese día** (`habitsOn`: creados hasta ese día y no archivados). Hoy suma si está completo, pero si no lo está no rompe la racha; un día sin hábitos vigentes la corta.
+- **Hábitos:** archivar pone `archived_at` y conserva el historial; `active` es una columna generada (`archived_at is null`), no se escribe. Reactivar pone `created_at = now()`: cuenta como nuevo desde hoy. Eliminar borra también sus `habit_logs`.
 - **Revisión semanal:** se calcula en el cliente. "Archivar" hace upsert en `reviews` por `(user_id, week_start)`.
 - **Auth:** el registro está desactivado (`[auth] enable_signup = false`). No desactives `[auth.email] enable_signup`: eso apaga el login por email.

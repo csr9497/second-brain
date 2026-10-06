@@ -63,7 +63,9 @@ erDiagram
     uuid id PK
     text nombre
     text slot
-    bool active
+    timestamptz created_at
+    timestamptz archived_at
+    bool active "generada: archived_at is null"
     numeric position
   }
   habit_logs {
@@ -99,7 +101,7 @@ erDiagram
   `status = hecha` / total de tareas del proyecto con `deadline` en la semana.
   Se calcula en consulta, no se almacena.
 - **% del día de hábitos** = `habit_logs` done de hoy / hábitos activos.
-- **Racha**: recorrer hacia atrás días consecutivos con % = 100% (o umbral). Se puede
+- **Racha**: recorrer hacia atrás días consecutivos con % = 100% (o umbral) de los hábitos vigentes ese día. Se puede
   calcular al vuelo o cachear en una tabla `streaks` si crece el volumen.
 - **Incumplimiento** = `deadline < current_date AND status <> 'hecha'`.
 - **Subtarea completa la tarea**: al marcar el último `step`, un trigger o la capa de
