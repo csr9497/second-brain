@@ -40,18 +40,22 @@ describe('computeStreak', () => {
   const logs = (entries: Record<string, number>) => new Map(Object.entries(entries));
 
   it('cuenta días completos consecutivos hacia atrás', () => {
-    expect(computeStreak(logs({ '2026-09-25': 4, '2026-09-24': 4, '2026-09-22': 4 }), today, 4)).toBe(2);
+    expect(computeStreak(logs({ '2026-09-25': 4, '2026-09-24': 4, '2026-09-22': 4 }), today, () => 4)).toBe(2);
   });
   it('hoy completo suma', () => {
-    expect(computeStreak(logs({ '2026-09-26': 4, '2026-09-25': 4 }), today, 4)).toBe(2);
+    expect(computeStreak(logs({ '2026-09-26': 4, '2026-09-25': 4 }), today, () => 4)).toBe(2);
   });
   it('hoy incompleto no rompe la racha', () => {
-    expect(computeStreak(logs({ '2026-09-26': 1, '2026-09-25': 4 }), today, 4)).toBe(1);
+    expect(computeStreak(logs({ '2026-09-26': 1, '2026-09-25': 4 }), today, () => 4)).toBe(1);
   });
   it('día parcial rompe', () => {
-    expect(computeStreak(logs({ '2026-09-25': 3, '2026-09-24': 4 }), today, 4)).toBe(0);
+    expect(computeStreak(logs({ '2026-09-25': 3, '2026-09-24': 4 }), today, () => 4)).toBe(0);
   });
-  it('sin hábitos no hay racha', () => expect(computeStreak(logs({}), today, 0)).toBe(0));
+  it('sin hábitos no hay racha', () => expect(computeStreak(logs({}), today, () => 0)).toBe(0));
+  it('un día sin hábitos vigentes corta la racha', () => {
+    const totalOn = (d: string) => (d >= '2026-09-25' ? 1 : 0); // el hábito existe desde el 25
+    expect(computeStreak(logs({ '2026-09-25': 1, '2026-09-24': 1 }), today, totalOn)).toBe(1);
+  });
 });
 
 describe('bucketTasks', () => {

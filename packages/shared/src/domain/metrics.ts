@@ -7,17 +7,20 @@ export const STREAK_THRESHOLD = 100;
 /**
  * Días consecutivos con % de hábitos ≥ umbral, contando hacia atrás.
  * Hoy suma si ya está completo; si no, no rompe la racha (el día no ha cerrado).
- * @param doneByDate nº de hábitos hechos por fecha
- * @param totalHabits hábitos activos (se usa el total actual para todos los días)
+ * Un día sin hábitos vigentes corta la racha.
+ * @param doneByDate nº de hábitos vigentes hechos por fecha
+ * @param totalOn nº de hábitos vigentes en cada fecha
  */
 export function computeStreak(
   doneByDate: Map<string, number>,
   today: string,
-  totalHabits: number,
+  totalOn: (fecha: string) => number,
   threshold = STREAK_THRESHOLD,
 ): number {
-  if (totalHabits === 0) return 0;
-  const ok = (d: string) => pct(doneByDate.get(d) ?? 0, totalHabits) >= threshold;
+  const ok = (d: string) => {
+    const total = totalOn(d);
+    return total > 0 && pct(doneByDate.get(d) ?? 0, total) >= threshold;
+  };
   let streak = ok(today) ? 1 : 0;
   for (let d = addDays(today, -1); ok(d); d = addDays(d, -1)) streak++;
   return streak;
