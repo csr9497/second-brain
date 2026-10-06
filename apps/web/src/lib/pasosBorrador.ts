@@ -6,15 +6,20 @@ export type TareaPlan = { startDate: string; deadline: string };
 /** Qué se está colocando en el planificador: la tarea o el paso de ese índice. */
 export type Activo = 'tarea' | number;
 
-/** Props comunes de las vistas del planificador (Calendario y Gantt). */
+/** Rango de días marcado en el planificador (para agregar un paso). */
+export type Seleccion = { inicio: string; fin: string };
+
+/** Props comunes de las vistas del planificador (Calendario y Gantt). La tarea solo se lee:
+ *  su duración se cambia en la cabecera del modal. */
 export interface PlanProps {
   tarea: TareaPlan;
   steps: StepDraft[];
   color: PaletteColor;
-  activo: Activo;
-  setActivo: (a: Activo) => void;
-  /** Aplica tarea y pasos a la vez (mover la tarea mueve también sus pasos) */
-  onCambiar: (tarea: TareaPlan, steps: StepDraft[]) => void;
+  /** Cambia los pasos (mover/estirar/colocar un paso existente) */
+  onPasos: (steps: StepDraft[]) => void;
+  /** Días seleccionados para agregar un paso nuevo */
+  sel: Seleccion | null;
+  setSel: (r: Seleccion | null) => void;
 }
 
 /** Nombre visible de un paso: su título o, si está vacío, «Paso N» (también al guardarlo). */

@@ -1,25 +1,22 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { addDays, calendarGrid, finPaso, fueraDePlazo, mesDe, rangoSeleccion, sumarMeses, todayISO } from '@sb/shared';
 import { headerDate, mesLabel, shortDate } from '../../lib/format';
-import { colocar, programacion, type PlanProps } from '../../lib/pasosBorrador';
+import { programacion, type PlanProps } from '../../lib/pasosBorrador';
 
 const DIAS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 const navBtn = 'rounded-full border border-line px-2.5 py-0.5 text-xs font-semibold text-muted hover:text-text';
 
-/** Mes en el que se marca un rango arrastrando (ratón) o con dos toques (táctil, teclado, clic). */
-export function CalendarioPlan({ tarea, steps, color, activo, onCambiar }: PlanProps) {
+/** Mes en el que se seleccionan días (arrastrando, o con dos toques) para agregar un paso. La tarea solo se muestra. */
+export function CalendarioPlan({ tarea, steps, color, sel, setSel }: PlanProps) {
   const hoy = todayISO();
   const [mes, setMes] = useState(mesDe(tarea.startDate || tarea.deadline || hoy));
   const [arrastre, setArrastre] = useState<{ desde: string; hasta: string } | null>(null);
   const [pendiente, setPendiente] = useState<string | null>(null);
   const arrastreRef = useRef<{ desde: string; hasta: string } | null>(null);
-  // Si cambia lo que se coloca, se descarta el primer toque
-  useEffect(() => setPendiente(null), [activo]);
 
   const aplicar = (a: string, b: string) => {
-    const r = rangoSeleccion(a, b);
-    const res = colocar(tarea, steps, activo, r.inicio, r.fin);
-    onCambiar(res.tarea, res.steps);
+    setSel(rangoSeleccion(a, b));
+    setPendiente(null);
   };
   const aplicarRef = useRef(aplicar);
   aplicarRef.current = aplicar;
@@ -31,10 +28,7 @@ export function CalendarioPlan({ tarea, steps, color, activo, onCambiar }: PlanP
       if (!a) return;
       arrastreRef.current = null;
       setArrastre(null);
-      if (a.desde !== a.hasta) {
-        aplicarRef.current(a.desde, a.hasta);
-        setPendiente(null);
-      }
+      if (a.desde !== a.hasta) aplicarRef.current(a.desde, a.hasta);
     };
     const cancelar = () => {
       arrastreRef.current = null;
@@ -49,22 +43,23 @@ export function CalendarioPlan({ tarea, steps, color, activo, onCambiar }: PlanP
   }, []);
 
   const tocar = (d: string) => {
-    if (pendiente) {
-      aplicar(pendiente, d);
-      setPendiente(null);
-    } else setPendiente(d);
+    if (pendiente) aplicar(pendiente, d);
+    else {
+      setPendiente(d);
+      setSel(null);
+    }
   };
   const tecla = (e: KeyboardEvent) => {
-    if (e.key === 'Escape' && pendiente) {
-      e.preventDefault(); // el modal ignora los Esc ya atendidos
-      setPendiente(null);
-    }
+    if (e.key !== 'Escape' || (!pendiente && !sel)) return;
+    e.preventDefault(); // el modal ignora los Esc ya atendidos
+    setPendiente(null);
+    setSel(null);
   };
 
   const { start, end } = calendarGrid(mes);
   const dias: string[] = [];
   for (let d = start; d <= end; d = addDays(d, 1)) dias.push(d);
-  const sel = arrastre ? rangoSeleccion(arrastre.desde, arrastre.hasta) : pendiente ? { inicio: pendiente, fin: pendiente } : null;
+  const marca = arrastre ? rangoSeleccion(arrastre.desde, arrastre.hasta) : pendiente ? { inicio: pendiente, fin: pendiente } : sel;
   const plazo = { startDate: tarea.startDate || null, deadline: tarea.deadline || null };
   const pasos = steps.map((s, i) => ({ i, p: programacion(s) })).filter((x) => x.p.startDate);
   const enTarea = (d: string) =>
@@ -95,7 +90,7 @@ export function CalendarioPlan({ tarea, steps, color, activo, onCambiar }: PlanP
       </div>
       <div className="grid grid-cols-7 gap-0.5">
         {dias.map((d) => {
-          const marcado = sel != null && d >= sel.inicio && d <= sel.fin;
+          const marcado = marca != null && d >= marca.inicio && d <= marca.fin;
           const cubre = pasos.filter((x) => d >= x.p.startDate! && d <= finPaso(x.p)!);
           return (
             <button
@@ -131,7 +126,7 @@ export function CalendarioPlan({ tarea, steps, color, activo, onCambiar }: PlanP
                 <span
                   key={x.i}
                   aria-hidden
-                  className={`h-1 rounded-full ${x.i === activo ? 'outline outline-1 outline-text' : ''}`}
+                  className="h-1 rounded-full"
                   style={{ background: !steps[x.i].done && fueraDePlazo(x.p, plazo) ? 'var(--hot)' : `var(--c-${color})` }}
                 />
               ))}

@@ -1,26 +1,21 @@
 import { useRef, useState, type ReactNode } from 'react';
-import {
-  addDays,
-  borradorVacio,
-  daysBetween,
-  estirarPaso,
-  estirarTarea,
-  fueraDePlazo,
-  moverPaso,
-  moverTarea,
-  rangoSeleccion,
-  spanTarea,
-  todayISO,
-} from '@sb/shared';
-import { colocar, comoTask, desdeBorrador, nombrePaso, type Activo, type PlanProps, type StepDraft, type TareaPlan } from '../../lib/pasosBorrador';
+import { addDays, borradorVacio, daysBetween, estirarPaso, fueraDePlazo, moverPaso, rangoSeleccion, spanTarea, todayISO } from '@sb/shared';
+import { colocar, comoTask, desdeBorrador, nombrePaso, type PlanProps, type StepDraft } from '../../lib/pasosBorrador';
 import { Barra, type Fase, type Op } from '../gantt/Barra';
 import { COL } from '../gantt/constantes';
 import { Pista } from '../gantt/Pista';
 
 const ETQ = 112;
+const ALTO = 34;
+const cuadricula = `repeating-linear-gradient(to right, transparent 0 ${COL - 1}px, color-mix(in srgb, var(--line) 45%, transparent) ${COL - 1}px ${COL}px)`;
+const nada = () => {};
 
-/** Gantt del modal: barras (mover/estirar) y filas en las que se marca un rango para colocar. */
-export function GanttPlan({ tarea, steps, color, activo, setActivo, onCambiar }: PlanProps) {
+/**
+ * Gantt del modal: la barra de la tarea es de solo lectura (su duración se cambia en la cabecera);
+ * los pasos se mueven o estiran, un paso sin programar se coloca en su fila, y la fila
+ * «＋ Nuevo paso» selecciona días para agregar uno.
+ */
+export function GanttPlan({ tarea, steps, color, onPasos, sel, setSel }: PlanProps) {
   const hoy = todayISO();
   const virtual = comoTask(tarea, steps);
   const span = spanTarea(virtual);
@@ -38,85 +33,44 @@ export function GanttPlan({ tarea, steps, color, activo, setActivo, onCambiar }:
   const ndias = daysBetween(ventana.inicio, ventana.fin) + 1;
   const ancho = ndias * COL;
   const x = (f: string) => daysBetween(ventana.inicio, f) * COL;
+  // Fila con el primer toque pendiente (solo una a la vez)
+  const [fila, setFila] = useState<number | 'nuevo' | null>(null);
 
-  const operar = (t: TareaPlan, s: StepDraft[], obj: Activo, op: Op, d: number) => {
-    const tb = comoTask(t, s);
-    const dr =
-      obj === 'tarea'
-        ? op === 'mover'
-          ? moverTarea(borradorVacio(), tb, d)
-          : estirarTarea(borradorVacio(), tb, d)
-        : op === 'mover'
-          ? moverPaso(borradorVacio(), tb.steps[obj], d)
-          : estirarPaso(borradorVacio(), tb.steps[obj], d);
-    const r = desdeBorrador(t, s, dr);
-    onCambiar(r.tarea, r.steps);
+  const operar = (s: StepDraft[], i: number, op: Op, d: number) => {
+    const tb = comoTask(tarea, s);
+    const dr = op === 'mover' ? moverPaso(borradorVacio(), tb.steps[i], d) : estirarPaso(borradorVacio(), tb.steps[i], d);
+    onPasos(desdeBorrador(tarea, s, dr).steps);
   };
-  const base = useRef<{ tarea: TareaPlan; steps: StepDraft[]; obj: Activo } | null>(null);
-  const arrastre = (obj: Activo) => (op: Op, d: number, fase: Fase) => {
+  const base = useRef<{ steps: StepDraft[]; i: number } | null>(null);
+  const arrastre = (i: number) => (op: Op, d: number, fase: Fase) => {
     if (fase === 'inicio') {
-      base.current = { tarea, steps, obj };
+      base.current = { steps, i };
       setFija(ventana);
-      setActivo(obj);
+      setFila(i);
       return;
     }
     const b = base.current;
     if (!b) return;
     // delta 0: se vuelve al punto de partida (un clic sin mover no cambia nada)
-    if (d === 0) onCambiar(b.tarea, b.steps);
-    else operar(b.tarea, b.steps, b.obj, op, d);
+    if (d === 0) onPasos(b.steps);
+    else operar(b.steps, b.i, op, d);
     if (fase === 'fin') {
       base.current = null;
       setFija(null);
     }
   };
-  const colocarEn = (obj: Activo) => (a: string, b: string) => {
+  const colocarPaso = (i: number) => (a: string, b: string) => {
     const r = rangoSeleccion(a, b);
-    const res = colocar(tarea, steps, obj, r.inicio, r.fin);
-    onCambiar(res.tarea, res.steps);
-    setActivo(obj);
+    onPasos(colocar(tarea, steps, i, r.inicio, r.fin).steps);
+    setFila(i);
   };
+  const selVisible = sel && sel.fin >= ventana.inicio && sel.inicio <= ventana.fin;
 
-  const filas: { obj: Activo; nombre: string; barra: ReactNode }[] = [
-    {
-      obj: 'tarea',
-      nombre: '📌 Tarea',
-      barra: span && (
-        <Barra
-          tipo="tarea"
-          left={x(span.inicio)}
-          width={(daysBetween(span.inicio, span.fin) + 1) * COL}
-          color={color}
-          deadline={tarea.deadline ? x(tarea.deadline) - x(span.inicio) : null}
-          alerta={virtual.steps.some((s) => !s.done && fueraDePlazo(s, virtual))}
-          modificada={false}
-          editable
-          etiqueta={`Tarea: ${span.inicio} a ${span.fin}`}
-          onArrastre={arrastre('tarea')}
-          onTecla={(op, d) => operar(tarea, steps, 'tarea', op, d)}
-        />
-      ),
-    },
-    ...virtual.steps.map((s, i) => ({
-      obj: i as Activo,
-      nombre: nombrePaso(steps[i], i),
-      barra: s.startDate && s.duracionDias && (
-        <Barra
-          tipo="paso"
-          left={x(s.startDate)}
-          width={s.duracionDias * COL}
-          color={color}
-          deadline={null}
-          alerta={!s.done && fueraDePlazo(s, virtual)}
-          modificada={false}
-          editable
-          etiqueta={`${nombrePaso(steps[i], i)}: desde ${s.startDate}, ${s.duracionDias} días`}
-          onArrastre={arrastre(i)}
-          onTecla={(op, d) => operar(tarea, steps, i, op, d)}
-        />
-      ),
-    })),
-  ];
+  const etiqueta = (contenido: ReactNode, clase = '') => (
+    <div className={`sticky left-0 z-[15] flex flex-none items-center truncate border-r border-line bg-surface px-2 text-[12px] ${clase}`} style={{ width: ETQ, height: ALTO }}>
+      {contenido}
+    </div>
+  );
 
   return (
     <div className="overflow-x-auto rounded-lg border border-line">
@@ -134,27 +88,83 @@ export function GanttPlan({ tarea, steps, color, activo, setActivo, onCambiar }:
         {hoy >= ventana.inicio && hoy <= ventana.fin && (
           <div aria-hidden className="pointer-events-none absolute top-0 bottom-0 z-10 w-px bg-accent/70" style={{ left: ETQ + x(hoy) + COL / 2 }} />
         )}
-        {filas.map((f) => (
-          <div key={String(f.obj)} className={`flex border-b border-line/60 ${activo === f.obj ? 'bg-accent/10' : ''}`}>
-            <button
-              type="button"
-              onClick={() => setActivo(f.obj)}
-              className="sticky left-0 z-[15] flex flex-none items-center truncate border-r border-line bg-surface px-2 text-left text-[12px]"
-              style={{ width: ETQ, height: 34 }}
-            >
-              <span className="truncate">{f.nombre}</span>
-            </button>
-            <Pista
-              ancho={ancho}
-              inicio={ventana.inicio}
-              activa={activo === f.obj}
-              onToque={() => setActivo(f.obj)}
-              onRango={colocarEn(f.obj)}
-            >
-              {f.barra}
+
+        {/* Tarea: solo lectura */}
+        <div className="flex border-b border-line/60">
+          {etiqueta(<span className="truncate font-semibold">📌 Tarea</span>)}
+          <div className="relative" style={{ width: ancho, height: ALTO, backgroundImage: cuadricula }}>
+            {span && (
+              <Barra
+                tipo="tarea"
+                left={x(span.inicio)}
+                width={(daysBetween(span.inicio, span.fin) + 1) * COL}
+                color={color}
+                deadline={tarea.deadline ? x(tarea.deadline) - x(span.inicio) : null}
+                alerta={virtual.steps.some((s) => !s.done && fueraDePlazo(s, virtual))}
+                modificada={false}
+                editable={false}
+                etiqueta={`Tarea: del ${span.inicio} al ${span.fin} (se cambia arriba)`}
+                onArrastre={nada}
+                onTecla={nada}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Pasos: mover/estirar; los sin programar se colocan en su fila */}
+        {virtual.steps.map((s, i) => (
+          <div key={steps[i].id ?? `nuevo-${i}`} className={`flex border-b border-line/60 ${fila === i ? 'bg-accent/10' : ''}`}>
+            {etiqueta(<span className="truncate">{nombrePaso(steps[i], i)}</span>)}
+            <Pista ancho={ancho} inicio={ventana.inicio} activa={fila === i} onToque={() => setFila(i)} onRango={colocarPaso(i)}>
+              {s.startDate && s.duracionDias ? (
+                <Barra
+                  tipo="paso"
+                  left={x(s.startDate)}
+                  width={s.duracionDias * COL}
+                  color={color}
+                  deadline={null}
+                  alerta={!s.done && fueraDePlazo(s, virtual)}
+                  modificada={false}
+                  editable
+                  etiqueta={`${nombrePaso(steps[i], i)}: desde ${s.startDate}, ${s.duracionDias} días`}
+                  onArrastre={arrastre(i)}
+                  onTecla={(op, d) => operar(steps, i, op, d)}
+                />
+              ) : null}
             </Pista>
           </div>
         ))}
+
+        {/* Nuevo paso: seleccionar días */}
+        <div className={`flex border-b border-line/60 ${fila === 'nuevo' ? 'bg-accent/10' : ''}`}>
+          <div title="Arrastra o toca dos días para agregar un paso" className="contents">
+            {etiqueta(<span className="truncate font-semibold text-accent">＋ Nuevo paso</span>)}
+          </div>
+          <Pista
+            ancho={ancho}
+            inicio={ventana.inicio}
+            activa={fila === 'nuevo'}
+            onToque={() => {
+              setFila('nuevo');
+              setSel(null);
+            }}
+            onRango={(a, b) => {
+              setSel(rangoSeleccion(a, b));
+              setFila('nuevo');
+            }}
+          >
+            {selVisible && (
+              <span
+                aria-hidden
+                className="pointer-events-none absolute top-1 bottom-1 rounded-md border border-accent bg-accent/20"
+                style={{
+                  left: x(sel.inicio < ventana.inicio ? ventana.inicio : sel.inicio),
+                  width: (daysBetween(sel.inicio < ventana.inicio ? ventana.inicio : sel.inicio, sel.fin > ventana.fin ? ventana.fin : sel.fin) + 1) * COL,
+                }}
+              />
+            )}
+          </Pista>
+        </div>
       </div>
     </div>
   );

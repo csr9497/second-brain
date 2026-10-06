@@ -6,12 +6,16 @@ export function Modal({
   onClose,
   children,
   ancho = 'max-w-[480px]',
+  encabezado,
 }: {
+  /** Nombre accesible del diálogo (y título visible si no hay `encabezado`) */
   title: string;
   hint?: string;
   onClose: () => void;
   children: ReactNode;
   ancho?: string;
+  /** Sustituye al título y la pista (p. ej. un nombre editable) */
+  encabezado?: ReactNode;
 }) {
   useEffect(() => {
     // Radix (Select) cierra su lista con Esc y marca el evento: no cerrar también el modal
@@ -38,8 +42,12 @@ export function Modal({
       onClick={(e) => e.target === e.currentTarget && desdeFondo.current && onClose()}
     >
       <div role="dialog" aria-modal="true" aria-label={title} className={`w-full ${ancho} rounded-2xl border border-line bg-surface p-5`}>
-        <h3 className={`m-0 font-display text-[19px] font-bold ${hint ? 'mb-0.5' : 'mb-4'}`}>{title}</h3>
-        {hint && <p className="m-0 mb-4 text-[12.5px] text-muted">{hint}</p>}
+        {encabezado ?? (
+          <>
+            <h3 className={`m-0 font-display text-[19px] font-bold ${hint ? 'mb-0.5' : 'mb-4'}`}>{title}</h3>
+            {hint && <p className="m-0 mb-4 text-[12.5px] text-muted">{hint}</p>}
+          </>
+        )}
         {children}
       </div>
     </div>

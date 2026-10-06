@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { encadenar, fueraDePlazo, todayISO, type CreateTaskInput, type Task, type TaskStatus } from '@sb/shared';
+import { daysBetween, encadenar, fueraDePlazo, todayISO, type CreateTaskInput, type Task, type TaskStatus } from '@sb/shared';
 import { api } from '../lib/api';
 import { rangoPaso } from '../lib/format';
-import { diasDe, nombrePaso, programacion, type Activo, type StepDraft, type TareaPlan } from '../lib/pasosBorrador';
+import { diasDe, nombrePaso, programacion, type Seleccion, type StepDraft } from '../lib/pasosBorrador';
 import { PRIORITY_OPTIONS, TASK_STATUS_OPTIONS, TASK_TYPE_OPTIONS } from '../lib/options';
 import { TODAY_KEY } from '../lib/useToday';
 import { ConfirmDelete, Field, Modal, ModalActions } from './Modal';
@@ -47,7 +47,8 @@ export function TaskModal({
       ? task.steps.map((s) => ({ id: s.id, title: s.title, startDate: s.startDate ?? '', dias: s.duracionDias ? String(s.duracionDias) : '', done: s.done }))
       : [{ title: '', startDate: '', dias: '' }],
   );
-  const [activo, setActivo] = useState<Activo>('tarea');
+  // Días seleccionados en el planificador para agregar un paso
+  const [sel, setSel] = useState<Seleccion | null>(null);
   const [verPasos, setVerPasos] = useState(!!task && task.steps.length > 0);
   // Foto del estado inicial (solo en el montaje) para avisar al cerrar con cambios sin guardar
   const [foto] = useState(() => JSON.stringify({ form, steps }));
@@ -62,14 +63,21 @@ export function TaskModal({
   const setStep = (i: number, patch: Partial<StepDraft>) => setSteps((xs) => xs.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const setValue = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
-  const quitarPaso = (i: number) => {
-    setSteps((xs) => xs.filter((_, j) => j !== i));
-    setActivo((a) => (a === i ? 'tarea' : typeof a === 'number' && a > i ? a - 1 : a));
+  const quitarPaso = (i: number) => setSteps((xs) => xs.filter((_, j) => j !== i));
+  /** Paso nuevo con el rango seleccionado; reemplaza el paso vacío inicial si no se usó. */
+  const agregarPaso = (nombre: string, inicio: string, fin: string) => {
+    const nuevo: StepDraft = { title: nombre, startDate: inicio, dias: String(daysBetween(inicio, fin) + 1) };
+    const vacio = steps.length === 1 && !steps[0].id && !steps[0].title.trim() && !steps[0].startDate;
+    setSteps(vacio ? [nuevo] : [...steps, nuevo]);
+    setVerPasos(true);
   };
-  const cambiarPlan = (t: TareaPlan, s: typeof steps) => {
-    setForm((f) => ({ ...f, startDate: t.startDate, deadline: t.deadline }));
-    setSteps(s);
-  };
+  // Duración de la tarea (solo se cambia en la cabecera)
+  const finAntes = !!form.startDate && !!form.deadline && form.deadline < form.startDate;
+  const duracion =
+    form.startDate && form.deadline && !finAntes
+      ? `${daysBetween(form.startDate, form.deadline) + 1} ${daysBetween(form.startDate, form.deadline) === 0 ? 'día' : 'días'}`
+      : null;
+  const resumenTexto = [form.description.trim() && 'descripción', form.notes.trim() && 'notas'].filter(Boolean).join(' y ') || 'vacías';
   const color = projects.data?.find((p) => p.id === form.projectId)?.color ?? 'azul';
   const projectOptions: SelectOption[] = [
     { value: '', label: '— Ninguno —' },
@@ -154,37 +162,77 @@ export function TaskModal({
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    if (form.title.trim()) save.mutate();
+    if (form.title.trim() && !finAntes) save.mutate();
   }
 
   return (
     <Modal
-      title={editing ? '✏️ Editar tarea' : '➕ Nueva tarea'}
-      hint={editing ? undefined : 'Completa lo que necesites; solo el título es obligatorio.'}
+      title={form.title.trim() || (editing ? 'Editar tarea' : 'Nueva tarea')}
       onClose={() => void cerrar()}
       ancho="max-w-[1120px]"
+      encabezado={false}
     >
       <form onSubmit={submit}>
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
-          <div>
-            <Field label="Título">
-              <input className="input" autoFocus={!editing} required value={form.title} onChange={set('title')} placeholder="p. ej. Limpiar la casa" />
-            </Field>
-            <Field label="Descripción">
-              <textarea className="input min-h-14 resize-y" value={form.description} onChange={set('description')} placeholder="Qué hay que hacer…" />
-            </Field>
-            <div className="grid grid-cols-2 gap-[11px]">
-              <Field label="Fecha inicio">
-                <input type="date" className="input" value={form.startDate} onChange={set('startDate')} />
-              </Field>
-              <Field label="Deadline">
-                <input type="date" className="input" value={form.deadline} onChange={set('deadline')} />
-              </Field>
+        <header className="mb-4 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+          <div className="min-w-0 flex-[1_1_320px]">
+            <span className="block text-[11px] font-semibold tracking-[.08em] text-faint uppercase">{editing ? 'Editar tarea' : 'Nueva tarea'}</span>
+            <input
+              aria-label="Nombre de la tarea"
+              autoFocus={!editing}
+              required
+              value={form.title}
+              onChange={set('title')}
+              placeholder="Nombre de la tarea"
+              className="w-full rounded-md border border-transparent bg-transparent px-1 py-0.5 font-display text-[24px] leading-tight font-bold text-text outline-none placeholder:text-faint hover:border-line focus:border-accent"
+            />
+          </div>
+          <div role="group" aria-label="Duración de la tarea" className="flex flex-wrap items-end gap-2">
+            <label className="block">
+              <span className="field-label">Inicio</span>
+              <input type="date" className="input w-auto" value={form.startDate} onChange={set('startDate')} />
+            </label>
+            <label className="block">
+              <span className="field-label">Fin</span>
+              <input type="date" className="input w-auto" value={form.deadline} onChange={set('deadline')} aria-invalid={finAntes} />
+            </label>
+            <div className="pb-2 text-[13px]" aria-live="polite">
+              {finAntes ? (
+                <span className="font-semibold text-hot">El fin es antes del inicio</span>
+              ) : duracion ? (
+                <span className="font-semibold">⏱ {duracion}</span>
+              ) : (
+                <span className="text-faint">Sin duración</span>
+              )}
             </div>
-            <Field label="Notas">
-              <textarea className="input min-h-14 resize-y" value={form.notes} onChange={set('notes')} placeholder="Enlaces, ideas, recordatorios…" />
+          </div>
+        </header>
+        <details className={detalles}>
+          <summary className={resumen}>
+            <span aria-hidden className="transition group-open:rotate-90">▸</span>
+            Descripción y notas
+            <span className="ml-auto truncate font-normal text-faint">{resumenTexto}</span>
+          </summary>
+          <div className="grid gap-[11px] px-3 pt-1 pb-0.5 md:grid-cols-2">
+            <Field label="Descripción">
+              <textarea className="input min-h-20 resize-y" value={form.description} onChange={set('description')} placeholder="Qué hay que hacer…" />
             </Field>
-            <details className={detalles}>
+            <Field label="Notas">
+              <textarea className="input min-h-20 resize-y" value={form.notes} onChange={set('notes')} placeholder="Enlaces, ideas, recordatorios…" />
+            </Field>
+          </div>
+        </details>
+        <PlanificadorTarea
+          tarea={{ startDate: form.startDate, deadline: form.deadline }}
+          steps={steps}
+          color={color}
+          onPasos={setSteps}
+          sel={sel}
+          setSel={setSel}
+          onAgregarPaso={agregarPaso}
+        />
+        <div className="grid gap-x-4 lg:grid-cols-2">
+          <div>
+        <details className={detalles}>
               <summary className={resumen}>
                 <span aria-hidden className="transition group-open:rotate-90">▸</span>
                 Detalles
@@ -211,6 +259,8 @@ export function TaskModal({
                 </div>
               </div>
             </details>
+          </div>
+          <div>
             <details open={verPasos} onToggle={(e) => setVerPasos(e.currentTarget.open)} className={detalles}>
               <summary className={resumen}>
                 <span aria-hidden className="transition group-open:rotate-90">▸</span>
@@ -230,16 +280,6 @@ export function TaskModal({
                           placeholder={i === 0 ? 'Primer paso' : 'Otro paso…'}
                           onChange={(e) => setStep(i, { title: e.target.value })}
                         />
-                        <button
-                          type="button"
-                          aria-pressed={activo === i}
-                          aria-label={`Colocar el paso ${i + 1} en el planificador`}
-                          title="Colocar en el planificador"
-                          onClick={() => setActivo(i)}
-                          className="rounded-md px-1 text-base text-faint aria-pressed:bg-accent/15 aria-pressed:text-accent"
-                        >
-                          📍
-                        </button>
                         <button type="button" title="Quitar paso" aria-label={`Quitar paso ${i + 1}`} className="text-base text-faint" onClick={() => quitarPaso(i)}>
                           ✕
                         </button>
@@ -303,23 +343,13 @@ export function TaskModal({
               </div>
             </details>
           </div>
-          <div className="self-start lg:sticky lg:top-0">
-            <PlanificadorTarea
-              tarea={{ startDate: form.startDate, deadline: form.deadline }}
-              steps={steps}
-              color={color}
-              activo={activo}
-              setActivo={setActivo}
-              onCambiar={cambiarPlan}
-            />
-          </div>
         </div>
         <ModalActions>
           {editing && <ConfirmDelete label="Eliminar tarea" disabled={remove.isPending} onConfirm={() => remove.mutate()} />}
           <button type="button" className="btn" onClick={() => void cerrar()}>
             Cancelar
           </button>
-          <button type="submit" className="btn btn-primary" disabled={save.isPending || !form.title.trim()}>
+          <button type="submit" className="btn btn-primary" disabled={save.isPending || !form.title.trim() || finAntes}>
             {editing ? 'Guardar' : 'Crear tarea'}
           </button>
         </ModalActions>
