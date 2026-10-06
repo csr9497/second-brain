@@ -178,3 +178,4 @@ export * from './domain/dates';
 export * from './domain/ordering';
 export * from './domain/metrics';
 export * from './domain/dashboard';
+export * from './colors';
