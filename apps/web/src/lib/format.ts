@@ -53,3 +53,11 @@ export function rangoPaso(p: { startDate: string | null; duracionDias: number | 
   if (!p.startDate || !fin) return null;
   return fin === p.startDate ? shortDate(p.startDate) : `${shortDate(p.startDate)} → ${shortDate(fin)}`;
 }
+
+const MESES_LARGO = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+/** '2026-10' → "octubre 2026" */
+export function mesLabel(mes: string) {
+  const [y, m] = mes.split('-').map(Number);
+  return `${MESES_LARGO[m - 1]} ${y}`;
+}

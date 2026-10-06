@@ -14,6 +14,8 @@ import { useSession } from './lib/useSession';
 import { sb } from './lib/supabase';
 import { HabitModal } from './components/HabitModal';
 import { HabitsManager } from './components/HabitsManager';
+import { CalendarView } from './components/CalendarView';
+import { useVista, hrefVista, type Vista } from './lib/useVista';
 import type { HabitAdmin, Project, Task } from '@sb/shared';
 
 type ModalState =
@@ -41,13 +43,14 @@ export function App() {
 function Home() {
   const qc = useQueryClient();
   const { data, error, isLoading } = useToday();
+  const vista = useVista();
   const [modal, setModal] = useState<ModalState>(null);
   const close = useCallback(() => setModal(null), []);
   // Crear/editar un hábito cierra "Gestionar hábitos" y vuelve a él al terminar (sin modales apilados)
   const backToHabits = useCallback(() => setModal({ kind: 'habitos' }), []);
 
   return (
-    <div className="mx-auto max-w-[780px] px-4 pt-[26px] pb-[72px]">
+    <div className={`mx-auto ${vista === 'calendario' ? 'max-w-[1040px]' : 'max-w-[780px]'} px-4 pt-[26px] pb-[72px]`}>
       <header>
         <div className="text-xs font-semibold tracking-[.08em] text-faint uppercase">{data ? headerDate(data.date) : ' '}</div>
         <div className="flex items-start justify-between gap-3">
@@ -65,6 +68,26 @@ function Home() {
         <p className="m-0 text-sm text-muted">{greeting()}</p>
       </header>
 
+      <nav className="mt-5 flex gap-1.5" aria-label="Vistas">
+        {(
+          [
+            ['hoy', '☀️ Hoy'],
+            ['calendario', '📅 Calendario'],
+          ] as [Vista, string][]
+        ).map(([v, label]) => (
+          <a
+            key={v}
+            href={hrefVista(v)}
+            aria-current={vista === v ? 'page' : undefined}
+            className="rounded-full border border-line px-3.5 py-1.5 text-[13px] font-semibold text-muted no-underline transition hover:text-text aria-[current=page]:border-accent aria-[current=page]:bg-accent aria-[current=page]:text-white"
+          >
+            {label}
+          </a>
+        ))}
+      </nav>
+
+      {vista === 'hoy' && (
+        <>
       <section className="mt-6 flex gap-2">
         {ACTIONS.map((a) => (
           <button
@@ -106,6 +129,10 @@ function Home() {
           <Projects projects={data.projects} onEdit={(project) => setModal({ kind: 'proyecto', project })} />
         </>
       )}
+        </>
+      )}
+
+      {vista === 'calendario' && <CalendarView onEditTask={(task) => setModal({ kind: 'tarea', task })} />}
 
       {modal?.kind === 'tarea' && <TaskModal task={modal.task} onClose={close} />}
       {modal?.kind === 'proyecto' && <ProjectModal project={modal.project} onClose={close} />}
