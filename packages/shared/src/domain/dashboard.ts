@@ -17,7 +17,7 @@ export interface HabitRow {
   id: string;
   nombre: string;
   position: number;
-  /** Cuenta los días locales cubiertos por algún periodo */
+  /** Cuenta los días locales cubiertos por algún periodo. Vienen ordenados por `desde`. */
   periods: HabitPeriod[];
 }
 
@@ -49,8 +49,14 @@ const PRIORITY_RANK: Record<string, number> = { alta: 0, media: 1, baja: 2 };
 const cubre = (p: HabitPeriod, fecha: string) =>
   toISO(new Date(p.desde)) <= fecha && (p.hasta == null || toISO(new Date(p.hasta)) > fecha);
 
-/** Periodo que cubre `fecha` (día local), si el hábito estaba vigente ese día. */
-export const periodoEn = (h: HabitRow, fecha: string) => h.periods.find((p) => cubre(p, fecha));
+/**
+ * Periodo que cubre `fecha` (día local); si varios lo cubren (desfase de reloj), gana el más reciente.
+ * Requiere periods ordenados por `desde`.
+ */
+export function periodoEn(h: HabitRow, fecha: string) {
+  for (let i = h.periods.length - 1; i >= 0; i--) if (cubre(h.periods[i], fecha)) return h.periods[i];
+  return undefined;
+}
 
 /** Hábitos vigentes en `fecha` (día local): algún periodo cubre ese día. */
 export const habitsOn = (habits: HabitRow[], fecha: string) => habits.filter((h) => periodoEn(h, fecha) != null);

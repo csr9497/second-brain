@@ -227,6 +227,13 @@ describe('turnos', () => {
     expect(t.habits.porFranja.noche.map((c) => c.id)).toEqual(['x']);
   });
 
+  it('dos periodos que cubren el mismo día: gana el más reciente', () => {
+    const x = habit('x', { periods: [per(at(2026, 9, 1), null, [['manana']]), per(at(2026, 9, 2), null, [['noche']])] });
+    const t = buildToday({ ...base, habits: [x], doneLogs: [] });
+    expect(t.habits.porFranja.manana).toEqual([]);
+    expect(t.habits.porFranja.noche.map((c) => c.id)).toEqual(['x']);
+  });
+
   it('habitsPct semanal cuenta turnos', () => {
     // lun 28 – jue 1, "d" = Mañana + Noche → 8 turnos; 3 hechos
     const r = buildWeeklyReport(

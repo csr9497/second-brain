@@ -134,11 +134,11 @@ async function loadDashboard(now = new Date()): Promise<DashboardInput> {
   const weekStartTs = new Date(`${start}T00:00:00`).toISOString();
 
   const [habits, logs, tasks, projects] = await Promise.all([
-    sb.from('habits').select('id, nombre, slot, position, periods:habit_periods(desde, hasta)').order('position'),
+    sb.from('habits').select('id, nombre, position, periods:habit_periods(desde, hasta, turnos)').order('position'),
     fetchAll<Row>((a, b) =>
       sb
         .from('habit_logs')
-        .select('habit_id, fecha')
+        .select('habit_id, fecha, slot')
         .eq('done', true)
         .gte('fecha', addDays(today, -STREAK_LOOKBACK_DAYS))
         .order('fecha')
@@ -161,11 +161,12 @@ async function loadDashboard(now = new Date()): Promise<DashboardInput> {
     habits: must(habits).map((h) => ({
       id: h.id,
       nombre: h.nombre,
-      slot: h.slot as HabitSlot,
       position: Number(h.position),
-      periods: (h.periods ?? []).map((p: Row) => ({ desde: p.desde, hasta: p.hasta })),
+      periods: (h.periods ?? [])
+        .map((p: Row) => ({ desde: p.desde, hasta: p.hasta, turnos: p.turnos as HabitSlot[][] }))
+        .sort((a: { desde: string }, b: { desde: string }) => Date.parse(a.desde) - Date.parse(b.desde)),
     })),
-    doneLogs: logs.map((l) => ({ habitId: l.habit_id, fecha: l.fecha })),
+    doneLogs: logs.map((l) => ({ habitId: l.habit_id, fecha: l.fecha, slot: l.slot as HabitSlot })),
     tasks: tasks.map(toTask),
     projects: must(projects).map(toProjectRow),
     now,
@@ -237,27 +238,33 @@ export const api = {
   },
 
   // Hábitos: un registro por (hábito, fecha). Archivar conserva el historial.
-  toggleHabit: async (id: string) => {
-    const fecha = todayISO();
-    const existing = must(await sb.from('habit_logs').select('done').eq('habit_id', id).eq('fecha', fecha).maybeSingle());
-    must(await sb.from('habit_logs').upsert({ habit_id: id, fecha, done: !existing?.done }, { onConflict: 'habit_id,fecha' }));
+  /**
+   * Marca o desmarca el turno de una ficha. Si el turno ya está hecho (en esta u otra de sus
+   * franjas), desmarca ese registro; si no, lo marca en la franja de la ficha.
+   */
+  toggleHabit: async ({ id, slot, doneIn }: { id: string; slot: HabitSlot; doneIn: HabitSlot | null }) => {
+    must(
+      await sb
+        .from('habit_logs')
+        .upsert({ habit_id: id, fecha: todayISO(), slot: doneIn ?? slot, done: doneIn == null }, { onConflict: 'habit_id,fecha,slot' }),
+    );
   },
   habits: async (): Promise<HabitAdmin[]> =>
-    must(await sb.from('habits').select('id, nombre, slot, position, archived_at').order('position')).map((h) => ({
+    must(await sb.from('habits').select('id, nombre, position, turnos, archived_at').order('position')).map((h) => ({
       id: h.id,
       nombre: h.nombre,
-      slot: h.slot as HabitSlot,
+      turnos: h.turnos as HabitSlot[][],
       position: Number(h.position),
       archivedAt: h.archived_at,
     })),
   createHabit: async (input: CreateHabitInput) => {
-    const { nombre, slot } = createHabitInput.parse(input);
+    const { nombre, turnos } = createHabitInput.parse(input);
     const position = positionBetween(await maxPosition('habits'), null);
-    must(await sb.from('habits').insert({ nombre, slot, position }));
+    must(await sb.from('habits').insert({ nombre, turnos, position }));
   },
   updateHabit: async (id: string, patch: UpdateHabitInput) => {
-    const { nombre, slot } = updateHabitInput.parse(patch);
-    const cols = Object.fromEntries(Object.entries({ nombre, slot }).filter(([, v]) => v !== undefined));
+    const { nombre, turnos } = updateHabitInput.parse(patch);
+    const cols = Object.fromEntries(Object.entries({ nombre, turnos }).filter(([, v]) => v !== undefined));
     must(await sb.from('habits').update(cols).eq('id', id));
   },
   archiveHabit: async (id: string) => {
