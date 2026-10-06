@@ -12,10 +12,15 @@ import { useToast } from './Toast';
 type StepDraft = { id?: string; title: string; startDate: string; dias: string };
 
 /** Borrador → programación: con fecha y sin días se usa 1; días redondeados, mínimo 1; sin fecha, nada. */
+/** Días escritos en el borrador (entero ≥ 1), o null si están vacíos o no son válidos. */
+function diasDe(s: StepDraft) {
+  const n = Math.round(Number(s.dias));
+  return s.dias.trim() && Number.isFinite(n) && n >= 1 ? n : null;
+}
+
 function programacion(s: StepDraft) {
   if (!s.startDate) return { startDate: null, duracionDias: null };
-  const n = Math.round(Number(s.dias));
-  return { startDate: s.startDate, duracionDias: Number.isFinite(n) && n >= 1 ? n : 1 };
+  return { startDate: s.startDate, duracionDias: diasDe(s) ?? 1 };
 }
 
 /** Crea una tarea o, si recibe `task`, la edita (campos, estado y pasos). */
@@ -182,15 +187,15 @@ export function TaskModal({ task, onClose }: { task?: Task; onClose: () => void 
               type="button"
               disabled={!steps.some((s) => s.title.trim())}
               onClick={() => {
+                // Se calcula fuera del updater de setSteps: React puede ejecutarlo dos veces (StrictMode)
                 const desde = form.startDate || todayISO();
                 const conTitulo = steps.filter((s) => s.title.trim());
-                const encadenados = encadenar(conTitulo.map((s) => ({ ...s, ...programacion(s) })), desde);
-                let k = 0;
-                setSteps((xs) =>
-                  xs.map((x) => {
-                    if (!x.title.trim()) return x;
-                    const e = encadenados[k++];
-                    return { ...x, startDate: e.startDate!, dias: String(e.duracionDias) };
+                const encadenados = encadenar(conTitulo.map((s) => ({ startDate: null, duracionDias: diasDe(s) })), desde);
+                const nuevo = new Map(conTitulo.map((s, i) => [s, encadenados[i]]));
+                setSteps(
+                  steps.map((x) => {
+                    const e = nuevo.get(x);
+                    return e ? { ...x, startDate: e.startDate ?? '', dias: String(e.duracionDias) } : x;
                   }),
                 );
               }}
