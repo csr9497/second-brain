@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { daysBetween, type Cambio } from '@sb/shared';
 import { api } from '../../lib/api';
-import { rangoPaso, shortDate } from '../../lib/format';
+import { rangoCompacto, shortDate } from '../../lib/format';
 import { TODAY_KEY } from '../../lib/useToday';
 import { Modal, ModalActions } from '../Modal';
 import { useToast } from '../Toast';
@@ -43,13 +43,13 @@ export function ResumenCambios({ cambios, onVolver, onGuardado }: { cambios: Cam
                 <b className="block">📌 {c.titulo}</b>
                 {c.antes.startDate !== c.despues.startDate && (
                   <span className="block text-muted">
-                    Inicio: {fecha(c.antes.startDate)} → {fecha(c.despues.startDate)}
+                    Inicio: {fecha(c.antes.startDate)} ⇒ {fecha(c.despues.startDate)}
                     {diferencia(c.antes.startDate, c.despues.startDate)}
                   </span>
                 )}
                 {c.antes.deadline !== c.despues.deadline && (
                   <span className="block text-muted">
-                    Deadline: {fecha(c.antes.deadline)} → {fecha(c.despues.deadline)}
+                    Deadline: {fecha(c.antes.deadline)} ⇒ {fecha(c.despues.deadline)}
                     {diferencia(c.antes.deadline, c.despues.deadline)}
                   </span>
                 )}
@@ -60,9 +60,9 @@ export function ResumenCambios({ cambios, onVolver, onGuardado }: { cambios: Cam
                   ↳ {c.titulo} <span className="font-normal text-faint">· {c.tarea}</span>
                 </b>
                 <span className="block text-muted">
-                  {rangoPaso(c.antes) ?? 'sin programar'} → {rangoPaso(c.despues) ?? 'sin programar'}
+                  {rangoCompacto(c.antes) ?? 'sin programar'} ⇒ {rangoCompacto(c.despues) ?? 'sin programar'}
                   {diferencia(c.antes.startDate, c.despues.startDate)}
-                  {c.antes.duracionDias !== c.despues.duracionDias && ` · ${c.antes.duracionDias} → ${c.despues.duracionDias} días`}
+                  {c.antes.duracionDias !== c.despues.duracionDias && ` · ${c.antes.duracionDias} ⇒ ${c.despues.duracionDias} días`}
                 </span>
                 {c.fueraDePlazo && <span className="mt-1 inline-block rounded-full bg-hot/15 px-2 py-0.5 text-[11px] font-semibold text-hot">fuera de plazo</span>}
               </>

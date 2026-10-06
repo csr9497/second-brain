@@ -61,3 +61,12 @@ export function mesLabel(mes: string) {
   const [y, m] = mes.split('-').map(Number);
   return `${MESES_LARGO[m - 1]} ${y}`;
 }
+
+/** "7–8 oct", "30 sep–2 oct" o "9 oct" (para listas de antes ⇒ después); null si no está programado. */
+export function rangoCompacto(p: { startDate: string | null; duracionDias: number | null }) {
+  const fin = finPaso(p);
+  if (!p.startDate || !fin) return null;
+  if (fin === p.startDate) return shortDate(fin);
+  const [d1, m1] = shortDate(p.startDate).split(' ');
+  return p.startDate.slice(0, 7) === fin.slice(0, 7) ? `${d1}–${shortDate(fin)}` : `${d1} ${m1}–${shortDate(fin)}`;
+}

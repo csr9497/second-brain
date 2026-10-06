@@ -121,3 +121,5 @@ erDiagram
   controlable que un trigger de DB).
 
 Ver `supabase/migrations/` para el DDL ejecutable (con `user_id` y RLS por tabla).
+
+- **`aplicar_plan(cambios jsonb)`** (RPC, `security invoker`): aplica en una transacción los cambios del Gantt — `{"tasks":[{id,start_date,deadline}],"steps":[{id,start_date,duracion_dias}]}` —; una fila ajena o inexistente (`P0002`) o un CHECK violado aborta todo.
