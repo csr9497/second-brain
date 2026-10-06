@@ -239,15 +239,16 @@ export const api = {
 
   // Hábitos: un registro por (hábito, fecha). Archivar conserva el historial.
   /**
-   * Marca o desmarca el turno de una ficha. Si el turno ya está hecho (en esta u otra de sus
-   * franjas), desmarca ese registro; si no, lo marca en la franja de la ficha.
+   * Marca o desmarca el turno de una ficha. Si el turno ya está hecho (en cualquiera de sus franjas),
+   * lo desmarca en todas; si no, lo marca en la franja de la ficha.
    */
-  toggleHabit: async ({ id, slot, doneIn }: { id: string; slot: HabitSlot; doneIn: HabitSlot | null }) => {
-    must(
-      await sb
-        .from('habit_logs')
-        .upsert({ habit_id: id, fecha: todayISO(), slot: doneIn ?? slot, done: doneIn == null }, { onConflict: 'habit_id,fecha,slot' }),
-    );
+  toggleHabit: async ({ id, slot, turno, done }: { id: string; slot: HabitSlot; turno: HabitSlot[]; done: boolean }) => {
+    const fecha = todayISO();
+    if (done) {
+      must(await sb.from('habit_logs').update({ done: false }).eq('habit_id', id).eq('fecha', fecha).in('slot', turno));
+    } else {
+      must(await sb.from('habit_logs').upsert({ habit_id: id, fecha, slot, done: true }, { onConflict: 'habit_id,fecha,slot' }));
+    }
   },
   habits: async (): Promise<HabitAdmin[]> =>
     must(await sb.from('habits').select('id, nombre, position, turnos, archived_at').order('position')).map((h) => ({

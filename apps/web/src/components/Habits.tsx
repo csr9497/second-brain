@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { HabitSlot, TodayPayload } from '@sb/shared';
+import type { HabitChip, HabitSlot, TodayPayload } from '@sb/shared';
 import { api } from '../lib/api';
 import { useTodayMutation } from '../lib/useToday';
 
@@ -9,21 +9,31 @@ const TABS: { slot: HabitSlot; label: string }[] = [
   { slot: 'noche', label: '🌙 Noche' },
 ];
 
+type PorFranja = TodayPayload['habits']['porFranja'];
+
+const POR: Record<HabitSlot, string> = { manana: 'la mañana', tarde: 'la tarde', noche: 'la noche' };
+
+/** Cuenta turnos (un hábito = un turno, aunque tenga fichas en varias franjas). */
+function contarTurnos(porFranja: PorFranja) {
+  const turnos = new Map<string, boolean>();
+  for (const c of Object.values(porFranja).flat()) turnos.set(c.id, (turnos.get(c.id) ?? false) || c.done);
+  const total = turnos.size;
+  const hechos = [...turnos.values()].filter(Boolean).length;
+  return { total, hechos, pct: total ? Math.round((hechos / total) * 100) : 0 };
+}
+
 export function Habits({ habits }: { habits: TodayPayload['habits'] }) {
   // La pestaña por defecto es la franja actual (la calcula el server)
   const [tab, setTab] = useState<HabitSlot>(habits.slotActual);
-  const all = Object.values(habits.porFranja).flat();
-  const done = all.filter((h) => h.done).length;
+  const { total, hechos } = contarTurnos(habits.porFranja);
 
   const toggle = useTodayMutation(
-    (id: string) => api.toggleHabit(id),
-    (data, id) => {
-      const porFranja = Object.fromEntries(
-        Object.entries(data.habits.porFranja).map(([k, list]) => [k, list.map((h) => (h.id === id ? { ...h, done: !h.done } : h))]),
-      ) as TodayPayload['habits']['porFranja'];
-      const flat = Object.values(porFranja).flat();
-      const pctDia = flat.length ? Math.round((flat.filter((h) => h.done).length / flat.length) * 100) : 0;
-      return { ...data, habits: { ...data.habits, porFranja, pctDia } };
+    (c: HabitChip) => api.toggleHabit({ id: c.id, slot: c.slot, turno: c.turno, done: c.done }),
+    (data, c) => {
+      // marca o desmarca todas las fichas del mismo turno (en cualquiera de sus franjas)
+      const flip = (x: HabitChip) => (x.id === c.id && x.turno.includes(c.slot) ? { ...x, done: !c.done, doneIn: c.done ? null : c.slot } : x);
+      const porFranja = Object.fromEntries(Object.entries(data.habits.porFranja).map(([k, list]) => [k, list.map(flip)])) as PorFranja;
+      return { ...data, habits: { ...data.habits, porFranja, pctDia: contarTurnos(porFranja).pct } };
     },
   );
 
@@ -40,9 +50,9 @@ export function Habits({ habits }: { habits: TodayPayload['habits'] }) {
         <div>
           <b className="font-display text-[15px]">Progreso del día</b>
           <p className="m-0 mt-0.5 text-[12.5px] text-muted">
-            {all.length === 0
+            {total === 0
               ? 'Aún no tienes hábitos'
-              : `${done} de ${all.length} hechos${habits.pctDia === 100 ? ' — día completo 🎉' : ''}`}
+              : `${hechos} de ${total} hechos${habits.pctDia === 100 ? ' — día completo 🎉' : ''}`}
           </p>
         </div>
         <div className="ml-auto flex-none rounded-xl bg-hot/15 px-3 py-1.5 text-center">
@@ -67,17 +77,21 @@ export function Habits({ habits }: { habits: TodayPayload['habits'] }) {
 
       <div className="flex flex-wrap gap-2">
         {habits.porFranja[tab].length === 0 && <p className="m-0 text-[13px] text-faint">Sin hábitos en esta franja.</p>}
-        {habits.porFranja[tab].map((h) => (
+        {habits.porFranja[tab].map((c) => (
           <button
-            key={h.id}
-            aria-pressed={h.done}
-            onClick={() => toggle.mutate(h.id)}
+            key={`${c.id}-${c.slot}`}
+            aria-pressed={c.done}
+            disabled={toggle.isPending}
+            onClick={() => toggle.mutate(c)}
             className="group inline-flex items-center gap-2 rounded-full border border-line bg-surface2 py-2 pr-[13px] pl-2.5 text-[13px] font-medium transition aria-pressed:border-good aria-pressed:bg-good-ink aria-pressed:text-good"
           >
             <span className="grid size-[18px] place-items-center rounded-md border-[1.5px] border-faint text-xs text-transparent transition group-aria-pressed:border-good group-aria-pressed:bg-good group-aria-pressed:text-white">
               ✓
             </span>
-            {h.nombre}
+            {c.nombre}
+            {c.done && c.doneIn && c.doneIn !== c.slot && (
+              <small className="text-[11px] font-normal opacity-80">· hecho por {POR[c.doneIn]}</small>
+            )}
           </button>
         ))}
       </div>
