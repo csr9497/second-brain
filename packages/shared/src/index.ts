@@ -46,9 +46,16 @@ const taskFields = z.object({
   notes: z.string().nullish(),
 });
 
+// Programación de un paso: fecha de inicio + duración en días (ambos o ninguno; lo garantiza el CHECK de la DB)
+const stepFields = z.object({
+  title: z.string().trim().min(1),
+  startDate: isoDate.nullish(),
+  duracionDias: z.number().int().min(1).nullish(),
+});
+
 export const createTaskInput = taskFields.extend({
   priority: priority.default('media'),
-  steps: z.array(z.object({ title: z.string().trim().min(1) })).default([]),
+  steps: z.array(stepFields).default([]),
 });
 export type CreateTaskInput = z.input<typeof createTaskInput>;
 
@@ -65,6 +72,9 @@ export type ReorderInput = z.input<typeof reorderInput>;
 export const createStepInput = z.object({ title: z.string().trim().min(1) });
 
 const nonEmpty = (o: object) => Object.values(o).some((v) => v !== undefined);
+
+export const updateStepInput = stepFields.partial().refine(nonEmpty, 'Nada que actualizar');
+export type UpdateStepInput = z.input<typeof updateStepInput>;
 
 const habitFields = z.object({ nombre: z.string().trim().min(1), turnos: turnosSchema });
 export const createHabitInput = habitFields.extend({ turnos: turnosSchema.default(() => [['manana' as const]]) });
@@ -104,6 +114,8 @@ export interface Step {
   taskId: string;
   title: string;
   done: boolean;
+  startDate: string | null;
+  duracionDias: number | null;
   position: number;
 }
 
@@ -202,5 +214,6 @@ export * from './domain/dates';
 export * from './domain/ordering';
 export * from './domain/metrics';
 export * from './domain/dashboard';
+export * from './domain/pasos';
 export * from './colors';
 export * from './turnos';
