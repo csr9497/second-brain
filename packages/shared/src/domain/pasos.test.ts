@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { encadenar, finPaso, fueraDePlazo } from './pasos';
+import { encadenar, finPaso, fueraDePlazo, rangoSeleccion } from './pasos';
 
 const p = (startDate: string | null, duracionDias: number | null) => ({ startDate, duracionDias });
 
@@ -27,4 +27,9 @@ describe('encadenar', () => {
       ['c', '2026-10-09', 3],
     ]);
   });
+});
+
+describe('rangoSeleccion', () => {
+  it('ordena e incluye ambos extremos', () => expect(rangoSeleccion('2026-10-09', '2026-10-06')).toEqual({ inicio: '2026-10-06', fin: '2026-10-09', dias: 4 }));
+  it('un mismo día dura 1', () => expect(rangoSeleccion('2026-10-06', '2026-10-06')).toEqual({ inicio: '2026-10-06', fin: '2026-10-06', dias: 1 }));
 });

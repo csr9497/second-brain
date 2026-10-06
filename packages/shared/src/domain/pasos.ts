@@ -1,5 +1,5 @@
 // Programación de los pasos de una tarea (días locales, fechas ISO 'YYYY-MM-DD').
-import { addDays } from './dates';
+import { addDays, daysBetween } from './dates';
 
 type Programable = { startDate: string | null; duracionDias: number | null };
 
@@ -22,4 +22,10 @@ export function encadenar<T extends Programable>(pasos: T[], desde: string): T[]
     inicio = addDays(inicio, duracionDias);
     return r;
   });
+}
+
+/** Rango marcado entre dos días (en cualquier orden), inclusivo, con su duración en días. */
+export function rangoSeleccion(a: string, b: string) {
+  const [inicio, fin] = a <= b ? [a, b] : [b, a];
+  return { inicio, fin, dias: daysBetween(inicio, fin) + 1 };
 }

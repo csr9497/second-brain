@@ -3,25 +3,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { encadenar, fueraDePlazo, todayISO, type CreateTaskInput, type Task, type TaskStatus } from '@sb/shared';
 import { api } from '../lib/api';
 import { rangoPaso } from '../lib/format';
+import { diasDe, programacion, type StepDraft } from '../lib/pasosBorrador';
 import { PRIORITY_OPTIONS, TASK_STATUS_OPTIONS, TASK_TYPE_OPTIONS } from '../lib/options';
 import { TODAY_KEY } from '../lib/useToday';
 import { ConfirmDelete, Field, Modal, ModalActions } from './Modal';
 import { Select, type SelectOption } from './ui/Select';
 import { useToast } from './Toast';
-
-type StepDraft = { id?: string; title: string; startDate: string; dias: string };
-
-/** Días escritos en el borrador (entero ≥ 1), o null si están vacíos o no son válidos. */
-function diasDe(s: StepDraft) {
-  const n = Math.round(Number(s.dias));
-  return s.dias.trim() && Number.isFinite(n) && n >= 1 ? n : null;
-}
-
-/** Borrador → programación: con fecha y sin días se usa 1; días redondeados, mínimo 1; sin fecha, nada. */
-function programacion(s: StepDraft) {
-  if (!s.startDate) return { startDate: null, duracionDias: null };
-  return { startDate: s.startDate, duracionDias: diasDe(s) ?? 1 };
-}
 
 /** Crea una tarea o, si recibe `task`, la edita (campos, estado y pasos). */
 export function TaskModal({ task, onClose }: { task?: Task; onClose: () => void }) {
