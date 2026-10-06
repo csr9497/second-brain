@@ -78,8 +78,8 @@ Studio local: http://127.0.0.1:54323. Deploy: cada push a `main` ejecuta `.githu
 - **Listas de tareas (`bucketTasks`):**
   - Las hechas solo se ven el día en que se completaron.
   - Las vencidas sin terminar van **solo** a `incumplimiento`.
-  - `hoy` = deadline hoy, o sin deadline y con `start_date` hoy.
-  - `semana` = hoy + deadline hasta el domingo.
+  - `hoy` = deadline hoy, o sin deadline y con `start_date` hoy, o un paso pendiente que cubre hoy.
+  - `semana` = hoy + deadline hasta el domingo, o `start_date` dentro de la semana (lun–dom), o un paso pendiente en algún día de la semana.
 - **Pasos programados:** `steps.start_date` + `duracion_dias` (ambos o ninguno, CHECK); el fin es inclusivo (`finPaso` = inicio + días − 1). Un paso fuera del rango `start_date`–`deadline` de su tarea se permite y se marca "fuera de plazo" (`fueraDePlazo`); sin programar no sale en el Gantt.
 - **Semana:** de lunes a domingo. **`schedule_days`:** enteros 0–6, con 0 = domingo.
 - **Racha:** días consecutivos al 100% de los **turnos** de los hábitos vigentes ese día (`periodoEn`: el periodo de `habit_periods` que cubre ese día, con sus turnos). Hoy suma si está completo, pero si no lo está no rompe la racha; un día sin hábitos vigentes la corta.

@@ -1,4 +1,5 @@
-import { addDays } from './dates';
+import { addDays, weekRange } from './dates';
+import { finPaso } from './pasos';
 
 export const pct = (done: number, total: number) => (total === 0 ? 0 : Math.round((done / total) * 100));
 
@@ -31,6 +32,8 @@ export interface TaskLike {
   deadline: string | null;
   startDate: string | null;
   completedAt: string | null;
+  /** Pasos programados (opcional): un paso pendiente cuenta como trabajo de los días que cubre */
+  steps?: { startDate: string | null; duracionDias: number | null; done: boolean }[];
 }
 
 export const isOverdue = (t: TaskLike, today: string) =>
@@ -40,8 +43,9 @@ export const isOverdue = (t: TaskLike, today: string) =>
  * Reparte tareas en las listas de la pantalla Hoy.
  * - Las tareas hechas solo se ven el día en que se completaron (para poder desmarcarlas).
  * - Las vencidas sin terminar van SOLO a incumplimiento.
- * - hoy: deadline = hoy, o sin deadline y con fecha de inicio hoy.
- * - semana: hoy ≤ deadline ≤ fin de semana, más las de "hoy".
+ * - hoy: deadline = hoy, o sin deadline y con fecha de inicio hoy, o un paso pendiente que cubre hoy.
+ * - semana: las de "hoy", más hoy ≤ deadline ≤ fin de semana, o inicio dentro de la semana,
+ *   o un paso pendiente que cae en algún día de la semana (lunes a domingo).
  */
 export function bucketTasks<T extends TaskLike>(
   tasks: T[],
@@ -52,8 +56,17 @@ export function bucketTasks<T extends TaskLike>(
   const visible = tasks.filter((t) => t.status !== 'hecha' || completedToday(t));
   const incumplimiento = visible.filter((t) => isOverdue(t, today));
   const current = visible.filter((t) => !isOverdue(t, today));
-  const isHoy = (t: T) => t.deadline === today || (t.deadline == null && t.startDate === today);
+  const weekStart = weekRange(today).start;
+  const pasoEntre = (t: T, desde: string, hasta: string) =>
+    (t.steps ?? []).some((s) => !s.done && s.startDate != null && s.startDate <= hasta && (finPaso(s) ?? s.startDate) >= desde);
+  const isHoy = (t: T) => t.deadline === today || (t.deadline == null && t.startDate === today) || pasoEntre(t, today, today);
   const hoy = current.filter(isHoy);
-  const semana = current.filter((t) => isHoy(t) || (t.deadline != null && t.deadline >= today && t.deadline <= weekEnd));
+  const semana = current.filter(
+    (t) =>
+      isHoy(t) ||
+      (t.deadline != null && t.deadline >= today && t.deadline <= weekEnd) ||
+      (t.startDate != null && t.startDate >= weekStart && t.startDate <= weekEnd) ||
+      pasoEntre(t, weekStart, weekEnd),
+  );
   return { hoy, semana, todas: current, incumplimiento };
 }

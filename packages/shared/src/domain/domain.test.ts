@@ -95,3 +95,33 @@ describe('pct', () => {
     expect(pct(0, 0)).toBe(0);
   });
 });
+
+describe('bucketTasks con pasos programados', () => {
+  // miércoles 7 oct 2026; semana del lunes 5 al domingo 11
+  const today = '2026-10-07';
+  const weekEnd = '2026-10-11';
+  const paso = (startDate: string, duracionDias: number, done = false) => ({ startDate, duracionDias, done });
+  const t = (id: string, o: Partial<{ deadline: string; startDate: string; steps: ReturnType<typeof paso>[] }> = {}) => ({
+    id,
+    status: 'por_hacer',
+    deadline: null,
+    startDate: null,
+    completedAt: null,
+    steps: [] as ReturnType<typeof paso>[],
+    ...o,
+  });
+  const tasks = [
+    t('sinDeadlinePasoSemana', { steps: [paso('2026-10-09', 2)] }),
+    t('deadlineProximaPasoSemana', { deadline: '2026-10-20', steps: [paso('2026-10-08', 1)] }),
+    t('pasoHoy', { deadline: '2026-10-30', steps: [paso('2026-10-06', 3)] }),
+    t('pasoHecho', { deadline: '2026-10-30', steps: [paso('2026-10-08', 1, true)] }),
+    t('inicioSemana', { startDate: '2026-10-10' }),
+    t('pasoProxima', { steps: [paso('2026-10-12', 2)] }),
+  ];
+  const b = bucketTasks(tasks, today, weekEnd, () => false);
+  const ids = (xs: { id: string }[]) => xs.map((x) => x.id);
+
+  it('semana incluye tareas con un paso pendiente en la semana o que empiezan en ella', () =>
+    expect(ids(b.semana)).toEqual(['sinDeadlinePasoSemana', 'deadlineProximaPasoSemana', 'pasoHoy', 'inicioSemana']));
+  it('hoy incluye tareas con un paso pendiente que cubre hoy', () => expect(ids(b.hoy)).toEqual(['pasoHoy']));
+});
