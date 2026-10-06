@@ -12,13 +12,17 @@ import { ProjectModal } from './components/ProjectModal';
 import { Login } from './components/Login';
 import { useSession } from './lib/useSession';
 import { sb } from './lib/supabase';
-import type { Project, Task } from '@sb/shared';
+import { HabitModal } from './components/HabitModal';
+import { HabitsManager } from './components/HabitsManager';
+import type { HabitAdmin, Project, Task } from '@sb/shared';
 
 type ModalState =
   | { kind: 'tarea'; task?: Task }
   | { kind: 'proyecto'; project?: Project }
   | { kind: 'revision' }
   | { kind: 'idea' }
+  | { kind: 'habitos' }
+  | { kind: 'habito'; habit?: HabitAdmin }
   | null;
 
 const ACTIONS: { id: 'tarea' | 'revision' | 'idea'; icon: string; label: string; primary?: boolean }[] = [
@@ -39,6 +43,8 @@ function Home() {
   const { data, error, isLoading } = useToday();
   const [modal, setModal] = useState<ModalState>(null);
   const close = useCallback(() => setModal(null), []);
+  // Crear/editar un hábito cierra "Gestionar hábitos" y vuelve a él al terminar (sin modales apilados)
+  const backToHabits = useCallback(() => setModal({ kind: 'habitos' }), []);
 
   return (
     <div className="mx-auto max-w-[780px] px-4 pt-[26px] pb-[72px]">
@@ -87,7 +93,12 @@ function Home() {
           <section className="mt-6">
             <div className="mb-3 flex items-baseline justify-between gap-2.5">
               <h2 className="m-0 font-display text-lg font-semibold">Hábitos de hoy</h2>
-              <small className="text-xs text-faint">se abre según la hora</small>
+              <button
+                onClick={() => setModal({ kind: 'habitos' })}
+                className="rounded-full border border-line px-3 py-1 text-xs font-semibold text-muted hover:text-text"
+              >
+                ✏️ Gestionar
+              </button>
             </div>
             <Habits habits={data.habits} />
           </section>
@@ -100,6 +111,10 @@ function Home() {
       {modal?.kind === 'proyecto' && <ProjectModal project={modal.project} onClose={close} />}
       {modal?.kind === 'revision' && <ReviewModal onClose={close} />}
       {modal?.kind === 'idea' && <IdeaModal onClose={close} />}
+      {modal?.kind === 'habitos' && (
+        <HabitsManager onClose={close} onNew={() => setModal({ kind: 'habito' })} onEdit={(habit) => setModal({ kind: 'habito', habit })} />
+      )}
+      {modal?.kind === 'habito' && <HabitModal habit={modal.habit} onClose={backToHabits} />}
     </div>
   );
 }
