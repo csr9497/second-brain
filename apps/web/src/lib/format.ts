@@ -1,3 +1,5 @@
+import { finPaso } from '@sb/shared';
+
 const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 const DIAS_LARGO = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -43,4 +45,11 @@ export function greeting(hour = new Date().getHours()) {
   if (hour < 12) return 'Buenos días. Empieza el día aquí.';
   if (hour < 19) return 'Buenas tardes. Todo a un toque.';
   return 'Buenas noches. Cierra el día aquí.';
+}
+
+/** "6 oct → 8 oct" (o "6 oct" si dura un día); null si el paso no está programado. */
+export function rangoPaso(p: { startDate: string | null; duracionDias: number | null }) {
+  const fin = finPaso(p);
+  if (!p.startDate || !fin) return null;
+  return fin === p.startDate ? shortDate(p.startDate) : `${shortDate(p.startDate)} → ${shortDate(fin)}`;
 }

@@ -1,14 +1,22 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { type CreateTaskInput, type Task, type TaskStatus } from '@sb/shared';
+import { encadenar, fueraDePlazo, todayISO, type CreateTaskInput, type Task, type TaskStatus } from '@sb/shared';
 import { api } from '../lib/api';
+import { rangoPaso } from '../lib/format';
 import { PRIORITY_OPTIONS, TASK_STATUS_OPTIONS, TASK_TYPE_OPTIONS } from '../lib/options';
 import { TODAY_KEY } from '../lib/useToday';
 import { ConfirmDelete, Field, Modal, ModalActions } from './Modal';
 import { Select, type SelectOption } from './ui/Select';
 import { useToast } from './Toast';
 
-type StepDraft = { id?: string; title: string };
+type StepDraft = { id?: string; title: string; startDate: string; dias: string };
+
+/** Borrador → programación: con fecha y sin días se usa 1; días redondeados, mínimo 1; sin fecha, nada. */
+function programacion(s: StepDraft) {
+  if (!s.startDate) return { startDate: null, duracionDias: null };
+  const n = Math.round(Number(s.dias));
+  return { startDate: s.startDate, duracionDias: Number.isFinite(n) && n >= 1 ? n : 1 };
+}
 
 /** Crea una tarea o, si recibe `task`, la edita (campos, estado y pasos). */
 export function TaskModal({ task, onClose }: { task?: Task; onClose: () => void }) {
@@ -28,7 +36,12 @@ export function TaskModal({ task, onClose }: { task?: Task; onClose: () => void 
     deadline: task?.deadline ?? '',
     notes: task?.notes ?? '',
   });
-  const [steps, setSteps] = useState<StepDraft[]>(task ? task.steps.map((s) => ({ id: s.id, title: s.title })) : [{ title: '' }]);
+  const [steps, setSteps] = useState<StepDraft[]>(
+    task
+      ? task.steps.map((s) => ({ id: s.id, title: s.title, startDate: s.startDate ?? '', dias: s.duracionDias ? String(s.duracionDias) : '' }))
+      : [{ title: '', startDate: '', dias: '' }],
+  );
+  const setStep = (i: number, patch: Partial<StepDraft>) => setSteps((xs) => xs.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const setValue = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
   const projectOptions: SelectOption[] = [
@@ -59,17 +72,25 @@ export function TaskModal({ task, onClose }: { task?: Task; onClose: () => void 
   const save = useMutation({
     mutationFn: async () => {
       if (!task) {
-        const newSteps = steps.map((s) => s.title.trim()).filter(Boolean).map((title) => ({ title }));
+        const newSteps = steps.filter((s) => s.title.trim()).map((s) => ({ title: s.title.trim(), ...programacion(s) }));
         return api.createTask({ ...fields(), steps: newSteps });
       }
       await api.updateTask(task.id, { ...fields(), status: form.status });
-      // Pasos: borrar los quitados (o vaciados), renombrar los cambiados y crear los nuevos
-      const kept = new Map(steps.filter((s) => s.id && s.title.trim()).map((s) => [s.id!, s.title.trim()]));
+      // Pasos: borrar los quitados (o vaciados), actualizar los cambiados y crear los nuevos
+      const kept = new Map(steps.filter((s) => s.id && s.title.trim()).map((s) => [s.id!, s]));
       for (const s of task.steps) {
-        if (!kept.has(s.id)) await api.deleteStep(s.id);
-        else if (kept.get(s.id) !== s.title) await api.renameStep(s.id, kept.get(s.id)!);
+        const draft = kept.get(s.id);
+        if (!draft) {
+          await api.deleteStep(s.id);
+          continue;
+        }
+        const title = draft.title.trim();
+        const prog = programacion(draft);
+        if (title !== s.title || prog.startDate !== (s.startDate ?? null) || prog.duracionDias !== (s.duracionDias ?? null)) {
+          await api.updateStep(s.id, { title, ...prog });
+        }
       }
-      for (const s of steps) if (!s.id && s.title.trim()) await api.addStep(task.id, s.title.trim());
+      for (const s of steps) if (!s.id && s.title.trim()) await api.addStep(task.id, { title: s.title.trim(), ...programacion(s) });
     },
     onSuccess: () => {
       toast(editing ? '✅ Tarea actualizada' : '✅ Tarea creada');
@@ -110,26 +131,74 @@ export function TaskModal({ task, onClose }: { task?: Task; onClose: () => void 
         <Field label="Pasos (subtareas)" group>
           <div className="mb-1.5 flex flex-col gap-1.5">
             {steps.map((s, i) => (
-              <div key={s.id ?? `new-${i}`} className="flex items-center gap-[7px]">
-                <input
-                  className="input flex-1"
-                  value={s.title}
-                  placeholder={i === 0 ? 'Primer paso' : 'Otro paso…'}
-                  onChange={(e) => setSteps((xs) => xs.map((x, j) => (j === i ? { ...x, title: e.target.value } : x)))}
-                />
-                <button type="button" title="Quitar paso" className="text-base text-faint" onClick={() => setSteps((xs) => xs.filter((_, j) => j !== i))}>
-                  ✕
-                </button>
+              <div key={s.id ?? `new-${i}`} className="flex flex-col gap-1.5 rounded-lg border border-line p-2">
+                <div className="flex items-center gap-[7px]">
+                  <input
+                    className="input flex-1"
+                    value={s.title}
+                    placeholder={i === 0 ? 'Primer paso' : 'Otro paso…'}
+                    onChange={(e) => setStep(i, { title: e.target.value })}
+                  />
+                  <button type="button" title="Quitar paso" className="text-base text-faint" onClick={() => setSteps((xs) => xs.filter((_, j) => j !== i))}>
+                    ✕
+                  </button>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="date"
+                    aria-label={`Inicio del paso ${i + 1}`}
+                    className="input w-auto py-1 text-[13px]"
+                    value={s.startDate}
+                    onChange={(e) => setStep(i, { startDate: e.target.value })}
+                  />
+                  <input
+                    type="number"
+                    min={1}
+                    step={1}
+                    inputMode="numeric"
+                    aria-label={`Días del paso ${i + 1}`}
+                    placeholder="días"
+                    className="input w-20 py-1 text-[13px]"
+                    value={s.dias}
+                    onChange={(e) => setStep(i, { dias: e.target.value })}
+                  />
+                  {rangoPaso(programacion(s)) && <span className="text-xs text-muted">{rangoPaso(programacion(s))}</span>}
+                  {fueraDePlazo(programacion(s), { startDate: form.startDate || null, deadline: form.deadline || null }) && (
+                    <span className="rounded-full bg-hot/15 px-2 py-0.5 text-[11px] font-semibold text-hot">fuera de plazo</span>
+                  )}
+                </div>
               </div>
             ))}
           </div>
-          <button
-            type="button"
-            onClick={() => setSteps((xs) => [...xs, { title: '' }])}
-            className="rounded-lg border border-dashed border-line px-2.5 py-[5px] text-xs font-semibold text-muted"
-          >
-            + Añadir paso
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setSteps((xs) => [...xs, { title: '', startDate: '', dias: '' }])}
+              className="rounded-lg border border-dashed border-line px-2.5 py-[5px] text-xs font-semibold text-muted"
+            >
+              + Añadir paso
+            </button>
+            <button
+              type="button"
+              disabled={!steps.some((s) => s.title.trim())}
+              onClick={() => {
+                const desde = form.startDate || todayISO();
+                const conTitulo = steps.filter((s) => s.title.trim());
+                const encadenados = encadenar(conTitulo.map((s) => ({ ...s, ...programacion(s) })), desde);
+                let k = 0;
+                setSteps((xs) =>
+                  xs.map((x) => {
+                    if (!x.title.trim()) return x;
+                    const e = encadenados[k++];
+                    return { ...x, startDate: e.startDate!, dias: String(e.duracionDias) };
+                  }),
+                );
+              }}
+              className="rounded-lg border border-dashed border-line px-2.5 py-[5px] text-xs font-semibold text-muted disabled:opacity-40"
+            >
+              ⛓ Encadenar pasos
+            </button>
+          </div>
         </Field>
         <div className="grid grid-cols-2 gap-[11px]">
           <Field label="Tipo de actividad">
