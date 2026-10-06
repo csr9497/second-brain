@@ -17,6 +17,7 @@ import {
   updateStepInput,
   createStepInput,
   type CalendarMonth,
+  type Cambio,
   type CreateStepInput,
   weekRange,
   type CreateHabitInput,
@@ -27,6 +28,7 @@ import {
   type HabitSlot,
   type Idea,
   type Project,
+  type PaletteColor,
   type ProjectInput,
   type ProjectRow,
   type ReorderInput,
@@ -205,6 +207,38 @@ async function getTask(id: string): Promise<Task> {
 // ---------- API ----------
 
 export const api = {
+  /** Tareas con alguna fecha o con pasos programados, y los proyectos para agruparlas. */
+  gantt: async (incluirHechas: boolean): Promise<{ tasks: Task[]; projects: { id: string; nombre: string; color: PaletteColor }[] }> => {
+    const [conFecha, pasos, projects] = await Promise.all([
+      fetchAll<Row>((a, b) => {
+        const base = sb.from('tasks').select(TASK_SELECT).or('start_date.not.is.null,deadline.not.is.null');
+        const q = incluirHechas ? base : base.neq('status', 'hecha');
+        return q.order('position').order('id').range(a, b);
+      }),
+      fetchAll<Row>((a, b) => sb.from('steps').select('task_id').not('start_date', 'is', null).order('id').range(a, b)),
+      sb.from('projects').select('id, nombre, color').order('nombre'),
+    ]);
+    const vistas = new Set(conFecha.map((t) => t.id));
+    const faltan = [...new Set(pasos.map((p) => p.task_id as string))].filter((id) => !vistas.has(id));
+    let extra: Row[] = [];
+    if (faltan.length) {
+      const base = sb.from('tasks').select(TASK_SELECT).in('id', faltan);
+      extra = must(await (incluirHechas ? base : base.neq('status', 'hecha')));
+    }
+    return {
+      tasks: [...conFecha, ...extra].map(toTask),
+      projects: must(projects).map((p) => ({ id: p.id, nombre: p.nombre, color: (p.color ?? 'azul') as PaletteColor })),
+    };
+  },
+  /** Guarda el borrador del Gantt de una vez (aplicar_plan: todo o nada). */
+  aplicarPlan: async (cambios: Cambio[]) => {
+    const plan = {
+      tasks: cambios.flatMap((c) => (c.tipo === 'tarea' ? [{ id: c.id, start_date: c.despues.startDate, deadline: c.despues.deadline }] : [])),
+      steps: cambios.flatMap((c) => (c.tipo === 'paso' ? [{ id: c.id, start_date: c.despues.startDate, duracion_dias: c.despues.duracionDias }] : [])),
+    };
+    const { error } = await sb.rpc('aplicar_plan', { cambios: plan });
+    if (error) throw new Error(error.message);
+  },
   today: async (): Promise<TodayPayload> => buildToday(await loadDashboard()),
 
   /** Mes del calendario: tareas que vencen o tienen pasos en la rejilla, hábitos y sus registros. */

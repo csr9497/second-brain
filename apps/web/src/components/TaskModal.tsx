@@ -73,6 +73,7 @@ export function TaskModal({ task, onClose }: { task?: Task; onClose: () => void 
     qc.invalidateQueries({ queryKey: TODAY_KEY });
     qc.invalidateQueries({ queryKey: ['projects'] });
     qc.invalidateQueries({ queryKey: ['calendar'] });
+    qc.invalidateQueries({ queryKey: ['gantt'] });
   };
 
   const save = useMutation({
