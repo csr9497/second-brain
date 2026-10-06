@@ -36,6 +36,7 @@ const task = (id: string, o: Partial<Task> = {}): Task => ({
   id,
   projectId: null,
   projectName: null,
+  projectColor: null,
   title: id,
   description: null,
   type: null,

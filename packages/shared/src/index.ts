@@ -124,6 +124,7 @@ export interface Task {
   id: string;
   projectId: string | null;
   projectName: string | null;
+  projectColor: PaletteColor | null;
   title: string;
   description: string | null;
   type: string | null;
@@ -215,6 +216,7 @@ export * from './domain/dates';
 export * from './domain/ordering';
 export * from './domain/metrics';
 export * from './domain/dashboard';
+export * from './domain/calendar';
 export * from './domain/pasos';
 export * from './colors';
 export * from './turnos';

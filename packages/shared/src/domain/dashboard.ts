@@ -116,22 +116,28 @@ export function projectViews(projects: ProjectRow[], tasks: Pick<Task, 'projectI
     );
 }
 
-export function buildToday({ habits, doneLogs, tasks, projects, now }: DashboardInput): TodayPayload {
-  const today = todayISO(now);
-  const logsHoy = doneLogs.filter((l) => l.fecha === today);
+/** Fichas por franja de un día y su conteo de turnos (la misma regla en Hoy y en el calendario). */
+export function fichasDelDia(habits: HabitRow[], doneLogs: DashboardInput['doneLogs'], fecha: string) {
+  const delDia = doneLogs.filter((l) => l.fecha === fecha);
   const porFranja: Record<HabitSlot, HabitChip[]> = { manana: [], tarde: [], noche: [] };
-  let turnosHoy = 0;
-  let hechosHoy = 0;
-  for (const { habit, turnos } of turnosEn(habits, today)) {
-    for (const turno of turnos) {
-      turnosHoy++;
-      const doneIn = turno.find((f) => logsHoy.some((l) => l.habitId === habit.id && l.slot === f)) ?? null;
-      if (doneIn) hechosHoy++;
+  let turnos = 0;
+  let hechos = 0;
+  for (const { habit, turnos: lista } of turnosEn(habits, fecha)) {
+    for (const turno of lista) {
+      turnos++;
+      const doneIn = turno.find((f) => delDia.some((l) => l.habitId === habit.id && l.slot === f)) ?? null;
+      if (doneIn) hechos++;
       for (const slot of turno) {
         porFranja[slot].push({ id: habit.id, nombre: habit.nombre, position: habit.position, slot, turno, done: doneIn != null, doneIn });
       }
     }
   }
+  return { porFranja, turnos, hechos };
+}
+
+export function buildToday({ habits, doneLogs, tasks, projects, now }: DashboardInput): TodayPayload {
+  const today = todayISO(now);
+  const { porFranja, turnos: turnosHoy, hechos: hechosHoy } = fichasDelDia(habits, doneLogs, today);
 
   const completedToday = (t: Task) => t.completedAt != null && toISO(new Date(t.completedAt)) === today;
 
