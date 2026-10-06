@@ -15,7 +15,12 @@ export function Modal({
 }) {
   useEffect(() => {
     // Radix (Select) cierra su lista con Esc y marca el evento: no cerrar también el modal
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !e.defaultPrevented && onClose();
+    // Al atenderlo lo marca, para que otros oyentes (rangos del Calendario/Gantt) lo ignoren
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      e.preventDefault();
+      onClose();
+    };
     document.addEventListener('keydown', onKey);
     document.body.style.overflow = 'hidden';
     return () => {

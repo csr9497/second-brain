@@ -1,6 +1,6 @@
 import { Children, useEffect, useRef, useState, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { SLOT_NOMBRE, isOverdue, mesDe, rangoSeleccion, sumarMeses, todayISO, type CalendarDay, type HabitSlot, type Task } from '@sb/shared';
+import { SLOT_NOMBRE, isOverdue, mesDe, rangoSeleccion, sumarMeses, todayISO, type CalendarDay, type HabitSlot, type ItemDia, type Task } from '@sb/shared';
 import { api } from '../lib/api';
 import { headerDate, mesLabel, rangoPaso, shortDate } from '../lib/format';
 import { Dot } from './ui/Dot';
@@ -49,7 +49,8 @@ export function CalendarView({ onEditTask, onNewTask }: { onEditTask: (t: Task) 
   useEffect(() => {
     if (!rango && !marcandoDesde) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || document.querySelector('[role=dialog],[role=alertdialog]')) return;
+      // `defaultPrevented`: el Esc ya lo atendió un modal
+      if (e.key !== 'Escape' || e.defaultPrevented || document.querySelector('[role=dialog],[role=alertdialog]')) return;
       setRango(null);
       setMarcandoDesde(null);
     };
@@ -193,9 +194,16 @@ function Celda({
   onClick: (e: MouseEvent) => void;
 }) {
   const n = dia.items.length;
-  const vencidas = dia.items.filter((it) => it.tipo !== 'paso' && it.fin && isOverdue(it.tarea, hoy)).length;
+  const cuenta = (tipo: ItemDia['tipo']) => dia.items.filter((it) => it.tipo === tipo).length;
+  const [tareas, pasos, vencen] = [cuenta('tarea'), cuenta('paso'), cuenta('vence')];
+  // vencida: en el último día de una tarea con rango, o en su "⚑ vence"
+  const esVencida = (it: ItemDia) => it.tipo !== 'paso' && it.fin && isOverdue(it.tarea, hoy);
+  const vencidas = dia.items.filter(esVencida).length;
   const resumen = [
-    `${n} ${n === 1 ? 'elemento' : 'elementos'}`,
+    tareas ? `${tareas} ${tareas === 1 ? 'tarea' : 'tareas'}` : null,
+    pasos ? `${pasos} ${pasos === 1 ? 'paso' : 'pasos'}` : null,
+    vencen ? `${vencen} ${vencen === 1 ? 'vence' : 'vencen'}` : null,
+    n === 0 ? 'sin tareas' : null,
     vencidas ? `${vencidas} ${vencidas === 1 ? 'vencida' : 'vencidas'}` : null,
     dia.habitos.pct != null ? `hábitos ${dia.habitos.pct}%` : null,
     enRango ? 'en el rango marcado' : null,
@@ -237,8 +245,9 @@ function Celda({
           }
           const redondeo = `${it.inicio ? 'rounded-l-md' : ''} ${it.fin ? 'rounded-r-md' : ''}`;
           return it.tipo === 'tarea' ? (
-            <span key={it.key} className={`-mx-1 flex h-4 min-w-0 items-center px-1 text-[10px] font-semibold text-white ${redondeo}`} style={{ background: `var(--c-${c})` }}>
-              <span className="hidden truncate sm:inline">{it.etiqueta ? it.titulo : '\u00a0'}</span>
+            <span key={it.key} className={`-mx-1 flex h-4 min-w-0 items-center gap-0.5 px-1 text-[10px] font-semibold text-white ${redondeo}`} style={{ background: `var(--c-${c})` }}>
+              <span className="hidden min-w-0 flex-1 truncate sm:inline">{it.etiqueta ? it.titulo : '\u00a0'}</span>
+              {esVencida(it) && <span className="ml-auto flex-none rounded-sm bg-hot px-0.5 leading-none font-bold text-white">!</span>}
             </span>
           ) : (
             <span

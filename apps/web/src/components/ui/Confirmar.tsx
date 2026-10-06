@@ -6,7 +6,11 @@ export interface OpcionesConfirmar {
   aceptar?: string;
   cancelar?: string;
 }
-type Peticion = OpcionesConfirmar & { resolver: (ok: boolean) => void };
+type Peticion = OpcionesConfirmar & {
+  resolver: (ok: boolean) => void;
+  /** Elemento con el foco al pedir la confirmación; lo recupera al cerrar */
+  previo: HTMLElement | null;
+};
 
 let mostrar: ((p: Peticion) => void) | null = null;
 
@@ -14,37 +18,53 @@ let mostrar: ((p: Peticion) => void) | null = null;
 export function confirmar(o: OpcionesConfirmar): Promise<boolean> {
   return new Promise((resolve) => {
     if (!mostrar) return resolve(window.confirm(o.titulo)); // sin host montado (no debería pasar)
-    mostrar({ ...o, resolver: resolve });
+    // Se toma aquí, antes de que el autoFocus del diálogo mueva el foco
+    const previo = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    mostrar({ ...o, resolver: resolve, previo });
   });
 }
 
 /** Se monta una vez en App; muestra la confirmación pendiente por encima de los modales. */
 export function ConfirmHost() {
   const [p, setP] = useState<Peticion | null>(null);
+  // La petición en curso, fuera del estado: los resolver se llaman fuera de los updaters
+  const actual = useRef<Peticion | null>(null);
   const caja = useRef<HTMLDivElement>(null);
   const desdeFondo = useRef(false);
   useEffect(() => {
-    // Una petición nueva cancela la anterior: ninguna promesa queda sin resolver
-    mostrar = (q) =>
-      setP((prev) => {
-        prev?.resolver(false);
-        return q;
-      });
+    mostrar = (q) => {
+      const prev = actual.current;
+      if (prev) {
+        // Una petición nueva cancela la anterior: ninguna promesa queda sin resolver.
+        // Si el foco estaba en el diálogo anterior, se hereda su destino.
+        if (q.previo && caja.current?.contains(q.previo)) q.previo = prev.previo;
+        prev.resolver(false);
+      }
+      actual.current = q;
+      setP(q);
+    };
     return () => {
       mostrar = null;
+      actual.current?.resolver(false);
+      actual.current = null;
     };
   }, []);
+  const fin = (ok: boolean) => {
+    const cur = actual.current;
+    if (!cur) return;
+    actual.current = null;
+    setP(null);
+    if (cur.previo?.isConnected) cur.previo.focus({ preventScroll: true });
+    cur.resolver(ok);
+  };
   useEffect(() => {
     if (!p) return;
-    // Al cerrar, el foco vuelve a donde estaba (si ese elemento sigue en la página)
-    const previo = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     // Captura: Esc cancela solo la confirmación; ni el modal de debajo ni los planificadores lo ven
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
-        p.resolver(false);
-        setP(null);
+        fin(false);
       } else if (e.key === 'Tab' && caja.current) {
         // Foco atrapado entre los botones del diálogo
         const botones = [...caja.current.querySelectorAll<HTMLButtonElement>('button')];
@@ -56,16 +76,11 @@ export function ConfirmHost() {
       }
     };
     document.addEventListener('keydown', onKey, true);
-    return () => {
-      document.removeEventListener('keydown', onKey, true);
-      if (previo?.isConnected) previo.focus({ preventScroll: true });
-    };
+    return () => document.removeEventListener('keydown', onKey, true);
+    // fin solo lee refs: no hace falta como dependencia
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [p]);
   if (!p) return null;
-  const fin = (ok: boolean) => {
-    p.resolver(ok);
-    setP(null);
-  };
   return (
     <div
       className="fixed inset-0 z-[70] grid place-items-center bg-black/55 px-4"

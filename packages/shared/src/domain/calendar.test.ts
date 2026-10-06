@@ -98,3 +98,28 @@ describe('items por día', () => {
     ]);
   });
 });
+
+describe('tareas que cruzan el mes o solo tienen inicio', () => {
+  const c = buildCalendar({
+    mes: '2026-10',
+    hoy: '2026-10-06',
+    tasks: [
+      task('larga', { startDate: '2026-09-25', deadline: '2026-11-20' }),
+      task('soloInicio', { startDate: '2026-10-15' }),
+    ],
+    habits: [],
+    doneLogs: [],
+  });
+  const dias = c.semanas.flat();
+
+  it('una tarea del 25 sep al 20 nov aparece en todos los días de la rejilla de octubre', () => {
+    expect(dias.every((d) => d.items.some((i) => i.key === 't-larga' && i.tipo === 'tarea'))).toBe(true);
+    // ni su inicio ni su fin caen en la rejilla (28 sep → 1 nov)
+    expect(dias.some((d) => d.items.some((i) => i.key === 't-larga' && (i.inicio || i.fin)))).toBe(false);
+  });
+  it('una tarea con solo inicio ocupa ese día', () => {
+    const con = dias.filter((d) => d.items.some((i) => i.key === 't-soloInicio'));
+    expect(con.map((d) => d.fecha)).toEqual(['2026-10-15']);
+    expect(con[0].items.find((i) => i.key === 't-soloInicio')).toMatchObject({ tipo: 'tarea', inicio: true, fin: true, etiqueta: true });
+  });
+});

@@ -241,11 +241,22 @@ export const api = {
   },
   today: async (): Promise<TodayPayload> => buildToday(await loadDashboard()),
 
-  /** Mes del calendario: tareas que vencen o tienen pasos en la rejilla, hábitos y sus registros. */
+  /** Mes del calendario: tareas que vencen, cruzan o empiezan en la rejilla (o tienen pasos en ella), hábitos y sus registros. */
   calendar: async (mes: string): Promise<CalendarMonth> => {
     const { start, end } = calendarGrid(mes);
-    const [porDeadline, pasos, habits, logs] = await Promise.all([
+    const [porDeadline, porRango, pasos, habits, logs] = await Promise.all([
       fetchAll<Row>((a, b) => sb.from('tasks').select(TASK_SELECT).gte('deadline', start).lte('deadline', end).order('position').order('id').range(a, b)),
+      // tareas con inicio cuyo rango se solapa con la rejilla aunque venzan fuera (o solo tengan inicio)
+      fetchAll<Row>((a, b) =>
+        sb
+          .from('tasks')
+          .select(TASK_SELECT)
+          .lte('start_date', end)
+          .or(`deadline.gte.${start},and(deadline.is.null,start_date.gte.${start})`)
+          .order('position')
+          .order('id')
+          .range(a, b),
+      ),
       // pasos que empiezan hasta 1 año antes de la rejilla pueden cruzarla
       fetchAll<Row>((a, b) =>
         sb.from('steps').select('task_id').gte('start_date', addDays(start, -366)).lte('start_date', end).order('id').range(a, b),
@@ -256,12 +267,14 @@ export const api = {
       ),
     ]);
     const vistas = new Set(porDeadline.map((t) => t.id));
+    const cruzan = porRango.filter((t) => !vistas.has(t.id));
+    for (const t of cruzan) vistas.add(t.id);
     const faltan = [...new Set(pasos.map((p) => p.task_id as string))].filter((id) => !vistas.has(id));
     const extra = faltan.length ? must(await sb.from('tasks').select(TASK_SELECT).in('id', faltan)) : [];
     return buildCalendar({
       mes,
       hoy: todayISO(),
-      tasks: [...porDeadline, ...extra].map(toTask),
+      tasks: [...porDeadline, ...cruzan, ...extra].map(toTask),
       habits: must(habits).map(toHabitRow),
       doneLogs: logs.map((l) => ({ habitId: l.habit_id, fecha: l.fecha, slot: l.slot as HabitSlot })),
     });
