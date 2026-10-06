@@ -60,10 +60,9 @@ const nonEmpty = (o: object) => Object.values(o).some((v) => v !== undefined);
 
 const habitFields = z.object({ nombre: z.string().trim().min(1), slot: habitSlot });
 export const createHabitInput = habitFields.extend({ slot: habitSlot.default('manana') });
-export const updateHabitInput = habitFields
-  .partial()
-  .extend({ active: z.boolean().optional() })
-  .refine(nonEmpty, 'Nada que actualizar');
+export type CreateHabitInput = z.input<typeof createHabitInput>;
+export const updateHabitInput = habitFields.partial().refine(nonEmpty, 'Nada que actualizar');
+export type UpdateHabitInput = z.input<typeof updateHabitInput>;
 export const toggleHabitInput = z.object({ fecha: isoDate.optional() });
 
 const projectFields = z.object({
@@ -123,6 +122,15 @@ export interface Habit {
   slot: HabitSlot;
   position: number;
   done: boolean; // para la fecha consultada
+}
+
+/** Hábito para el modal de gestión (incluye archivados). */
+export interface HabitAdmin {
+  id: string;
+  nombre: string;
+  slot: HabitSlot;
+  position: number;
+  archivedAt: string | null;
 }
 
 export interface Project {
