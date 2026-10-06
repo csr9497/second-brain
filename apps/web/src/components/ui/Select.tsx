@@ -35,8 +35,9 @@ export function Select<T extends string>({
       value={rootValue}
       onValueChange={(v) => {
         // El select nativo oculto de Radix emite un change con '' si ninguna opción coincide
-        // (p. ej. opciones aún cargando): ignorar valores ajenos para no borrar el estado del padre
-        if (v === NONE ? !hasEmpty : !options.some((o) => o.value === v)) return;
+        // (p. ej. opciones aún cargando): comparar en el espacio de valores de Radix (la opción
+        // vacía es NONE, no '') e ignorar lo ajeno para no borrar el estado del padre
+        if (!options.some((o) => toRadix(o.value) === v)) return;
         onChange((v === NONE ? '' : v) as T);
       }}
     >
