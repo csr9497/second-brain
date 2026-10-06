@@ -34,14 +34,14 @@ begin
     select uid, h.id, today - d, true from public.habits h, generate_series(1, 5) d where h.user_id = uid;
 
   -- Proyectos: dos "tocan hoy", uno no
-  insert into public.projects (user_id, nombre, next_action, schedule_days, total_progress, prioridad)
-    values (uid, 'Preparación rol Node.js (NTT)', 'Repasar AWS serverless', jsonb_build_array(dow, (dow + 2) % 7), 40, 'alta')
+  insert into public.projects (user_id, nombre, next_action, schedule_days, total_progress, prioridad, color)
+    values (uid, 'Preparación rol Node.js (NTT)', 'Repasar AWS serverless', jsonb_build_array(dow, (dow + 2) % 7), 40, 'alta', 'azul')
     returning id into p_ntt;
-  insert into public.projects (user_id, nombre, next_action, schedule_days, total_progress)
-    values (uid, 'Roadmap DevOps → MLOps', 'Módulo Docker/K8s', jsonb_build_array(dow, (dow + 3) % 7), 15)
+  insert into public.projects (user_id, nombre, next_action, schedule_days, total_progress, color)
+    values (uid, 'Roadmap DevOps → MLOps', 'Módulo Docker/K8s', jsonb_build_array(dow, (dow + 3) % 7), 15, 'cian')
     returning id into p_devops;
-  insert into public.projects (user_id, nombre, next_action, schedule_days, total_progress)
-    values (uid, 'Tesis — definir tema', 'Validar dirección GNN con el asesor', jsonb_build_array((dow + 1) % 7), 20)
+  insert into public.projects (user_id, nombre, next_action, schedule_days, total_progress, color)
+    values (uid, 'Tesis — definir tema', 'Validar dirección GNN con el asesor', jsonb_build_array((dow + 1) % 7), 20, 'violeta')
     returning id into p_tesis;
 
   insert into public.tasks (user_id, title, priority, type, project_id, deadline, position)

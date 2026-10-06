@@ -2,7 +2,7 @@
 -- Verifica el aislamiento por usuario (RLS) y las reglas de negocio en triggers.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(13);
+select plan(15);
 
 -- Dos usuarios: A (dueño de los datos) y B (intruso)
 insert into auth.users (instance_id, id, aud, role, email) values
@@ -35,6 +35,13 @@ select is((select completed_at from public.tasks where title = 'Tarea A'), null,
 select throws_ok(
   $$ insert into public.tasks (title, user_id) values ('suplantación', '22222222-2222-4222-8222-222222222222') $$,
   '42501', null, 'no se pueden crear filas a nombre de otro usuario');
+
+-- Color de proyecto: paleta fija con default
+select is((select color from public.projects where id = 'aaaaaaaa-0000-4000-8000-000000000001'), 'azul',
+  'un proyecto sin color queda en azul');
+select throws_ok(
+  $$ insert into public.projects (nombre, color) values ('Proyecto fucsia', 'fucsia') $$,
+  '23514', null, 'color fuera de la paleta viola el CHECK');
 
 -- ---------- Como B ----------
 set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
