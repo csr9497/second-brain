@@ -2,7 +2,7 @@
 -- Verifica el aislamiento por usuario (RLS) y las reglas de negocio en triggers.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(38);
+select plan(45);
 
 -- Dos usuarios: A (dueño de los datos) y B (intruso)
 insert into auth.users (instance_id, id, aud, role, email) values
@@ -105,6 +105,15 @@ select throws_ok($$ update public.steps set start_date = '2026-10-06', duracion_
 select lives_ok($$ update public.steps set start_date = '2026-10-06', duracion_dias = 2 where id = 'aaaaaaaa-0000-4000-8000-000000000003' $$,
   'un paso con fecha y días es válido');
 
+-- aplicar_plan: guarda el borrador del Gantt de una vez (todo o nada)
+select lives_ok($$ select public.aplicar_plan('{"tasks":[{"id":"aaaaaaaa-0000-4000-8000-000000000002","start_date":"2026-10-10","deadline":"2026-10-20"}],"steps":[{"id":"aaaaaaaa-0000-4000-8000-000000000003","start_date":"2026-10-11","duracion_dias":3}]}') $$,
+  'aplicar_plan aplica tareas y pasos');
+select is((select deadline from public.tasks where id = 'aaaaaaaa-0000-4000-8000-000000000002'), '2026-10-20'::date, 'la tarea quedó con el nuevo deadline');
+select is((select duracion_dias from public.steps where id = 'aaaaaaaa-0000-4000-8000-000000000003'), 3, 'el paso quedó con la nueva duración');
+select throws_ok($$ select public.aplicar_plan('{"tasks":[{"id":"aaaaaaaa-0000-4000-8000-000000000002","start_date":"2026-11-01","deadline":"2026-11-05"}],"steps":[{"id":"aaaaaaaa-0000-4000-8000-000000000003","start_date":"2026-11-01","duracion_dias":0}]}') $$,
+  '23514', null, 'un paso inválido aborta todo el plan');
+select is((select deadline from public.tasks where id = 'aaaaaaaa-0000-4000-8000-000000000002'), '2026-10-20'::date, 'tras el fallo la tarea no cambió');
+
 -- ---------- Como B ----------
 set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
 
@@ -112,6 +121,8 @@ select is((select count(*)::int from public.tasks), 0, 'B no ve las tareas de A'
 select is((select count(*)::int from public.projects), 0, 'B no ve los proyectos de A');
 select is((select count(*)::int from public.steps), 0, 'B no ve los pasos de A');
 select is((select count(*)::int from public.habit_periods), 0, 'B no ve los periodos de A');
+select throws_ok($$ select public.aplicar_plan('{"tasks":[{"id":"aaaaaaaa-0000-4000-8000-000000000002","start_date":null,"deadline":null}]}') $$,
+  'P0002', null, 'B no puede aplicar un plan sobre tareas de A');
 
 update public.tasks set title = 'hackeada' where id = 'aaaaaaaa-0000-4000-8000-000000000002';
 delete from public.projects where id = 'aaaaaaaa-0000-4000-8000-000000000001';
@@ -121,6 +132,7 @@ set local role anon;
 set local request.jwt.claims = '{"role":"anon"}';
 select throws_ok($$ select * from public.tasks $$, '42501', null, 'anon no tiene acceso a las tablas');
 select throws_ok($$ select * from public.habit_periods $$, '42501', null, 'anon no tiene acceso a habit_periods');
+select throws_ok($$ select public.aplicar_plan('{}') $$, '42501', null, 'anon no puede ejecutar aplicar_plan');
 
 -- ---------- De vuelta como A: lo de B no tuvo efecto ----------
 set local role authenticated;
