@@ -2,7 +2,7 @@
 -- Verifica el aislamiento por usuario (RLS) y las reglas de negocio en triggers.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(15);
+select plan(18);
 
 -- Dos usuarios: A (dueño de los datos) y B (intruso)
 insert into auth.users (instance_id, id, aud, role, email) values
@@ -42,6 +42,17 @@ select is((select color from public.projects where id = 'aaaaaaaa-0000-4000-8000
 select throws_ok(
   $$ insert into public.projects (nombre, color) values ('Proyecto fucsia', 'fucsia') $$,
   '23514', null, 'color fuera de la paleta viola el CHECK');
+
+-- Hábitos: active se deriva de archived_at
+insert into public.habits (id, nombre) values ('aaaaaaaa-0000-4000-8000-000000000005', 'Hábito A');
+select ok((select active and created_at is not null from public.habits where id = 'aaaaaaaa-0000-4000-8000-000000000005'),
+  'un hábito nuevo nace activo y con created_at');
+update public.habits set archived_at = now() where id = 'aaaaaaaa-0000-4000-8000-000000000005';
+select is((select active from public.habits where id = 'aaaaaaaa-0000-4000-8000-000000000005'), false,
+  'con archived_at el hábito queda inactivo');
+select throws_ok(
+  $$ update public.habits set active = true where id = 'aaaaaaaa-0000-4000-8000-000000000005' $$,
+  '428C9', null, 'active no se escribe a mano (columna generada)');
 
 -- ---------- Como B ----------
 set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
