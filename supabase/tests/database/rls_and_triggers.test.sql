@@ -2,7 +2,7 @@
 -- Verifica el aislamiento por usuario (RLS) y las reglas de negocio en triggers.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(34);
+select plan(35);
 
 -- Dos usuarios: A (dueño de los datos) y B (intruso)
 insert into auth.users (instance_id, id, aud, role, email) values
@@ -74,6 +74,8 @@ select isnt((select hasta from public.habit_periods where habit_id = 'aaaaaaaa-0
 -- Turnos: "y" de franjas alternativas ("o"), cada franja una sola vez
 select throws_ok($$ insert into public.habits (nombre, turnos) values ('repetido', '[["manana"],["manana"]]') $$,
   '23514', null, 'turnos con una franja repetida violan el CHECK');
+select throws_ok($$ insert into public.habits (nombre, turnos) values ('nulo', '[[null]]') $$,
+  '23514', null, 'una franja null viola el CHECK');
 select throws_ok($$ update public.habits set slot = 'tarde' where id = 'aaaaaaaa-0000-4000-8000-000000000005' $$,
   '428C9', null, 'slot es generado (primera franja) y no se escribe');
 update public.habits set turnos = '[["tarde"],["noche"]]' where id = 'aaaaaaaa-0000-4000-8000-000000000005';

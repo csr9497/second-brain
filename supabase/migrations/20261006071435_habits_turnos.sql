@@ -16,7 +16,8 @@ begin
       return false;
     end if;
     for franja in select value from jsonb_array_elements_text(turno) loop
-      if franja not in ('manana', 'tarde', 'noche') or franja = any (vistas) then
+      -- un null de JSON llega como NULL de SQL: hay que rechazarlo explícitamente
+      if franja is null or franja not in ('manana', 'tarde', 'noche') or franja = any (vistas) then
         return false;
       end if;
       vistas := vistas || franja;
