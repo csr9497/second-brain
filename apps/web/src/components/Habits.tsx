@@ -81,8 +81,10 @@ export function Habits({ habits }: { habits: TodayPayload['habits'] }) {
           <button
             key={`${c.id}-${c.slot}`}
             aria-pressed={c.done}
-            disabled={toggle.isPending}
-            onClick={() => toggle.mutate(c)}
+            aria-disabled={toggle.isPending}
+            onClick={() => {
+              if (!toggle.isPending) toggle.mutate(c);
+            }}
             className="group inline-flex items-center gap-2 rounded-full border border-line bg-surface2 py-2 pr-[13px] pl-2.5 text-[13px] font-medium transition aria-pressed:border-good aria-pressed:bg-good-ink aria-pressed:text-good"
           >
             <span className="grid size-[18px] place-items-center rounded-md border-[1.5px] border-faint text-xs text-transparent transition group-aria-pressed:border-good group-aria-pressed:bg-good group-aria-pressed:text-white">

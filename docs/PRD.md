@@ -22,15 +22,22 @@ Orden vertical:
 
 ## 3. Hábitos
 
-- Cada hábito pertenece a una **franja**: `manana` | `tarde` | `noche`.
+- Un hábito se programa en **turnos**: una lista unida por "y" (+) de turnos, cada uno
+  con franjas alternativas unidas por "o". Cada franja (`manana` | `tarde` | `noche`)
+  se usa una sola vez. Ej.: Mañana + (Tarde o Noche).
+- Se marca **una vez por turno**: un turno con alternativas se puede cumplir en
+  cualquiera de sus franjas. Hoy lo muestra en la pestaña de cada una y, al hacerse,
+  indica en cuál ("hecho por la tarde").
 - La vista tiene 3 pestañas (una por franja). **La pestaña activa por defecto es la
   de la franja horaria actual** (mañana <12h, tarde 12–19h, noche ≥19h).
-- Marcar/desmarcar un hábito registra su estado **para el día actual**.
-- **% del día** = hábitos hechos / total de hábitos del día (todas las franjas),
-  mostrado como anillo de progreso.
+- Marcar/desmarcar un turno registra su estado **para el día actual**.
+- **% del día** = turnos hechos / total de turnos de los hábitos vigentes ese día
+  (todas las franjas), mostrado como anillo de progreso.
 - **Racha**: nº de días consecutivos con % del día = 100% (configurable: podría ser
-  ≥ umbral). Se rompe si un día cerró sin llegar al umbral.
-- Persistencia: un registro por (hábito, fecha).
+  ≥ umbral). Se rompe si un día cerró sin llegar al umbral. Cuenta turnos de los
+  hábitos vigentes ese día.
+- Persistencia: un registro por (hábito, fecha, franja). Archivar, reactivar y editar
+  un hábito conservan el historial exacto mediante periodos.
 
 ## 4. Tareas / Pendientes
 

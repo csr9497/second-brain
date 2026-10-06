@@ -7,7 +7,7 @@ import { Field, Modal, ModalActions } from './Modal';
 import { TurnosBuilder } from './ui/TurnosBuilder';
 import { useToast } from './Toast';
 
-/** Crea un hábito o, si recibe `habit`, lo edita (nombre y franja). */
+/** Crea un hábito o, si recibe `habit`, lo edita (nombre y turnos). */
 export function HabitModal({ habit, onClose }: { habit?: HabitAdmin; onClose: () => void }) {
   const toast = useToast();
   const refresh = useInvalidateHabits();
