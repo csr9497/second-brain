@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { PaletteColor } from '@sb/shared';
 import type { Activo, StepDraft, TareaPlan } from '../../lib/pasosBorrador';
 import { CalendarioPlan } from './CalendarioPlan';
+import { GanttPlan } from './GanttPlan';
 
 export interface PlanProps {
   tarea: TareaPlan;
@@ -57,7 +58,7 @@ export function PlanificadorTarea(props: PlanProps) {
       <p className="m-0 mb-2 text-[12px] text-faint">
         Arrastra del primer al último día de {nombre}, o toca el primero y luego el último.
       </p>
-      {vista === 'calendario' ? <CalendarioPlan {...props} /> : <p className="text-sm text-faint">Gantt en construcción</p>}
+      {vista === 'calendario' ? <CalendarioPlan {...props} /> : <GanttPlan {...props} />}
     </section>
   );
 }
