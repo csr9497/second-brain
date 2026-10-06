@@ -2,7 +2,8 @@ import { useEffect, useState, type ReactNode } from 'react';
 
 export function Modal({ title, hint, onClose, children }: { title: string; hint?: string; onClose: () => void; children: ReactNode }) {
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    // Radix (Select) cierra su lista con Esc y marca el evento: no cerrar también el modal
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !e.defaultPrevented && onClose();
     document.addEventListener('keydown', onKey);
     document.body.style.overflow = 'hidden';
     return () => {
