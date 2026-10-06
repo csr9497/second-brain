@@ -12,6 +12,9 @@ import { Select, type SelectOption } from './ui/Select';
 import { confirmar } from './ui/Confirmar';
 import { useToast } from './Toast';
 
+const detalles = 'group mb-[13px] rounded-lg border border-line';
+const resumen = 'flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs font-semibold text-muted select-none [&::-webkit-details-marker]:hidden';
+
 /** Crea una tarea o, si recibe `task`, la edita (campos, estado y pasos). */
 export function TaskModal({
   task,
@@ -45,6 +48,7 @@ export function TaskModal({
       : [{ title: '', startDate: '', dias: '' }],
   );
   const [activo, setActivo] = useState<Activo>('tarea');
+  const [verPasos, setVerPasos] = useState(!!task && task.steps.length > 0);
   // Foto del estado inicial (solo en el montaje) para avisar al cerrar con cambios sin guardar
   const [foto] = useState(() => JSON.stringify({ form, steps }));
   const cerrar = async () => {
@@ -75,6 +79,17 @@ export function TaskModal({
       color: p.color,
     })),
   ];
+
+  const etiqueta = (opts: { value: string; label: string }[], v: string) => opts.find((o) => o.value === v)?.label;
+  const resumenDetalles = [
+    etiqueta(PRIORITY_OPTIONS, form.priority),
+    form.projectId ? projectOptions.find((o) => o.value === form.projectId)?.label : 'sin proyecto',
+    editing ? etiqueta(TASK_STATUS_OPTIONS, form.status) : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const conTitulo = steps.filter((s) => s.title.trim()).length;
+  const programados = steps.filter((s) => s.startDate).length;
 
   const fields = () => ({
     title: form.title.trim(),
@@ -158,106 +173,6 @@ export function TaskModal({
             <Field label="Descripción">
               <textarea className="input min-h-14 resize-y" value={form.description} onChange={set('description')} placeholder="Qué hay que hacer…" />
             </Field>
-            <Field label="Pasos (subtareas)" group>
-              <div className="mb-1.5 flex flex-col gap-1.5">
-                {steps.map((s, i) => (
-                  <div key={s.id ?? `new-${i}`} className="flex flex-col gap-1.5 rounded-lg border border-line p-2">
-                    <div className="flex items-center gap-[7px]">
-                      <input
-                        className="input flex-1"
-                        value={s.title}
-                        placeholder={i === 0 ? 'Primer paso' : 'Otro paso…'}
-                        onChange={(e) => setStep(i, { title: e.target.value })}
-                      />
-                      <button
-                        type="button"
-                        aria-pressed={activo === i}
-                        aria-label={`Colocar el paso ${i + 1} en el planificador`}
-                        title="Colocar en el planificador"
-                        onClick={() => setActivo(i)}
-                        className="rounded-md px-1 text-base text-faint aria-pressed:bg-accent/15 aria-pressed:text-accent"
-                      >
-                        📍
-                      </button>
-                      <button type="button" title="Quitar paso" aria-label={`Quitar paso ${i + 1}`} className="text-base text-faint" onClick={() => quitarPaso(i)}>
-                        ✕
-                      </button>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <input
-                        type="date"
-                        aria-label={`Inicio del paso ${i + 1}`}
-                        className="input w-auto py-1 text-[13px]"
-                        value={s.startDate}
-                        onChange={(e) => setStep(i, { startDate: e.target.value })}
-                      />
-                      <input
-                        type="number"
-                        min={1}
-                        step={1}
-                        inputMode="numeric"
-                        aria-label={`Días del paso ${i + 1}`}
-                        placeholder="días"
-                        className="input w-20 py-1 text-[13px]"
-                        value={s.dias}
-                        onChange={(e) => setStep(i, { dias: e.target.value })}
-                      />
-                      {rangoPaso(programacion(s)) && <span className="text-xs text-muted">{rangoPaso(programacion(s))}</span>}
-                      {!s.done && fueraDePlazo(programacion(s), { startDate: form.startDate || null, deadline: form.deadline || null }) && (
-                        <span className="rounded-full bg-hot/15 px-2 py-0.5 text-[11px] font-semibold text-hot">fuera de plazo</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSteps((xs) => [...xs, { title: '', startDate: '', dias: '' }])}
-                  className="rounded-lg border border-dashed border-line px-2.5 py-[5px] text-xs font-semibold text-muted"
-                >
-                  + Añadir paso
-                </button>
-                <button
-                  type="button"
-                  disabled={!steps.some((s) => s.title.trim())}
-                  onClick={() => {
-                    // Se calcula fuera del updater de setSteps: React puede ejecutarlo dos veces (StrictMode)
-                    const desde = form.startDate || todayISO();
-                    const conTitulo = steps.filter((s) => s.title.trim());
-                    const encadenados = encadenar(conTitulo.map((s) => ({ startDate: null, duracionDias: diasDe(s) })), desde);
-                    const nuevo = new Map(conTitulo.map((s, i) => [s, encadenados[i]]));
-                    setSteps(
-                      steps.map((x) => {
-                        const e = nuevo.get(x);
-                        return e ? { ...x, startDate: e.startDate ?? '', dias: String(e.duracionDias) } : x;
-                      }),
-                    );
-                  }}
-                  className="rounded-lg border border-dashed border-line px-2.5 py-[5px] text-xs font-semibold text-muted disabled:opacity-40"
-                >
-                  ⛓ Encadenar pasos
-                </button>
-              </div>
-            </Field>
-            <div className="grid grid-cols-2 gap-[11px]">
-              <Field label="Tipo de actividad">
-                <Select value={form.type} onChange={setValue('type')} options={TASK_TYPE_OPTIONS} />
-              </Field>
-              <Field label="Prioridad">
-                <Select value={form.priority} onChange={setValue('priority')} options={PRIORITY_OPTIONS} />
-              </Field>
-            </div>
-            <div className={editing ? 'grid grid-cols-2 gap-[11px]' : ''}>
-              <Field label="Proyecto relacionado">
-                <Select value={form.projectId} onChange={setValue('projectId')} options={projectOptions} />
-              </Field>
-              {editing && (
-                <Field label="Estado">
-                  <Select value={form.status} onChange={setValue('status')} options={TASK_STATUS_OPTIONS} />
-                </Field>
-              )}
-            </div>
             <div className="grid grid-cols-2 gap-[11px]">
               <Field label="Fecha inicio">
                 <input type="date" className="input" value={form.startDate} onChange={set('startDate')} />
@@ -269,6 +184,124 @@ export function TaskModal({
             <Field label="Notas">
               <textarea className="input min-h-14 resize-y" value={form.notes} onChange={set('notes')} placeholder="Enlaces, ideas, recordatorios…" />
             </Field>
+            <details className={detalles}>
+              <summary className={resumen}>
+                <span aria-hidden className="transition group-open:rotate-90">▸</span>
+                Detalles
+                <span className="ml-auto truncate font-normal text-faint">{resumenDetalles}</span>
+              </summary>
+              <div className="px-3 pt-1 pb-0.5">
+                <div className="grid grid-cols-2 gap-[11px]">
+                  <Field label="Tipo de actividad">
+                    <Select value={form.type} onChange={setValue('type')} options={TASK_TYPE_OPTIONS} />
+                  </Field>
+                  <Field label="Prioridad">
+                    <Select value={form.priority} onChange={setValue('priority')} options={PRIORITY_OPTIONS} />
+                  </Field>
+                </div>
+                <div className={editing ? 'grid grid-cols-2 gap-[11px]' : ''}>
+                  <Field label="Proyecto relacionado">
+                    <Select value={form.projectId} onChange={setValue('projectId')} options={projectOptions} />
+                  </Field>
+                  {editing && (
+                    <Field label="Estado">
+                      <Select value={form.status} onChange={setValue('status')} options={TASK_STATUS_OPTIONS} />
+                    </Field>
+                  )}
+                </div>
+              </div>
+            </details>
+            <details open={verPasos} onToggle={(e) => setVerPasos(e.currentTarget.open)} className={detalles}>
+              <summary className={resumen}>
+                <span aria-hidden className="transition group-open:rotate-90">▸</span>
+                Pasos
+                <span className="ml-auto truncate font-normal text-faint">
+                  {`${conTitulo} ${conTitulo === 1 ? 'paso' : 'pasos'} · ${programados} programados`}
+                </span>
+              </summary>
+              <div className="px-3 pt-1 pb-3">
+                <div role="group" aria-label="Pasos" className="mb-1.5 flex flex-col gap-1.5">
+                  {steps.map((s, i) => (
+                    <div key={s.id ?? `new-${i}`} className="flex flex-col gap-1.5 rounded-lg border border-line p-2">
+                      <div className="flex items-center gap-[7px]">
+                        <input
+                          className="input flex-1"
+                          value={s.title}
+                          placeholder={i === 0 ? 'Primer paso' : 'Otro paso…'}
+                          onChange={(e) => setStep(i, { title: e.target.value })}
+                        />
+                        <button
+                          type="button"
+                          aria-pressed={activo === i}
+                          aria-label={`Colocar el paso ${i + 1} en el planificador`}
+                          title="Colocar en el planificador"
+                          onClick={() => setActivo(i)}
+                          className="rounded-md px-1 text-base text-faint aria-pressed:bg-accent/15 aria-pressed:text-accent"
+                        >
+                          📍
+                        </button>
+                        <button type="button" title="Quitar paso" aria-label={`Quitar paso ${i + 1}`} className="text-base text-faint" onClick={() => quitarPaso(i)}>
+                          ✕
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input
+                          type="date"
+                          aria-label={`Inicio del paso ${i + 1}`}
+                          className="input w-auto py-1 text-[13px]"
+                          value={s.startDate}
+                          onChange={(e) => setStep(i, { startDate: e.target.value })}
+                        />
+                        <input
+                          type="number"
+                          min={1}
+                          step={1}
+                          inputMode="numeric"
+                          aria-label={`Días del paso ${i + 1}`}
+                          placeholder="días"
+                          className="input w-20 py-1 text-[13px]"
+                          value={s.dias}
+                          onChange={(e) => setStep(i, { dias: e.target.value })}
+                        />
+                        {rangoPaso(programacion(s)) && <span className="text-xs text-muted">{rangoPaso(programacion(s))}</span>}
+                        {!s.done && fueraDePlazo(programacion(s), { startDate: form.startDate || null, deadline: form.deadline || null }) && (
+                          <span className="rounded-full bg-hot/15 px-2 py-0.5 text-[11px] font-semibold text-hot">fuera de plazo</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSteps((xs) => [...xs, { title: '', startDate: '', dias: '' }])}
+                    className="rounded-lg border border-dashed border-line px-2.5 py-[5px] text-xs font-semibold text-muted"
+                  >
+                    + Añadir paso
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!steps.some((s) => s.title.trim())}
+                    onClick={() => {
+                      // Se calcula fuera del updater de setSteps: React puede ejecutarlo dos veces (StrictMode)
+                      const desde = form.startDate || todayISO();
+                      const nombrados = steps.filter((s) => s.title.trim());
+                      const encadenados = encadenar(nombrados.map((s) => ({ startDate: null, duracionDias: diasDe(s) })), desde);
+                      const nuevo = new Map(nombrados.map((s, i) => [s, encadenados[i]]));
+                      setSteps(
+                        steps.map((x) => {
+                          const e = nuevo.get(x);
+                          return e ? { ...x, startDate: e.startDate ?? '', dias: String(e.duracionDias) } : x;
+                        }),
+                      );
+                    }}
+                    className="rounded-lg border border-dashed border-line px-2.5 py-[5px] text-xs font-semibold text-muted disabled:opacity-40"
+                  >
+                    ⛓ Encadenar pasos
+                  </button>
+                </div>
+              </div>
+            </details>
           </div>
           <div className="self-start lg:sticky lg:top-0">
             <PlanificadorTarea
