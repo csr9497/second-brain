@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { addDays, calendarGrid, finPaso, fueraDePlazo, mesDe, rangoSeleccion, sumarMeses, todayISO } from '@sb/shared';
+import { addDays, calendarGrid, carriles, finPaso, fueraDePlazo, mesDe, rangoSeleccion, sumarMeses, todayISO, weekday } from '@sb/shared';
 import { headerDate, mesLabel, shortDate } from '../../lib/format';
 import { programacion, type PlanProps } from '../../lib/pasosBorrador';
 
@@ -61,9 +61,25 @@ export function CalendarioPlan({ tarea, steps, color, sel, setSel }: PlanProps) 
   for (let d = start; d <= end; d = addDays(d, 1)) dias.push(d);
   const marca = arrastre ? rangoSeleccion(arrastre.desde, arrastre.hasta) : pendiente ? { inicio: pendiente, fin: pendiente } : sel;
   const plazo = { startDate: tarea.startDate || null, deadline: tarea.deadline || null };
-  const pasos = steps.map((s, i) => ({ i, p: programacion(s) })).filter((x) => x.p.startDate);
-  const enTarea = (d: string) =>
-    tarea.startDate && tarea.deadline ? d >= tarea.startDate && d <= tarea.deadline : d === tarea.startDate || d === tarea.deadline;
+  const pasos = steps
+    .map((s, i) => ({ i, p: programacion(s) }))
+    .filter((x) => x.p.startDate)
+    .map((x) => ({ ...x, desde: x.p.startDate!, hasta: finPaso(x.p)! }))
+    .sort((a, b) => a.desde.localeCompare(b.desde) || a.i - b.i);
+  const banda =
+    tarea.startDate && tarea.deadline && tarea.startDate <= tarea.deadline
+      ? { desde: tarea.startDate, hasta: tarea.deadline }
+      : tarea.startDate || tarea.deadline
+        ? { desde: (tarea.startDate || tarea.deadline)!, hasta: (tarea.startDate || tarea.deadline)! }
+        : null;
+  const enTarea = (d: string) => banda != null && d >= banda.desde && d <= banda.hasta;
+  // Carril fijo por semana (la tarea primero): cada barra conserva su altura y se ve continua
+  const porSemana = carriles(banda ? [banda, ...pasos] : pasos, start, end);
+  const desplazo = banda ? 1 : 0;
+  const nCarriles = (k: number) => Math.max(0, ...porSemana[k].map((c) => c + 1));
+  // De borde a borde de la celda (padding + borde) salvo en los extremos del rango
+  const tramo = (d: string, r: { desde: string; hasta: string }) =>
+    `${d === r.desde ? 'ml-0.5 rounded-l-full' : weekday(d) === 1 ? '-ml-1' : '-ml-[5px]'} ${d === r.hasta ? 'mr-0.5 rounded-r-full' : weekday(d) === 0 ? '-mr-1' : '-mr-[5px]'}`;
 
   return (
     <div onKeyDown={tecla}>
@@ -83,15 +99,16 @@ export function CalendarioPlan({ tarea, steps, color, sel, setSel }: PlanProps) 
           Inicio: {shortDate(pendiente)} · elige el último día (Esc cancela)
         </p>
       )}
-      <div className="grid grid-cols-7 gap-0.5 text-center text-[10px] font-semibold text-faint" aria-hidden>
+      <div className="grid grid-cols-7 text-center text-[10px] font-semibold text-faint" aria-hidden>
         {DIAS.map((d) => (
           <div key={d}>{d}</div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-0.5">
-        {dias.map((d) => {
+      <div className="grid grid-cols-7 gap-y-0.5">
+        {dias.map((d, n) => {
+          const k = Math.floor(n / 7);
           const marcado = marca != null && d >= marca.inicio && d <= marca.fin;
-          const cubre = pasos.filter((x) => d >= x.p.startDate! && d <= finPaso(x.p)!);
+          const cubre = pasos.filter((x) => d >= x.desde && d <= x.hasta);
           return (
             <button
               key={d}
@@ -121,15 +138,26 @@ export function CalendarioPlan({ tarea, steps, color, sel, setSel }: PlanProps) 
               } ${mesDe(d) === mes ? '' : 'opacity-40'}`}
             >
               <span className={`font-semibold ${d === hoy ? 'text-accent' : ''}`}>{Number(d.slice(8))}</span>
-              {enTarea(d) && <span aria-hidden className="h-1.5 rounded-full opacity-50" style={{ background: `var(--c-${color})` }} />}
-              {cubre.map((x) => (
-                <span
-                  key={x.i}
-                  aria-hidden
-                  className="h-1 rounded-full"
-                  style={{ background: !steps[x.i].done && fueraDePlazo(x.p, plazo) ? 'var(--hot)' : `var(--c-${color})` }}
-                />
-              ))}
+              {Array.from({ length: nCarriles(k) }, (_, c) => {
+                if (banda && c === porSemana[k][0]) {
+                  return enTarea(d) ? (
+                    <span key="t" aria-hidden className={`h-1.5 opacity-50 ${tramo(d, banda)}`} style={{ background: `var(--c-${color})` }} />
+                  ) : (
+                    <span key="t" aria-hidden className="h-1.5" />
+                  );
+                }
+                const x = cubre.find((y) => porSemana[k][pasos.indexOf(y) + desplazo] === c);
+                return x ? (
+                  <span
+                    key={`p${x.i}`}
+                    aria-hidden
+                    className={`h-1 ${tramo(d, x)}`}
+                    style={{ background: !steps[x.i].done && fueraDePlazo(x.p, plazo) ? 'var(--hot)' : `var(--c-${color})` }}
+                  />
+                ) : (
+                  <span key={`v${c}`} aria-hidden className="h-1" />
+                );
+              })}
               {d === tarea.deadline && (
                 <span aria-hidden className="absolute top-1 right-1 text-[9px] leading-none font-bold text-hot">
                   ▍

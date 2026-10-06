@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { HabitSlot, Task } from '../index';
-import { buildCalendar, calendarGrid, mesDe, sumarMeses } from './calendar';
+import { buildCalendar, calendarGrid, carriles, mesDe, sumarMeses } from './calendar';
 import type { HabitRow } from './dashboard';
 
 const task = (id: string, o: Partial<Task> = {}): Task => ({
@@ -121,5 +121,39 @@ describe('tareas que cruzan el mes o solo tienen inicio', () => {
     const con = dias.filter((d) => d.items.some((i) => i.key === 't-soloInicio'));
     expect(con.map((d) => d.fecha)).toEqual(['2026-10-15']);
     expect(con[0].items.find((i) => i.key === 't-soloInicio')).toMatchObject({ tipo: 'tarea', inicio: true, fin: true, etiqueta: true });
+  });
+});
+
+describe('carriles: cada barra conserva su altura dentro de la semana', () => {
+  it('reutiliza el carril libre más bajo y no cambia de carril día a día', () => {
+    // semana lun 5 → dom 11 de octubre
+    const r = [
+      { desde: '2026-10-05', hasta: '2026-10-06' }, // A: carril 0
+      { desde: '2026-10-06', hasta: '2026-10-09' }, // B: carril 1 (A ocupa el 0 el día 6)
+      { desde: '2026-10-08', hasta: '2026-10-10' }, // C: carril 0 (A ya terminó)
+      { desde: '2026-10-12', hasta: '2026-10-12' }, // fuera de la semana
+    ];
+    expect(carriles(r, '2026-10-05', '2026-10-11')).toEqual([[0, 1, 0, -1]]);
+  });
+  it('se recalcula por semana', () => {
+    const r = [
+      { desde: '2026-10-05', hasta: '2026-10-06' },
+      { desde: '2026-10-06', hasta: '2026-10-13' },
+    ];
+    expect(carriles(r, '2026-10-05', '2026-10-18')).toEqual([
+      [0, 1],
+      [-1, 0],
+    ]);
+  });
+  it('buildCalendar expone el carril de cada item', () => {
+    const c = buildCalendar({
+      mes: '2026-10',
+      hoy: '2026-10-06',
+      tasks: [task('a', { startDate: '2026-10-05', deadline: '2026-10-06' }), task('b', { startDate: '2026-10-06', deadline: '2026-10-09' })],
+      habits: [],
+      doneLogs: [],
+    });
+    const b = (f: string) => c.semanas.flat().find((d) => d.fecha === f)!.items.find((i) => i.key === 't-b')!.carril;
+    expect([b('2026-10-06'), b('2026-10-07'), b('2026-10-09')]).toEqual([1, 1, 1]);
   });
 });

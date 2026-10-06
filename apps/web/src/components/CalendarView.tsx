@@ -1,6 +1,6 @@
 import { Children, useEffect, useRef, useState, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { SLOT_NOMBRE, isOverdue, mesDe, rangoSeleccion, sumarMeses, todayISO, type CalendarDay, type HabitSlot, type ItemDia, type Task } from '@sb/shared';
+import { SLOT_NOMBRE, isOverdue, mesDe, rangoSeleccion, sumarMeses, todayISO, weekday, type CalendarDay, type HabitSlot, type ItemDia, type Task } from '@sb/shared';
 import { api } from '../lib/api';
 import { headerDate, mesLabel, rangoPaso, shortDate } from '../lib/format';
 import { Dot } from './ui/Dot';
@@ -136,14 +136,15 @@ export function CalendarView({ onEditTask, onNewTask }: { onEditTask: (t: Task) 
                 Elige el último día del rango (Esc cancela)
               </p>
             )}
-            <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold text-faint" aria-hidden>
+            <div className="grid grid-cols-7 text-center text-[11px] font-semibold text-faint" aria-hidden>
               {DIAS.map((d) => (
                 <div key={d} className="py-1">
                   {d}
                 </div>
               ))}
             </div>
-            <div className="grid grid-cols-7 gap-1 select-none">
+            {/* sin separación horizontal: las barras de varios días se ven continuas */}
+            <div className="grid grid-cols-7 gap-y-1 select-none">
               {dias.map((d) => (
                 <Celda
                   key={d.fecha}
@@ -194,6 +195,8 @@ function Celda({
   onClick: (e: MouseEvent) => void;
 }) {
   const n = dia.items.length;
+  const [lunes, domingo] = [weekday(dia.fecha) === 1, weekday(dia.fecha) === 0];
+  const ocultos = dia.items.filter((it) => it.carril >= MAX_MARCAS).length;
   const cuenta = (tipo: ItemDia['tipo']) => dia.items.filter((it) => it.tipo === tipo).length;
   const [tareas, pasos, vencen] = [cuenta('tarea'), cuenta('paso'), cuenta('vence')];
   // vencida: en el último día de una tarea con rango, o en su "⚑ vence"
@@ -219,7 +222,7 @@ function Celda({
       onPointerDown={onPointerDown}
       onPointerEnter={onPointerEnter}
       onClick={onClick}
-      className={`flex min-h-16 min-w-0 flex-col gap-1 overflow-hidden rounded-lg border p-1 text-left transition sm:min-h-20 ${
+      className={`flex min-h-16 min-w-0 flex-col gap-1 rounded-lg border p-1 text-left transition sm:min-h-20 ${
         activo ? 'border-accent bg-surface2' : 'border-transparent hover:bg-surface2'
       } ${enRango ? 'bg-accent/10 ring-2 ring-accent' : ''} ${dia.enMes ? '' : 'opacity-40'}`}
     >
@@ -232,34 +235,37 @@ function Celda({
         )}
       </div>
       <div className="flex min-w-0 flex-col gap-0.5" aria-hidden>
-        {dia.items.slice(0, MAX_MARCAS).map((it) => {
+        {Array.from({ length: Math.min(MAX_MARCAS, Math.max(0, ...dia.items.map((it) => it.carril + 1))) }, (_, carril) => {
+          const it = dia.items.find((x) => x.carril === carril);
+          if (!it) return <span key={`vacio-${carril}`} className="h-4" />;
           const c = it.tarea.projectColor ?? 'gris';
           if (it.tipo === 'vence') {
             const vencida = isOverdue(it.tarea, hoy);
             return (
-              <span key={it.key} className={`flex min-w-0 items-center gap-1 text-[10px] font-semibold ${vencida ? 'text-hot' : 'text-text'}`}>
+              <span key={it.key} className={`flex h-4 min-w-0 items-center gap-1 text-[10px] font-semibold ${vencida ? 'text-hot' : 'text-text'}`}>
                 <span>⚑</span>
                 <span className="hidden truncate sm:inline">{it.titulo}</span>
               </span>
             );
           }
-          const redondeo = `${it.inicio ? 'rounded-l-md' : ''} ${it.fin ? 'rounded-r-md' : ''}`;
+          // de borde a borde de la celda (padding + borde) salvo en sus extremos y en los bordes de la semana
+          const tramo = `${it.inicio ? 'rounded-l-md' : lunes ? '-ml-1' : '-ml-[5px]'} ${it.fin ? 'rounded-r-md' : domingo ? '-mr-1' : '-mr-[5px]'}`;
           return it.tipo === 'tarea' ? (
-            <span key={it.key} className={`-mx-1 flex h-4 min-w-0 items-center gap-0.5 px-1 text-[10px] font-semibold text-white ${redondeo}`} style={{ background: `var(--c-${c})` }}>
+            <span key={it.key} className={`flex h-4 min-w-0 items-center gap-0.5 px-1 text-[10px] font-semibold text-white ${tramo}`} style={{ background: `var(--c-${c})` }}>
               <span className="hidden min-w-0 flex-1 truncate sm:inline">{it.etiqueta ? it.titulo : '\u00a0'}</span>
               {esVencida(it) && <span className="ml-auto flex-none rounded-sm bg-hot px-0.5 leading-none font-bold text-white">!</span>}
             </span>
           ) : (
             <span
               key={it.key}
-              className={`-mx-1 flex h-3.5 min-w-0 items-center px-1 text-[9.5px] ${redondeo}`}
+              className={`flex h-4 min-w-0 items-center px-1 text-[9.5px] ${tramo}`}
               style={{ background: `color-mix(in srgb, var(--c-${c}) 30%, transparent)` }}
             >
               <span className="hidden truncate sm:inline">{it.etiqueta ? it.titulo : '\u00a0'}</span>
             </span>
           );
         })}
-        {n > MAX_MARCAS && <span className="text-[10px] font-semibold text-faint">+{n - MAX_MARCAS}</span>}
+        {ocultos > 0 && <span className="text-[10px] font-semibold text-faint">+{ocultos}</span>}
       </div>
     </button>
   );
