@@ -83,7 +83,7 @@ function Home() {
           onNewTask={nuevaTarea}
         />
       )}
-      {vista === 'gantt' && <GanttView onEditTask={(task) => setModal({ kind: 'tarea', task })} />}
+      {vista === 'gantt' && <GanttView onEditTask={(task) => setModal({ kind: 'tarea', task })} onNewTask={nuevaTarea} />}
 
       {modal?.kind === 'tarea' && <TaskModal task={modal.task} inicial={modal.inicial} onClose={close} />}
       {modal?.kind === 'proyecto' && <ProjectModal project={modal.project} onClose={close} />}

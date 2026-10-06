@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   addDays,
@@ -11,6 +11,7 @@ import {
   fueraDePlazo,
   moverPaso,
   moverTarea,
+  rangoSeleccion,
   spanTarea,
   todayISO,
   ventanaGantt,
@@ -26,6 +27,7 @@ import { rangoPaso, shortDate } from '../../lib/format';
 import { Dot } from '../ui/Dot';
 import { Barra, type Fase, type Op } from './Barra';
 import { COL, ETIQUETA } from './constantes';
+import { Pista } from './Pista';
 import { ResumenCambios } from './ResumenCambios';
 
 type Objetivo = { tipo: 'tarea'; tarea: Task } | { tipo: 'paso'; paso: Step };
@@ -59,7 +61,10 @@ function agrupar(tareas: Task[], projects: { id: string; nombre: string; color: 
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
-export function GanttView({ onEditTask }: { onEditTask: (t: Task) => void }) {
+type Rango = { inicio: string; fin: string };
+const navBtn = 'rounded-full border border-line px-3 py-1 text-xs font-semibold text-muted hover:text-text';
+
+export function GanttView({ onEditTask, onNewTask }: { onEditTask: (t: Task) => void; onNewTask: (rango?: Rango) => void }) {
   const hoy = todayISO();
   const [incluirHechas, setIncluirHechas] = useState(false);
   const { data, isLoading, error } = useQuery({ queryKey: ['gantt', incluirHechas], queryFn: () => api.gantt(incluirHechas) });
@@ -68,6 +73,19 @@ export function GanttView({ onEditTask }: { onEditTask: (t: Task) => void }) {
   const [draft, setDraft] = useState<GanttDraft>(borradorVacio);
   const [plegados, setPlegados] = useState<Set<string>>(new Set());
   const scroller = useRef<HTMLDivElement>(null);
+  // Rango marcado en la fila "＋ Nueva tarea": sigue resaltado hasta usarlo o quitarlo
+  const [rango, setRango] = useState<Rango | null>(null);
+
+  // Esc quita el rango, salvo que haya un diálogo abierto (ese Esc es suyo) o la pista ya lo haya atendido
+  useEffect(() => {
+    if (!rango) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || document.querySelector('[role=dialog],[role=alertdialog]')) return;
+      setRango(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [rango]);
 
   const originales = useMemo(() => data?.tasks ?? [], [data]);
   const tareas = useMemo(() => aplicarBorrador(originales, draft), [originales, draft]);
@@ -136,6 +154,13 @@ export function GanttView({ onEditTask }: { onEditTask: (t: Task) => void }) {
     setDraft(borradorVacio());
     setEditando(false);
   };
+  // Resalte del rango marcado, limitado a los días visibles
+  const marca = (() => {
+    if (!rango || rango.fin < ventana.inicio || rango.inicio > ventana.fin) return null;
+    const a = Math.max(0, daysBetween(ventana.inicio, rango.inicio));
+    const b = Math.min(ventana.dias - 1, daysBetween(ventana.inicio, rango.fin));
+    return { a, b };
+  })();
   const onTecla = (obj: Objetivo, op: Op, d: number) => setDraft((dr) => aplicarOp(dr, obj, op, d));
 
   return (
@@ -147,8 +172,35 @@ export function GanttView({ onEditTask }: { onEditTask: (t: Task) => void }) {
             <input type="checkbox" checked={incluirHechas} disabled={editando} onChange={(e) => setIncluirHechas(e.target.checked)} className="accent-accent" />
             Incluir hechas
           </label>
+          {!editando && (
+            <>
+              <button
+                type="button"
+                className="btn btn-primary px-3 py-1 text-xs"
+                onClick={() => {
+                  onNewTask(rango ?? undefined);
+                  setRango(null);
+                }}
+              >
+                {rango ? `＋ Tarea del ${shortDate(rango.inicio)}${rango.fin !== rango.inicio ? ` al ${shortDate(rango.fin)}` : ''}` : '＋ Nueva tarea'}
+              </button>
+              {rango && (
+                <button type="button" aria-label="Quitar selección" className={navBtn} onClick={() => setRango(null)}>
+                  ✕
+                </button>
+              )}
+            </>
+          )}
           {!editando ? (
-            <button type="button" className="btn btn-primary px-3 py-1.5 text-xs" disabled={!data || grupos.length === 0} onClick={() => setEditando(true)}>
+            <button
+              type="button"
+              className="btn btn-primary px-3 py-1.5 text-xs"
+              disabled={!data || grupos.length === 0}
+              onClick={() => {
+                setRango(null);
+                setEditando(true);
+              }}
+            >
               ✏️ Editar
             </button>
           ) : (
@@ -258,6 +310,26 @@ export function GanttView({ onEditTask }: { onEditTask: (t: Task) => void }) {
                   ))}
               </div>
             ))}
+            {!editando && (
+              <div className="flex border-b border-line/60">
+                <div
+                  title="Arrastra o toca dos días para marcar el rango"
+                  className="sticky left-0 z-[15] flex flex-none items-center border-r border-line bg-surface px-2 text-[12px] font-semibold text-accent"
+                  style={{ width: ETIQUETA, height: 34 }}
+                >
+                  ＋ Nueva tarea
+                </div>
+                <Pista ancho={ancho} inicio={ventana.inicio} activa onToque={() => {}} onRango={(a, b) => setRango(rangoSeleccion(a, b))}>
+                  {marca && (
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute top-1 bottom-1 rounded-md border border-accent bg-accent/20"
+                      style={{ left: marca.a * COL, width: (marca.b - marca.a + 1) * COL }}
+                    />
+                  )}
+                </Pista>
+              </div>
+            )}
           </div>
         </div>
       )}
