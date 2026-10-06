@@ -19,7 +19,7 @@ export function HabitModal({ habit, onClose }: { habit?: HabitAdmin; onClose: ()
   const save = useMutation({
     mutationFn: () => {
       const input = { nombre: nombre.trim(), slot };
-      return editing ? api.updateHabit(habit!.id, input) : api.createHabit(input);
+      return editing ? api.updateHabit(habit.id, input) : api.createHabit(input);
     },
     onSuccess: () => {
       toast(editing ? '✅ Hábito actualizado' : '✅ Hábito creado');
