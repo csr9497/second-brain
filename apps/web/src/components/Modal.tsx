@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 export function Modal({
   title,
@@ -23,11 +23,14 @@ export function Modal({
       document.body.style.overflow = '';
     };
   }, [onClose]);
+  // Solo cierra un clic que empezó en el fondo: arrastrar desde dentro (p. ej. días del planificador) y soltar fuera no cierra
+  const desdeFondo = useRef(false);
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-auto bg-black/55 px-4 py-7"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onPointerDown={(e) => (desdeFondo.current = e.target === e.currentTarget)}
+      onClick={(e) => e.target === e.currentTarget && desdeFondo.current && onClose()}
     >
       <div role="dialog" aria-modal="true" aria-label={title} className={`w-full ${ancho} rounded-2xl border border-line bg-surface p-5`}>
         <h3 className={`m-0 font-display text-[19px] font-bold ${hint ? 'mb-0.5' : 'mb-4'}`}>{title}</h3>
