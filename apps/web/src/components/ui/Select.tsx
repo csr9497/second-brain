@@ -27,9 +27,23 @@ export function Select<T extends string>({
   'aria-label'?: string;
 }) {
   const selected = options.find((o) => o.value === value);
+  const hasEmpty = options.some((o) => o.value === '');
+  // Con opción vacía se usa el centinela; sin ella, '' llega a Root y Radix muestra el placeholder
+  const rootValue = value === '' && !hasEmpty ? '' : toRadix(value);
   return (
-    <RS.Root value={toRadix(value)} onValueChange={(v) => onChange((v === NONE ? '' : v) as T)}>
-      <RS.Trigger aria-label={ariaLabel} className="input flex items-center gap-2 text-left">
+    <RS.Root
+      value={rootValue}
+      onValueChange={(v) => {
+        // El select nativo oculto de Radix emite un change con '' si ninguna opción coincide
+        // (p. ej. opciones aún cargando): ignorar valores ajenos para no borrar el estado del padre
+        if (v === NONE ? !hasEmpty : !options.some((o) => o.value === v)) return;
+        onChange((v === NONE ? '' : v) as T);
+      }}
+    >
+      <RS.Trigger
+        aria-label={ariaLabel}
+        className="input flex items-center gap-2 text-left data-[placeholder]:text-faint"
+      >
         {selected?.color && <Dot color={selected.color} />}
         <span className="min-w-0 flex-1 truncate">
           <RS.Value placeholder={placeholder} />
