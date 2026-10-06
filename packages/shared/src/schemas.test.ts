@@ -18,5 +18,7 @@ describe('hábitos', () => {
   it('updateHabitInput ignora active (archivar tiene acción propia)', () =>
     expect(updateHabitInput.parse({ nombre: 'x', active: false })).toEqual({ nombre: 'x' }));
   it('updateHabitInput sin campos editables falla', () => expect(() => updateHabitInput.parse({ active: false })).toThrow());
-  it('createHabitInput usa la mañana por defecto', () => expect(createHabitInput.parse({ nombre: 'x' })).toEqual({ nombre: 'x', slot: 'manana' }));
+  it('createHabitInput usa la mañana por defecto', () =>
+    expect(createHabitInput.parse({ nombre: 'x' })).toEqual({ nombre: 'x', turnos: [['manana']] }));
+  it('updateHabitInput valida los turnos', () => expect(() => updateHabitInput.parse({ turnos: [['manana'], ['manana']] })).toThrow());
 });

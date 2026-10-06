@@ -18,6 +18,14 @@ export const paletteColor = z.enum(['azul', 'verde', 'ambar', 'rojo', 'violeta',
 export type Priority = z.infer<typeof priority>;
 export type TaskStatus = z.infer<typeof taskStatus>;
 export type HabitSlot = z.infer<typeof habitSlot>;
+
+/** Turnos de un hábito: lista ("y") de franjas alternativas ("o"); cada franja una sola vez. Igual que turnos_validos() en la DB. */
+export const turnosSchema = z
+  .array(z.array(habitSlot).min(1, 'Elige al menos una franja'))
+  .min(1, 'Elige al menos una franja')
+  .max(3, 'Máximo 3 turnos')
+  .refine((t) => new Set(t.flat()).size === t.flat().length, 'Cada franja solo puede usarse una vez');
+export type Turnos = HabitSlot[][];
 export type TaskFilter = z.infer<typeof taskFilter>;
 export type PaletteColor = z.infer<typeof paletteColor>;
 export type ProjectStatus = z.infer<typeof projectStatus>;
@@ -58,8 +66,8 @@ export const createStepInput = z.object({ title: z.string().trim().min(1) });
 
 const nonEmpty = (o: object) => Object.values(o).some((v) => v !== undefined);
 
-const habitFields = z.object({ nombre: z.string().trim().min(1), slot: habitSlot });
-export const createHabitInput = habitFields.extend({ slot: habitSlot.default('manana') });
+const habitFields = z.object({ nombre: z.string().trim().min(1), turnos: turnosSchema });
+export const createHabitInput = habitFields.extend({ turnos: turnosSchema.default([['manana']]) });
 export type CreateHabitInput = z.input<typeof createHabitInput>;
 export const updateHabitInput = habitFields.partial().refine(nonEmpty, 'Nada que actualizar');
 export type UpdateHabitInput = z.input<typeof updateHabitInput>;
@@ -116,19 +124,26 @@ export interface Task {
   steps: Step[];
 }
 
-export interface Habit {
+/** Ficha de un hábito en una franja de Hoy: una por cada franja de cada turno vigente. */
+export interface HabitChip {
   id: string;
   nombre: string;
-  slot: HabitSlot;
   position: number;
-  done: boolean; // para la fecha consultada
+  /** Franja de esta ficha */
+  slot: HabitSlot;
+  /** Franjas alternativas del turno al que pertenece */
+  turno: HabitSlot[];
+  /** Turno hecho hoy (en cualquiera de sus franjas) */
+  done: boolean;
+  /** Franja donde se hizo, o null */
+  doneIn: HabitSlot | null;
 }
 
 /** Hábito para el modal de gestión (incluye archivados). */
 export interface HabitAdmin {
   id: string;
   nombre: string;
-  slot: HabitSlot;
+  turnos: Turnos;
   position: number;
   archivedAt: string | null;
 }
@@ -157,7 +172,7 @@ export interface TodayPayload {
   date: string;
   habits: {
     slotActual: HabitSlot;
-    porFranja: Record<HabitSlot, Habit[]>;
+    porFranja: Record<HabitSlot, HabitChip[]>;
     pctDia: number;
     streak: number;
   };
@@ -188,3 +203,4 @@ export * from './domain/ordering';
 export * from './domain/metrics';
 export * from './domain/dashboard';
 export * from './colors';
+export * from './turnos';
