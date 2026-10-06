@@ -32,6 +32,10 @@ function Home() {
   const close = useCallback(() => setModal(null), []);
   // Crear/editar un hábito cierra "Gestionar hábitos" y vuelve a él al terminar (sin modales apilados)
   const backToHabits = useCallback(() => setModal({ kind: 'habitos' }), []);
+  // Nueva tarea desde Calendario/Gantt: inicio = primer día y deadline = último. Si el último día ya pasó,
+  // el deadline queda vacío (uno vencido mandaría la tarea a incumplimiento)
+  const nuevaTarea = (rango?: { inicio: string; fin: string }) =>
+    setModal({ kind: 'tarea', inicial: rango ? { startDate: rango.inicio, deadline: rango.fin < todayISO() ? '' : rango.fin } : undefined });
 
   return (
     <div className={`mx-auto ${VISTAS[vista].ancho} px-4 pt-[26px] pb-[72px]`}>
@@ -76,8 +80,7 @@ function Home() {
       {vista === 'calendario' && (
         <CalendarView
           onEditTask={(task) => setModal({ kind: 'tarea', task })}
-          // Un día pasado solo fija el inicio: un deadline ya vencido la mandaría a incumplimiento
-          onNewTask={(fecha) => setModal({ kind: 'tarea', inicial: { startDate: fecha, deadline: fecha < todayISO() ? '' : fecha } })}
+          onNewTask={nuevaTarea}
         />
       )}
       {vista === 'gantt' && <GanttView onEditTask={(task) => setModal({ kind: 'tarea', task })} />}

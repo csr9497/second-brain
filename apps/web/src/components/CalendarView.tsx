@@ -1,8 +1,8 @@
-import { Children, useState, type ReactNode } from 'react';
+import { Children, useEffect, useRef, useState, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { SLOT_NOMBRE, isOverdue, mesDe, sumarMeses, todayISO, type CalendarDay, type HabitSlot, type PaletteColor, type Task } from '@sb/shared';
+import { SLOT_NOMBRE, isOverdue, mesDe, rangoSeleccion, sumarMeses, todayISO, type CalendarDay, type HabitSlot, type Task } from '@sb/shared';
 import { api } from '../lib/api';
-import { headerDate, mesLabel, rangoPaso } from '../lib/format';
+import { headerDate, mesLabel, rangoPaso, shortDate } from '../lib/format';
 import { Dot } from './ui/Dot';
 
 const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -11,26 +11,103 @@ const POR: Record<HabitSlot, string> = { manana: 'la mañana', tarde: 'la tarde'
 const navBtn = 'rounded-full border border-line px-3 py-1 text-xs font-semibold text-muted hover:text-text';
 const itemBtn = 'flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-left text-[13px] hover:bg-surface2';
 
-/** Mes con tareas (puntos), pasos (barras) y % de hábitos (anillo); panel con el detalle del día. */
-export function CalendarView({ onEditTask, onNewTask }: { onEditTask: (t: Task) => void; onNewTask: (fecha: string) => void }) {
+type Rango = { inicio: string; fin: string };
+
+/** Mes con tareas, pasos y vencimientos con título, y % de hábitos (anillo); panel con el detalle del día. Se puede marcar un rango para crear una tarea. */
+export function CalendarView({ onEditTask, onNewTask }: { onEditTask: (t: Task) => void; onNewTask: (rango?: Rango) => void }) {
   const hoy = todayISO();
   const [mes, setMes] = useState(mesDe(hoy));
   const [sel, setSel] = useState(hoy);
+  const [rango, setRango] = useState<Rango | null>(null);
+  const [marcandoDesde, setMarcandoDesde] = useState<string | null>(null); // táctil: "marcar rango desde este día"
+  // Arrastre con ratón: en un ref (no en estado) para no re-renderizar ni depender de updaters en StrictMode
+  const arrastre = useRef<{ desde: string; hasta: string; movio: boolean; activo: boolean } | null>(null);
   // `hoy` en la clave: al cruzar la medianoche se recalcula qué días son pasados o futuros
   const { data, isLoading, error } = useQuery({ queryKey: ['calendar', mes, hoy], queryFn: () => api.calendar(mes), placeholderData: keepPreviousData });
   const dias = data?.semanas.flat() ?? [];
   const dia = dias.find((d) => d.fecha === sel) ?? null;
+
+  // Al soltar en cualquier sitio termina el arrastre. Se limpia tras el `click` que sigue al pointerup,
+  // para que ese click sepa si hubo arrastre.
+  useEffect(() => {
+    const soltar = () => {
+      if (!arrastre.current) return;
+      arrastre.current.activo = false;
+      setTimeout(() => {
+        if (arrastre.current && !arrastre.current.activo) arrastre.current = null;
+      }, 0);
+    };
+    window.addEventListener('pointerup', soltar);
+    window.addEventListener('pointercancel', soltar);
+    return () => {
+      window.removeEventListener('pointerup', soltar);
+      window.removeEventListener('pointercancel', soltar);
+    };
+  }, []);
+
+  // Esc limpia la selección, salvo que haya un diálogo abierto (ese Esc es suyo)
+  useEffect(() => {
+    if (!rango && !marcandoDesde) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || document.querySelector('[role=dialog],[role=alertdialog]')) return;
+      setRango(null);
+      setMarcandoDesde(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [rango, marcandoDesde]);
 
   const irA = (m: string) => {
     setMes(m);
     setSel(m === mesDe(hoy) ? hoy : `${m}-01`);
   };
 
+  const limpiar = () => {
+    setRango(null);
+    setMarcandoDesde(null);
+  };
+  const nueva = (r?: Rango) => {
+    onNewTask(r);
+    limpiar();
+  };
+
+  const alPulsar = (d: string, e: PointerEvent) => {
+    if (e.pointerType !== 'mouse' || e.button !== 0 || e.shiftKey || marcandoDesde) return;
+    arrastre.current = { desde: d, hasta: d, movio: false, activo: true };
+  };
+  const alEntrar = (d: string) => {
+    const a = arrastre.current;
+    if (!a?.activo || d === a.hasta) return;
+    a.hasta = d;
+    a.movio = true;
+    setRango(rangoSeleccion(a.desde, d));
+  };
+  const alClic = (d: string, e: MouseEvent) => {
+    if (marcandoDesde) {
+      setRango(rangoSeleccion(marcandoDesde, d));
+      setMarcandoDesde(null);
+    } else if (e.shiftKey) {
+      setRango(rangoSeleccion(sel, d));
+    } else if (!arrastre.current?.movio) {
+      setSel(d);
+      setRango(null);
+    }
+    arrastre.current = null;
+  };
+
   return (
     <section className="mt-6">
-      <div className="mb-3 flex items-center justify-between gap-2">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="m-0 font-display text-lg font-semibold first-letter:uppercase">{mesLabel(mes)}</h2>
-        <div className="flex gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button type="button" className="btn btn-primary px-3 py-1 text-xs" onClick={() => nueva(rango ?? undefined)}>
+            {rango ? `＋ Tarea del ${shortDate(rango.inicio)}${rango.fin !== rango.inicio ? ` al ${shortDate(rango.fin)}` : ''}` : '＋ Nueva tarea'}
+          </button>
+          {rango && (
+            <button type="button" aria-label="Quitar selección" className={navBtn} onClick={limpiar}>
+              ✕
+            </button>
+          )}
           <button type="button" aria-label="Mes anterior" onClick={() => irA(sumarMeses(mes, -1))} className={navBtn}>
             ‹
           </button>
@@ -47,6 +124,17 @@ export function CalendarView({ onEditTask, onNewTask }: { onEditTask: (t: Task) 
       {data && (
         <div className="grid gap-4 md:grid-cols-[1fr_270px]">
           <div className="card p-2">
+            <p className="m-0 mb-1.5 flex flex-wrap gap-3 px-1 text-[11px] text-faint">
+              <span>▬ tarea</span>
+              <span>▭ paso</span>
+              <span>⚑ vence</span>
+              <span>◔ hábitos</span>
+            </p>
+            {marcandoDesde && (
+              <p role="status" className="m-0 mb-1.5 px-1 text-xs font-semibold text-accent">
+                Elige el último día del rango (Esc cancela)
+              </p>
+            )}
             <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold text-faint" aria-hidden>
               {DIAS.map((d) => (
                 <div key={d} className="py-1">
@@ -54,32 +142,63 @@ export function CalendarView({ onEditTask, onNewTask }: { onEditTask: (t: Task) 
                 </div>
               ))}
             </div>
-            <div className="grid grid-cols-7 gap-1">
+            <div className="grid grid-cols-7 gap-1 select-none">
               {dias.map((d) => (
-                <Celda key={d.fecha} dia={d} hoy={hoy} activo={d.fecha === sel} onClick={() => setSel(d.fecha)} />
+                <Celda
+                  key={d.fecha}
+                  dia={d}
+                  hoy={hoy}
+                  activo={d.fecha === sel}
+                  enRango={rango != null && rango.inicio <= d.fecha && d.fecha <= rango.fin}
+                  onPointerDown={(e) => alPulsar(d.fecha, e)}
+                  onPointerEnter={() => alEntrar(d.fecha)}
+                  onClick={(e) => alClic(d.fecha, e)}
+                />
               ))}
             </div>
           </div>
-          {dia && <PanelDia dia={dia} hoy={hoy} onEditTask={onEditTask} onNewTask={onNewTask} />}
+          {dia && (
+            <PanelDia
+              dia={dia}
+              hoy={hoy}
+              onEditTask={onEditTask}
+              onNewTask={nueva}
+              onRangoDesde={(f) => {
+                setMarcandoDesde(f);
+                setRango({ inicio: f, fin: f });
+              }}
+            />
+          )}
         </div>
       )}
     </section>
   );
 }
 
-function Celda({ dia, hoy, activo, onClick }: { dia: CalendarDay; hoy: string; activo: boolean; onClick: () => void }) {
-  const color = (t: Task): PaletteColor => t.projectColor ?? 'gris';
-  const marcas = [
-    ...dia.vencen.map((t) => ({ key: `t-${t.id}`, tipo: 'tarea' as const, color: color(t), vencida: isOverdue(t, hoy) })),
-    ...dia.pasos.map(({ paso, tarea }) => ({ key: `p-${paso.id}`, tipo: 'paso' as const, color: color(tarea), vencida: false })),
-  ];
-  const extra = marcas.length - MAX_MARCAS;
-  const vencidas = dia.vencen.filter((t) => isOverdue(t, hoy)).length;
+function Celda({
+  dia,
+  hoy,
+  activo,
+  enRango,
+  onPointerDown,
+  onPointerEnter,
+  onClick,
+}: {
+  dia: CalendarDay;
+  hoy: string;
+  activo: boolean;
+  enRango: boolean;
+  onPointerDown: (e: PointerEvent) => void;
+  onPointerEnter: () => void;
+  onClick: (e: MouseEvent) => void;
+}) {
+  const n = dia.items.length;
+  const vencidas = dia.items.filter((it) => it.tipo !== 'paso' && it.fin && isOverdue(it.tarea, hoy)).length;
   const resumen = [
-    `${dia.vencen.length} ${dia.vencen.length === 1 ? 'tarea' : 'tareas'}`,
+    `${n} ${n === 1 ? 'elemento' : 'elementos'}`,
     vencidas ? `${vencidas} ${vencidas === 1 ? 'vencida' : 'vencidas'}` : null,
-    `${dia.pasos.length} ${dia.pasos.length === 1 ? 'paso' : 'pasos'}`,
     dia.habitos.pct != null ? `hábitos ${dia.habitos.pct}%` : null,
+    enRango ? 'en el rango marcado' : null,
   ]
     .filter(Boolean)
     .join(', ');
@@ -89,10 +208,12 @@ function Celda({ dia, hoy, activo, onClick }: { dia: CalendarDay; hoy: string; a
       type="button"
       aria-pressed={activo}
       aria-label={`${headerDate(dia.fecha)}${dia.esHoy ? ' (hoy)' : ''}: ${resumen}`}
+      onPointerDown={onPointerDown}
+      onPointerEnter={onPointerEnter}
       onClick={onClick}
-      className={`flex min-h-16 flex-col gap-1 rounded-lg border p-1 text-left transition sm:min-h-20 ${
+      className={`flex min-h-16 min-w-0 flex-col gap-1 overflow-hidden rounded-lg border p-1 text-left transition sm:min-h-20 ${
         activo ? 'border-accent bg-surface2' : 'border-transparent hover:bg-surface2'
-      } ${dia.enMes ? '' : 'opacity-40'}`}
+      } ${enRango ? 'bg-accent/10 ring-2 ring-accent' : ''} ${dia.enMes ? '' : 'opacity-40'}`}
     >
       <div className="flex items-center justify-between">
         <span className={`grid size-6 place-items-center rounded-full text-xs font-semibold ${dia.esHoy ? 'bg-accent text-white' : ''}`}>
@@ -102,18 +223,34 @@ function Celda({ dia, hoy, activo, onClick }: { dia: CalendarDay; hoy: string; a
           <span aria-hidden className="size-3.5 rounded-full" style={{ background: `conic-gradient(var(--good) ${dia.habitos.pct}%, var(--line) 0)` }} />
         )}
       </div>
-      <div className="flex flex-col gap-0.5" aria-hidden>
-        {marcas.slice(0, MAX_MARCAS).map((m) =>
-          m.tipo === 'tarea' ? (
-            <span key={m.key} className="flex items-center gap-0.5">
-              <Dot color={m.color} size={7} />
-              {m.vencida && <span className="text-[10px] leading-none font-bold text-hot">!</span>}
+      <div className="flex min-w-0 flex-col gap-0.5" aria-hidden>
+        {dia.items.slice(0, MAX_MARCAS).map((it) => {
+          const c = it.tarea.projectColor ?? 'gris';
+          if (it.tipo === 'vence') {
+            const vencida = isOverdue(it.tarea, hoy);
+            return (
+              <span key={it.key} className={`flex min-w-0 items-center gap-1 text-[10px] font-semibold ${vencida ? 'text-hot' : 'text-text'}`}>
+                <span>⚑</span>
+                <span className="hidden truncate sm:inline">{it.titulo}</span>
+              </span>
+            );
+          }
+          const redondeo = `${it.inicio ? 'rounded-l-md' : ''} ${it.fin ? 'rounded-r-md' : ''}`;
+          return it.tipo === 'tarea' ? (
+            <span key={it.key} className={`-mx-1 flex h-4 min-w-0 items-center px-1 text-[10px] font-semibold text-white ${redondeo}`} style={{ background: `var(--c-${c})` }}>
+              <span className="hidden truncate sm:inline">{it.etiqueta ? it.titulo : '\u00a0'}</span>
             </span>
           ) : (
-            <span key={m.key} className="h-1.5 rounded-full" style={{ background: `var(--c-${m.color})` }} />
-          ),
-        )}
-        {extra > 0 && <span className="text-[10px] font-semibold text-faint">+{extra}</span>}
+            <span
+              key={it.key}
+              className={`-mx-1 flex h-3.5 min-w-0 items-center px-1 text-[9.5px] ${redondeo}`}
+              style={{ background: `color-mix(in srgb, var(--c-${c}) 30%, transparent)` }}
+            >
+              <span className="hidden truncate sm:inline">{it.etiqueta ? it.titulo : '\u00a0'}</span>
+            </span>
+          );
+        })}
+        {n > MAX_MARCAS && <span className="text-[10px] font-semibold text-faint">+{n - MAX_MARCAS}</span>}
       </div>
     </button>
   );
@@ -124,18 +261,23 @@ function PanelDia({
   hoy,
   onEditTask,
   onNewTask,
+  onRangoDesde,
 }: {
   dia: CalendarDay;
   hoy: string;
   onEditTask: (t: Task) => void;
-  onNewTask: (fecha: string) => void;
+  onNewTask: (rango: Rango) => void;
+  onRangoDesde: (fecha: string) => void;
 }) {
   const fichas = (['manana', 'tarde', 'noche'] as const).flatMap((f) => dia.habitos.porFranja[f]);
   return (
     <aside className="card self-start" aria-label={`Detalle: ${headerDate(dia.fecha)}`}>
       <h3 className="m-0 mb-3 font-display text-base font-semibold">{headerDate(dia.fecha)}</h3>
-      <button type="button" onClick={() => onNewTask(dia.fecha)} className="mb-3 rounded-lg border border-dashed border-line px-2.5 py-[5px] text-xs font-semibold text-muted hover:text-text">
+      <button type="button" onClick={() => onNewTask({ inicio: dia.fecha, fin: dia.fecha })} className="mb-3 rounded-lg border border-dashed border-line px-2.5 py-[5px] text-xs font-semibold text-muted hover:text-text">
         ＋ Tarea este día
+      </button>
+      <button type="button" onClick={() => onRangoDesde(dia.fecha)} className="mb-3 ml-2 rounded-lg border border-dashed border-line px-2.5 py-[5px] text-xs font-semibold text-muted hover:text-text">
+        ↔ Marcar rango desde este día
       </button>
       <Seccion titulo="Vencen" vacio="Nada vence este día.">
         {dia.vencen.map((t) => (
