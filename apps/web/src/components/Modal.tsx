@@ -50,7 +50,19 @@ export function Field({ label, group = false, children }: { label: string; group
 }
 
 /** Botón de borrar en dos pasos: el primer clic pide confirmación. Se alinea a la izquierda. */
-export function ConfirmDelete({ label, disabled, onConfirm }: { label: string; disabled?: boolean; onConfirm: () => void }) {
+export function ConfirmDelete({
+  label,
+  disabled,
+  onConfirm,
+  compact,
+  'aria-label': ariaLabel,
+}: {
+  label: string;
+  disabled?: boolean;
+  onConfirm: () => void;
+  compact?: boolean;
+  'aria-label'?: string;
+}) {
   const [armed, setArmed] = useState(false);
   return (
     <button
@@ -58,9 +70,14 @@ export function ConfirmDelete({ label, disabled, onConfirm }: { label: string; d
       disabled={disabled}
       onClick={() => (armed ? onConfirm() : setArmed(true))}
       onBlur={() => setArmed(false)}
-      className={`btn mr-auto ${armed ? 'border-hot bg-hot text-white' : 'text-hot'}`}
+      aria-label={armed && ariaLabel ? `Confirmar: ${ariaLabel}` : ariaLabel}
+      className={
+        compact
+          ? `text-xs font-semibold disabled:opacity-50 ${armed ? 'text-hot underline' : 'text-hot'}`
+          : `btn mr-auto ${armed ? 'border-hot bg-hot text-white' : 'text-hot'}`
+      }
     >
-      {armed ? '¿Seguro? Clic para eliminar' : label}
+      {armed ? (compact ? '¿Seguro?' : '¿Seguro? Clic para eliminar') : label}
     </button>
   );
 }

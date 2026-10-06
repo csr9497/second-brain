@@ -49,10 +49,10 @@ export function HabitsManager({ onNew, onEdit, onClose }: { onNew: () => void; o
               {list.map((h) => (
                 <li key={h.id} className="flex items-center gap-3 rounded-lg bg-surface2 px-3 py-2 text-sm">
                   <span className="min-w-0 flex-1 truncate">{h.nombre}</span>
-                  <button type="button" className={linkBtn} onClick={() => onEdit(h)}>
+                  <button type="button" className={linkBtn} aria-label={`Editar ${h.nombre}`} onClick={() => onEdit(h)}>
                     Editar
                   </button>
-                  <button type="button" className={linkBtn} disabled={run.isPending} onClick={() => run.mutate({ action: 'archive', id: h.id })}>
+                  <button type="button" className={linkBtn} aria-label={`Archivar ${h.nombre}`} disabled={run.isPending} onClick={() => run.mutate({ action: 'archive', id: h.id })}>
                     Archivar
                   </button>
                 </li>
@@ -78,10 +78,10 @@ export function HabitsManager({ onNew, onEdit, onClose }: { onNew: () => void; o
                   <li key={h.id} className="flex items-center gap-3 rounded-lg bg-surface2 px-3 py-2 text-sm">
                     <Dot color={SLOT_COLOR[h.slot]} />
                     <span className="min-w-0 flex-1 truncate text-muted">{h.nombre}</span>
-                    <button type="button" className={linkBtn} disabled={run.isPending} onClick={() => run.mutate({ action: 'reactivate', id: h.id })}>
+                    <button type="button" className={linkBtn} aria-label={`Reactivar ${h.nombre}`} disabled={run.isPending} onClick={() => run.mutate({ action: 'reactivate', id: h.id })}>
                       Reactivar
                     </button>
-                    <ConfirmDelete label="Eliminar" disabled={run.isPending} onConfirm={() => run.mutate({ action: 'delete', id: h.id })} />
+                    <ConfirmDelete compact aria-label={`Eliminar ${h.nombre}`} label="Eliminar" disabled={run.isPending} onConfirm={() => run.mutate({ action: 'delete', id: h.id })} />
                   </li>
                 ))}
               </ul>
