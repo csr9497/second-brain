@@ -8,13 +8,13 @@ const today = '2026-10-01';
 
 // Timestamps a las 10:00 locales del día indicado (mes 1-12)
 const at = (y: number, m: number, d: number) => new Date(y, m - 1, d, 10).toISOString();
+const per = (desde: string, hasta: string | null = null) => ({ desde, hasta });
 const habit = (id: string, o: Partial<HabitRow> = {}): HabitRow => ({
   id,
   nombre: id,
   slot: 'manana',
   position: 1,
-  createdAt: at(2026, 9, 1),
-  archivedAt: null,
+  periods: [per(at(2026, 9, 1))],
   ...o,
 });
 const habits: HabitRow[] = [habit('h1', { nombre: 'Ejercicio' }), habit('h2', { nombre: 'Leer', slot: 'tarde', position: 2 })];
@@ -106,8 +106,26 @@ describe('vigencia de hábitos', () => {
   const logs = (pairs: [string, string][]) => pairs.map(([habitId, fecha]) => ({ habitId, fecha }));
   const base = { tasks: [], projects: [], now }; // jueves 2026-10-01
 
+  it('con dos periodos el hábito no es vigente en el hueco', () => {
+    const x = habit('x', { periods: [per(at(2026, 9, 1), at(2026, 9, 10)), per(at(2026, 9, 20))] });
+    expect(habitsOn([x], '2026-09-09')).toEqual([x]);
+    expect(habitsOn([x], '2026-09-15')).toEqual([]);
+    expect(habitsOn([x], '2026-09-20')).toEqual([x]);
+  });
+
+  it('archivar y reactivar el mismo día no infla la racha', () => {
+    // ayer solo se hizo "a"; "b" se archivó y reactivó hoy → ayer sigue incompleto
+    const t = buildToday({
+      ...base,
+      habits: [habit('a'), habit('b', { periods: [per(at(2026, 9, 1), at(2026, 10, 1)), per(at(2026, 10, 1))] })],
+      doneLogs: logs([['a', '2026-09-30']]),
+    });
+    expect(t.habits.streak).toBe(0);
+    expect(Object.values(t.habits.porFranja).flat().map((h) => h.id)).toEqual(['a', 'b']);
+  });
+
   it('habitsOn incluye el día de creación y excluye desde el de archivado', () => {
-    const x = habit('x', { createdAt: at(2026, 9, 28), archivedAt: at(2026, 9, 30) });
+    const x = habit('x', { periods: [per(at(2026, 9, 28), at(2026, 9, 30))] });
     expect(habitsOn([x], '2026-09-27')).toEqual([]);
     expect(habitsOn([x], '2026-09-28')).toEqual([x]);
     expect(habitsOn([x], '2026-09-29')).toEqual([x]);
@@ -117,7 +135,7 @@ describe('vigencia de hábitos', () => {
   it('crear hoy un hábito no rompe la racha', () => {
     const t = buildToday({
       ...base,
-      habits: [habit('a'), habit('nuevo', { createdAt: at(2026, 10, 1) })],
+      habits: [habit('a'), habit('nuevo', { periods: [per(at(2026, 10, 1))] })],
       doneLogs: logs([['a', '2026-10-01'], ['a', '2026-09-30'], ['a', '2026-09-29']]),
     });
     expect(t.habits.streak).toBe(2);
@@ -128,7 +146,7 @@ describe('vigencia de hábitos', () => {
     // ayer solo se hizo "a"; archivar hoy "b" no convierte ayer en un día completo
     const t = buildToday({
       ...base,
-      habits: [habit('a'), habit('b', { archivedAt: at(2026, 10, 1) })],
+      habits: [habit('a'), habit('b', { periods: [per(at(2026, 9, 1), at(2026, 10, 1))] })],
       doneLogs: logs([['a', '2026-09-30']]),
     });
     expect(t.habits.streak).toBe(0);
@@ -140,8 +158,8 @@ describe('vigencia de hábitos', () => {
     const t = buildToday({
       ...base,
       habits: [
-        habit('viejo', { archivedAt: at(2026, 9, 29) }),
-        habit('nuevo', { createdAt: at(2026, 9, 30) }),
+        habit('viejo', { periods: [per(at(2026, 9, 1), at(2026, 9, 29))] }),
+        habit('nuevo', { periods: [per(at(2026, 9, 30))] }),
       ],
       doneLogs: logs([['viejo', '2026-09-27'], ['viejo', '2026-09-28'], ['nuevo', '2026-09-30']]),
     });
@@ -151,7 +169,7 @@ describe('vigencia de hábitos', () => {
   it('pctDia ignora el registro de hoy de un hábito archivado hoy', () => {
     const t = buildToday({
       ...base,
-      habits: [habit('a'), habit('b', { archivedAt: at(2026, 10, 1) })],
+      habits: [habit('a'), habit('b', { periods: [per(at(2026, 9, 1), at(2026, 10, 1))] })],
       doneLogs: logs([['a', '2026-10-01'], ['b', '2026-10-01']]),
     });
     expect(t.habits.pctDia).toBe(100);
@@ -163,7 +181,7 @@ describe('vigencia de hábitos', () => {
     const r = buildWeeklyReport(
       {
         ...base,
-        habits: [habit('a'), habit('nuevo', { createdAt: at(2026, 9, 30) })],
+        habits: [habit('a'), habit('nuevo', { periods: [per(at(2026, 9, 30))] })],
         doneLogs: logs([['a', '2026-09-28'], ['a', '2026-09-29'], ['nuevo', '2026-09-30']]),
       },
       false,

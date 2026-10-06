@@ -5,15 +5,19 @@ import type { Habit, HabitSlot, PaletteColor, Project, Task, TodayPayload, Weekl
 import { addDays, slotForHour, toISO, todayISO, weekRange, weekday } from './dates';
 import { bucketTasks, computeStreak, isOverdue, pct } from './metrics';
 
+/** Periodo de vigencia (timestamps ISO). `hasta` null = sigue activo. */
+export interface HabitPeriod {
+  desde: string;
+  hasta: string | null;
+}
+
 export interface HabitRow {
   id: string;
   nombre: string;
   slot: HabitSlot;
   position: number;
-  /** ISO timestamp: cuenta desde su día local de creación */
-  createdAt: string;
-  /** ISO timestamp o null: deja de contar desde su día local de archivado */
-  archivedAt: string | null;
+  /** Cuenta los días locales cubiertos por algún periodo */
+  periods: HabitPeriod[];
 }
 
 export interface ProjectRow {
@@ -42,9 +46,9 @@ export interface DashboardInput {
 const PRIORITY_RANK: Record<string, number> = { alta: 0, media: 1, baja: 2 };
 
 const vigente = (h: HabitRow, fecha: string) =>
-  toISO(new Date(h.createdAt)) <= fecha && (h.archivedAt == null || toISO(new Date(h.archivedAt)) > fecha);
+  h.periods.some((p) => toISO(new Date(p.desde)) <= fecha && (p.hasta == null || toISO(new Date(p.hasta)) > fecha));
 
-/** Hábitos vigentes en `fecha` (día local): creados hasta ese día y aún no archivados. */
+/** Hábitos vigentes en `fecha` (día local): algún periodo cubre ese día. */
 export const habitsOn = (habits: HabitRow[], fecha: string) => habits.filter((h) => vigente(h, fecha));
 
 /** Hábitos hechos por fecha, contando solo los vigentes ese día. */
