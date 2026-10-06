@@ -34,6 +34,7 @@ erDiagram
     text next_action
     jsonb schedule_days
     int total_progress
+    text color "azul|verde|ambar|rojo|violeta|rosa|cian|gris"
     timestamptz last_activity_at
   }
   tasks {
