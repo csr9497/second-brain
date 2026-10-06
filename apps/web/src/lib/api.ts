@@ -5,14 +5,18 @@ import {
   addDays,
   buildToday,
   buildWeeklyReport,
+  createHabitInput,
   createProjectInput,
   createTaskInput,
   positionBetween,
   projectViews,
   todayISO,
+  updateHabitInput,
   weekRange,
+  type CreateHabitInput,
   type CreateTaskInput,
   type DashboardInput,
+  type HabitAdmin,
   type HabitSlot,
   type Idea,
   type Project,
@@ -21,6 +25,7 @@ import {
   type ReorderInput,
   type Task,
   type TodayPayload,
+  type UpdateHabitInput,
   type UpdateTaskInput,
   type WeeklyReport,
 } from '@sb/shared';
@@ -129,7 +134,7 @@ async function loadDashboard(now = new Date()): Promise<DashboardInput> {
   const weekStartTs = new Date(`${start}T00:00:00`).toISOString();
 
   const [habits, logs, tasks, projects] = await Promise.all([
-    sb.from('habits').select('id, nombre, slot, position').eq('active', true).order('position'),
+    sb.from('habits').select('id, nombre, slot, position, created_at, archived_at').order('position'),
     fetchAll<Row>((a, b) =>
       sb
         .from('habit_logs')
@@ -153,7 +158,14 @@ async function loadDashboard(now = new Date()): Promise<DashboardInput> {
   ]);
 
   return {
-    habits: must(habits).map((h) => ({ id: h.id, nombre: h.nombre, slot: h.slot as HabitSlot, position: Number(h.position) })),
+    habits: must(habits).map((h) => ({
+      id: h.id,
+      nombre: h.nombre,
+      slot: h.slot as HabitSlot,
+      position: Number(h.position),
+      createdAt: h.created_at,
+      archivedAt: h.archived_at,
+    })),
     doneLogs: logs.map((l) => ({ habitId: l.habit_id, fecha: l.fecha })),
     tasks: tasks.map(toTask),
     projects: must(projects).map(toProjectRow),
@@ -161,7 +173,7 @@ async function loadDashboard(now = new Date()): Promise<DashboardInput> {
   };
 }
 
-async function maxPosition(table: 'tasks' | 'steps', taskId?: string) {
+async function maxPosition(table: 'tasks' | 'steps' | 'habits', taskId?: string) {
   let q = sb.from(table).select('position').order('position', { ascending: false }).limit(1);
   if (taskId) q = q.eq('task_id', taskId);
   const [row] = must(await q);
@@ -225,11 +237,40 @@ export const api = {
     must(await sb.from('steps').delete().eq('id', id));
   },
 
-  // Hábitos: un registro por (hábito, fecha)
+  // Hábitos: un registro por (hábito, fecha). Archivar conserva el historial.
   toggleHabit: async (id: string) => {
     const fecha = todayISO();
     const existing = must(await sb.from('habit_logs').select('done').eq('habit_id', id).eq('fecha', fecha).maybeSingle());
     must(await sb.from('habit_logs').upsert({ habit_id: id, fecha, done: !existing?.done }, { onConflict: 'habit_id,fecha' }));
+  },
+  habits: async (): Promise<HabitAdmin[]> =>
+    must(await sb.from('habits').select('id, nombre, slot, position, archived_at').order('position')).map((h) => ({
+      id: h.id,
+      nombre: h.nombre,
+      slot: h.slot as HabitSlot,
+      position: Number(h.position),
+      archivedAt: h.archived_at,
+    })),
+  createHabit: async (input: CreateHabitInput) => {
+    const { nombre, slot } = createHabitInput.parse(input);
+    const position = positionBetween(await maxPosition('habits'), null);
+    must(await sb.from('habits').insert({ nombre, slot, position }));
+  },
+  updateHabit: async (id: string, patch: UpdateHabitInput) => {
+    const { nombre, slot } = updateHabitInput.parse(patch);
+    const cols = Object.fromEntries(Object.entries({ nombre, slot }).filter(([, v]) => v !== undefined));
+    must(await sb.from('habits').update(cols).eq('id', id));
+  },
+  archiveHabit: async (id: string) => {
+    must(await sb.from('habits').update({ archived_at: new Date().toISOString() }).eq('id', id));
+  },
+  /** Cuenta como nuevo desde hoy: los días que pasó archivado no se vuelven incumplidos. */
+  reactivateHabit: async (id: string) => {
+    must(await sb.from('habits').update({ archived_at: null, created_at: new Date().toISOString() }).eq('id', id));
+  },
+  /** Borrado real: sus habit_logs se van en cascada. */
+  deleteHabit: async (id: string) => {
+    must(await sb.from('habits').delete().eq('id', id));
   },
 
   // Proyectos
