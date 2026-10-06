@@ -218,5 +218,6 @@ export * from './domain/metrics';
 export * from './domain/dashboard';
 export * from './domain/calendar';
 export * from './domain/pasos';
+export * from './domain/gantt';
 export * from './colors';
 export * from './turnos';
