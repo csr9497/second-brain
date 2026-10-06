@@ -59,11 +59,13 @@ Studio local: http://127.0.0.1:54323. Deploy: cada push a `main` ejecuta `.githu
 - **`packages/shared`** (sin build: exporta `src/index.ts`):
   - Esquemas Zod y tipos de salida (`Task`, `TodayPayload`, `WeeklyReport`…).
   - En `src/domain/`, la lógica pura con tests: fechas, `positionBetween`, `computeStreak`, `bucketTasks`, y `buildToday`/`buildWeeklyReport`, que agregan filas ya cargadas.
+  - Colores: `paletteColor` (8 claves) y los mapas enum→color de `src/colors.ts`. Una clave nueva exige tocar 4 sitios: el CHECK de `projects.color`, `paletteColor`, los tokens `--c-*` de los 3 bloques de tema de `index.css` y `COLOR_LABEL` en `apps/web/src/lib/options.ts`. En la web se pinta con `var(--c-<clave>)` en línea, nunca con clases de Tailwind armadas dinámicamente.
   - Los esquemas `*Fields` no llevan `.default()`, para que `.partial()` en los updates no pise campos (en Zod 4 `.partial()` conserva los defaults internos; lo cubre `schemas.test.ts`).
 - **`apps/web`** (React 19 + TanStack Query + Tailwind v4 + dnd-kit; sin router):
   - `lib/api.ts` es la **única** capa de datos. Hace las consultas con supabase-js, traduce snake_case ↔ camelCase y pasa las filas a la lógica de `@sb/shared`. PostgREST limita a 1000 filas por petición: para listas que pueden crecer, usa `fetchAll`.
   - Toda la pantalla sale de **una query `['today']`**. Las mutaciones usan `useTodayMutation`, que aplica un cambio optimista opcional y siempre invalida `['today']`. Los modales de tarea y de proyecto sirven para crear y para editar, según reciban o no la entidad.
   - Sesión: `useSession`. Si no hay sesión, se muestra `<Login>`.
+  - Formularios: no hay `<select>` nativos; se usa `components/ui/Select.tsx` (Radix) con las opciones de `lib/options.ts`.
   - `vite.config.ts` usa `base: './'`, para servir igual en `/` (local) y en `/second-brain/` (Pages).
 
 ## Reglas de dominio no obvias
