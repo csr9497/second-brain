@@ -12,10 +12,16 @@ export const projectStatus = z.enum(['idea', 'en_curso', 'en_pausa', 'completado
 export const ideaStatus = z.enum(['inbox', 'procesada', 'archivada']);
 export const taskFilter = z.enum(['hoy', 'semana', 'todas', 'incumplimiento']);
 
+// Paleta fija de colores; la DB guarda la clave (CHECK en projects.color)
+export const paletteColor = z.enum(['azul', 'verde', 'ambar', 'rojo', 'violeta', 'rosa', 'cian', 'gris']);
+
 export type Priority = z.infer<typeof priority>;
 export type TaskStatus = z.infer<typeof taskStatus>;
 export type HabitSlot = z.infer<typeof habitSlot>;
 export type TaskFilter = z.infer<typeof taskFilter>;
+export type PaletteColor = z.infer<typeof paletteColor>;
+export type ProjectStatus = z.infer<typeof projectStatus>;
+export type TaskType = z.infer<typeof taskType>;
 
 // ---------- Entradas ----------
 
@@ -67,12 +73,14 @@ const projectFields = z.object({
   nextAction: z.string().nullish(),
   scheduleDays: z.array(z.number().int().min(0).max(6)),
   totalProgress: z.number().int().min(0).max(100),
+  color: paletteColor,
 });
 export const createProjectInput = projectFields.extend({
   estado: projectStatus.default('en_curso'),
   prioridad: priority.default('media'),
   scheduleDays: projectFields.shape.scheduleDays.default([]),
   totalProgress: projectFields.shape.totalProgress.default(0),
+  color: paletteColor.default('azul'),
 });
 export const updateProjectInput = projectFields.partial().refine(nonEmpty, 'Nada que actualizar');
 export type ProjectInput = z.input<typeof projectFields>;
