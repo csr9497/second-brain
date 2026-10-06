@@ -1,7 +1,7 @@
 // Agregados de la pantalla Hoy y de la revisión semanal, calculados a partir de
 // filas ya cargadas (sin acceso a datos). Nada de esto se almacena salvo al
 // archivar una semana.
-import type { Habit, HabitSlot, Project, Task, TodayPayload, WeeklyReport } from '../index';
+import type { Habit, HabitSlot, PaletteColor, Project, Task, TodayPayload, WeeklyReport } from '../index';
 import { daysBetween, slotForHour, toISO, todayISO, weekRange, weekday } from './dates';
 import { bucketTasks, computeStreak, isOverdue, pct } from './metrics';
 
@@ -20,6 +20,7 @@ export interface ProjectRow {
   nextAction: string | null;
   scheduleDays: number[];
   totalProgress: number;
+  color: PaletteColor;
   lastActivityAt: string;
 }
 
@@ -59,6 +60,7 @@ export function projectViews(projects: ProjectRow[], tasks: Pick<Task, 'projectI
         nextAction: p.nextAction,
         scheduleDays: p.scheduleDays,
         totalProgress: p.totalProgress,
+        color: p.color,
         pctSemana: pct(week.filter((t) => t.status === 'hecha').length, week.length),
         hoyToca: p.scheduleDays.includes(dow),
       };

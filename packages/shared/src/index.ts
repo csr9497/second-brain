@@ -133,6 +133,7 @@ export interface Project {
   nextAction: string | null;
   scheduleDays: number[];
   totalProgress: number;
+  color: PaletteColor;
   pctSemana: number;
   hoyToca: boolean;
 }

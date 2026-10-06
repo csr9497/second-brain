@@ -85,6 +85,7 @@ const toProjectRow = (r: Row): ProjectRow => ({
   nextAction: r.next_action,
   scheduleDays: r.schedule_days ?? [],
   totalProgress: r.total_progress,
+  color: r.color ?? 'azul',
   lastActivityAt: r.last_activity_at,
 });
 
@@ -112,6 +113,7 @@ const projectColumns = (p: Partial<ProjectInput>): Row =>
       next_action: p.nextAction,
       schedule_days: p.scheduleDays,
       total_progress: p.totalProgress,
+      color: p.color,
     }).filter(([, v]) => v !== undefined),
   );
 

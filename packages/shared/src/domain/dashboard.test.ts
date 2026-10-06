@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Task } from '../index';
-import { buildToday, buildWeeklyReport, type DashboardInput, type HabitRow, type ProjectRow } from './dashboard';
+import { buildToday, buildWeeklyReport, projectViews, type DashboardInput, type HabitRow, type ProjectRow } from './dashboard';
 
 // Jueves 2026-10-01, 15:00 hora local → franja "tarde"; semana 28 sep – 4 oct
 const now = new Date(2026, 9, 1, 15, 0);
@@ -18,6 +18,7 @@ const project = (id: string, o: Partial<ProjectRow> = {}): ProjectRow => ({
   nextAction: null,
   scheduleDays: [],
   totalProgress: 0,
+  color: 'azul',
   lastActivityAt: '2026-09-01T10:00:00Z',
   ...o,
 });
@@ -84,4 +85,11 @@ describe('buildWeeklyReport', () => {
   it('% hábitos sobre los días transcurridos (lun–jue = 4 días × 2 hábitos)', () => expect(r.habitsPct).toBe(63));
   it('tareas de la semana', () => expect([r.tasksDone, r.tasksTotal, r.overdue]).toEqual([1, 3, 1]));
   it('proyectos sin tocar esta semana', () => expect(r.untouched.map((p) => p.id)).toEqual(['p1']));
+});
+
+describe('projectViews', () => {
+  it('projectViews propaga el color del proyecto', () => {
+    const [p] = projectViews([project('p1', { color: 'violeta' })], [], '2026-10-05');
+    expect(p.color).toBe('violeta');
+  });
 });

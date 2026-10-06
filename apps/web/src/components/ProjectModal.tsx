@@ -37,6 +37,7 @@ export function ProjectModal({ project, onClose }: { project?: Project; onClose:
     nextAction: project?.nextAction ?? '',
     scheduleDays: project?.scheduleDays ?? [],
     totalProgress: project?.totalProgress ?? 0,
+    color: project?.color ?? 'azul',
   });
   const set = <K extends keyof ProjectInput>(k: K, v: ProjectInput[K]) => setForm((f) => ({ ...f, [k]: v }));
   const toggleDay = (d: number) =>
