@@ -13,10 +13,10 @@ type PorFranja = TodayPayload['habits']['porFranja'];
 
 const POR: Record<HabitSlot, string> = { manana: 'la mañana', tarde: 'la tarde', noche: 'la noche' };
 
-/** Cuenta turnos (un hábito = un turno, aunque tenga fichas en varias franjas). */
+/** Turnos únicos de Hoy: un turno con alternativas aparece en varias pestañas pero cuenta una vez. */
 function contarTurnos(porFranja: PorFranja) {
   const turnos = new Map<string, boolean>();
-  for (const c of Object.values(porFranja).flat()) turnos.set(c.id, (turnos.get(c.id) ?? false) || c.done);
+  for (const c of Object.values(porFranja).flat()) turnos.set(`${c.id}|${c.turno.join('|')}`, c.done);
   const total = turnos.size;
   const hechos = [...turnos.values()].filter(Boolean).length;
   return { total, hechos, pct: total ? Math.round((hechos / total) * 100) : 0 };
