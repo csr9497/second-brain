@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { confirmar } from '../components/ui/Confirmar';
 
 // Vistas por hash: recargar conserva la vista y sirve igual en GitHub Pages.
 export const VISTAS = {
@@ -23,13 +24,14 @@ export function useVista() {
 
 // Guardia de salida: una vista con cambios sin guardar decide si se puede ir a otra.
 // (El botón "atrás" del navegador no pasa por aquí: limitación aceptada.)
-let guardia: (() => boolean) | null = null;
-export const puedeSalir = () => (guardia ? guardia() : true);
+let guardia: (() => Promise<boolean>) | null = null;
+/** true si se puede salir de la vista actual (pregunta si hay cambios sin guardar). */
+export const puedeSalir = (): Promise<boolean> => (guardia ? guardia() : Promise.resolve(true));
 
 export function useGuardiaSalida(activa: boolean, mensaje: string) {
   useEffect(() => {
     if (!activa) return;
-    guardia = () => window.confirm(mensaje);
+    guardia = () => confirmar({ titulo: mensaje, mensaje: 'Los cambios que no guardaste se perderán.' });
     const antesDeCerrar = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = ''; // navegadores antiguos

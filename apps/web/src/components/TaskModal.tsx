@@ -9,6 +9,7 @@ import { TODAY_KEY } from '../lib/useToday';
 import { ConfirmDelete, Field, Modal, ModalActions } from './Modal';
 import { PlanificadorTarea } from './planner/PlanificadorTarea';
 import { Select, type SelectOption } from './ui/Select';
+import { confirmar } from './ui/Confirmar';
 import { useToast } from './Toast';
 
 /** Crea una tarea o, si recibe `task`, la edita (campos, estado y pasos). */
@@ -46,8 +47,12 @@ export function TaskModal({
   const [activo, setActivo] = useState<Activo>('tarea');
   // Foto del estado inicial (solo en el montaje) para avisar al cerrar con cambios sin guardar
   const [foto] = useState(() => JSON.stringify({ form, steps }));
-  const cerrar = () => {
-    if (JSON.stringify({ form, steps }) !== foto && !window.confirm('¿Descartar los cambios de la tarea?')) return;
+  const cerrar = async () => {
+    if (
+      JSON.stringify({ form, steps }) !== foto &&
+      !(await confirmar({ titulo: '¿Descartar los cambios de la tarea?', mensaje: 'Lo que cambiaste en esta tarea no se guardará.' }))
+    )
+      return;
     onClose();
   };
   const setStep = (i: number, patch: Partial<StepDraft>) => setSteps((xs) => xs.map((x, j) => (j === i ? { ...x, ...patch } : x)));
@@ -141,7 +146,7 @@ export function TaskModal({
     <Modal
       title={editing ? '✏️ Editar tarea' : '➕ Nueva tarea'}
       hint={editing ? undefined : 'Completa lo que necesites; solo el título es obligatorio.'}
-      onClose={cerrar}
+      onClose={() => void cerrar()}
       ancho="max-w-[1120px]"
     >
       <form onSubmit={submit}>
@@ -278,7 +283,7 @@ export function TaskModal({
         </div>
         <ModalActions>
           {editing && <ConfirmDelete label="Eliminar tarea" disabled={remove.isPending} onConfirm={() => remove.mutate()} />}
-          <button type="button" className="btn" onClick={cerrar}>
+          <button type="button" className="btn" onClick={() => void cerrar()}>
             Cancelar
           </button>
           <button type="submit" className="btn btn-primary" disabled={save.isPending || !form.title.trim()}>

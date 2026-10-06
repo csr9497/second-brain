@@ -21,6 +21,7 @@ import {
 } from '@sb/shared';
 import { api } from '../../lib/api';
 import { useGuardiaSalida } from '../../lib/useVista';
+import { confirmar } from '../ui/Confirmar';
 import { rangoPaso, shortDate } from '../../lib/format';
 import { Dot } from '../ui/Dot';
 import { Barra, type Fase, type Op } from './Barra';
@@ -130,8 +131,8 @@ export function GanttView({ onEditTask }: { onEditTask: (t: Task) => void }) {
     setDraft(d === 0 ? base.current.draft : aplicarOp(base.current.draft, base.current.obj, op, d));
     if (fase === 'fin') base.current = null;
   };
-  const salir = () => {
-    if (cambios.length && !window.confirm('¿Descartar los cambios sin guardar?')) return;
+  const salir = async () => {
+    if (cambios.length && !(await confirmar({ titulo: '¿Descartar los cambios sin guardar?', mensaje: 'Las barras volverán a sus fechas guardadas.' }))) return;
     setDraft(borradorVacio());
     setEditando(false);
   };
@@ -155,7 +156,7 @@ export function GanttView({ onEditTask }: { onEditTask: (t: Task) => void }) {
               <span className="text-xs font-semibold" aria-live="polite">
                 {cambios.length} {cambios.length === 1 ? 'cambio' : 'cambios'}
               </span>
-              <button type="button" className="btn px-3 py-1.5 text-xs" onClick={salir}>
+              <button type="button" className="btn px-3 py-1.5 text-xs" onClick={() => void salir()}>
                 {cambios.length ? 'Descartar' : 'Salir'}
               </button>
               <button type="button" className="btn btn-primary px-3 py-1.5 text-xs" disabled={cambios.length === 0} onClick={() => setResumen(true)}>

@@ -13,6 +13,7 @@ import { HabitsManager } from './components/HabitsManager';
 import { CalendarView } from './components/CalendarView';
 import { HoyView } from './components/HoyView';
 import { GanttView } from './components/gantt/GanttView';
+import { ConfirmHost } from './components/ui/Confirmar';
 import { useVista, hrefVista, listaVistas, puedeSalir, VISTAS } from './lib/useVista';
 import type { ModalState } from './lib/modal';
 import { todayISO } from '@sb/shared';
@@ -40,7 +41,7 @@ function Home() {
           <h1 className="mt-1.5 mb-1 font-display text-[33px] leading-[1.05] font-bold tracking-[-.01em]">🧠 Second Brain</h1>
           <button
             onClick={async () => {
-              if (!puedeSalir()) return;
+              if (!(await puedeSalir())) return;
               await sb.auth.signOut();
               qc.clear();
             }}
@@ -57,8 +58,11 @@ function Home() {
           <a
             key={v}
             href={hrefVista(v)}
-            onClick={(e) => {
-              if (!puedeSalir()) e.preventDefault();
+            onClick={async (e) => {
+              // Ctrl/Cmd/Shift/clic central: que el navegador abra la pestaña nueva como siempre
+              if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+              e.preventDefault();
+              if (await puedeSalir()) window.location.hash = hrefVista(v);
             }}
             aria-current={vista === v ? 'page' : undefined}
             className="rounded-full border border-line px-3.5 py-1.5 text-[13px] font-semibold text-muted no-underline transition hover:text-text aria-[current=page]:border-accent aria-[current=page]:bg-accent aria-[current=page]:text-white"
@@ -86,6 +90,7 @@ function Home() {
         <HabitsManager onClose={close} onNew={() => setModal({ kind: 'habito' })} onEdit={(habit) => setModal({ kind: 'habito', habit })} />
       )}
       {modal?.kind === 'habito' && <HabitModal habit={modal.habit} onClose={backToHabits} />}
+      <ConfirmHost />
     </div>
   );
 }
