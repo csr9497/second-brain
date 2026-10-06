@@ -28,7 +28,9 @@ begin
   -- el cliente archiva con la hora del navegador: nunca cerrar antes de abrir
   if tg_op = 'INSERT' then
     insert into public.habit_periods (user_id, habit_id, desde, hasta)
-    values (new.user_id, new.id, new.created_at, greatest(new.archived_at, new.created_at));
+    -- greatest() ignora los NULL: sin archived_at el periodo debe quedar abierto
+    values (new.user_id, new.id, new.created_at,
+            case when new.archived_at is null then null else greatest(new.archived_at, new.created_at) end);
   elsif old.archived_at is null and new.archived_at is not null then
     update public.habit_periods set hasta = greatest(new.archived_at, desde) where habit_id = new.id and hasta is null;
   elsif old.archived_at is not null and new.archived_at is null then
