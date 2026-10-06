@@ -25,13 +25,17 @@ begin
   values (gen_random_uuid(), uid, uid::text, 'email',
           jsonb_build_object('sub', uid::text, 'email', 'dev@local.test', 'email_verified', true), now(), now(), now());
 
-  -- Hábitos (2 por franja), creados hace 10 días + 5 días previos completos para que haya racha
-  insert into public.habits (user_id, nombre, slot, position, created_at) values
-    (uid, 'Ejercicio', 'manana', 1000, now() - interval '10 days'), (uid, 'Inglés', 'manana', 2000, now() - interval '10 days'),
-    (uid, 'Estudiar', 'tarde', 3000, now() - interval '10 days'), (uid, 'Leer', 'tarde', 4000, now() - interval '10 days'),
-    (uid, 'Revisar pendientes', 'noche', 5000, now() - interval '10 days'), (uid, 'Planear mañana', 'noche', 6000, now() - interval '10 days');
-  insert into public.habit_logs (user_id, habit_id, fecha, done)
-    select uid, h.id, today - d, true from public.habits h, generate_series(1, 5) d where h.user_id = uid;
+  -- Hábitos creados hace 10 días (uno con dos turnos: Mañana + (Tarde o Noche)) + 5 días previos completos
+  insert into public.habits (user_id, nombre, turnos, position, created_at) values
+    (uid, 'Ejercicio', '[["manana"]]', 1000, now() - interval '10 days'), (uid, 'Inglés', '[["manana"]]', 2000, now() - interval '10 days'),
+    (uid, 'Estudiar', '[["tarde"]]', 3000, now() - interval '10 days'), (uid, 'Leer', '[["tarde"]]', 4000, now() - interval '10 days'),
+    (uid, 'Revisar pendientes', '[["noche"]]', 5000, now() - interval '10 days'), (uid, 'Planear mañana', '[["noche"]]', 6000, now() - interval '10 days'),
+    (uid, 'Tomar agua (2 L)', '[["manana"],["tarde","noche"]]', 7000, now() - interval '10 days');
+  -- un registro por turno (en su primera franja) en cada uno de los 5 días previos
+  insert into public.habit_logs (user_id, habit_id, fecha, done, slot)
+    select uid, h.id, today - d, true, t->>0
+    from public.habits h, jsonb_array_elements(h.turnos) t, generate_series(1, 5) d
+    where h.user_id = uid;
 
   -- Proyectos: dos "tocan hoy", uno no
   insert into public.projects (user_id, nombre, next_action, schedule_days, total_progress, prioridad, color)

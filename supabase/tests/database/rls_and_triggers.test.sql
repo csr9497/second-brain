@@ -2,7 +2,7 @@
 -- Verifica el aislamiento por usuario (RLS) y las reglas de negocio en triggers.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(28);
+select plan(34);
 
 -- Dos usuarios: A (dueño de los datos) y B (intruso)
 insert into auth.users (instance_id, id, aud, role, email) values
@@ -71,6 +71,24 @@ select is((select count(*)::int from public.habit_periods where habit_id = 'aaaa
 insert into public.habits (id, nombre, archived_at) values ('aaaaaaaa-0000-4000-8000-000000000007', 'Nace archivado', now());
 select isnt((select hasta from public.habit_periods where habit_id = 'aaaaaaaa-0000-4000-8000-000000000007'), null,
   'un hábito creado ya archivado tiene su periodo cerrado');
+-- Turnos: "y" de franjas alternativas ("o"), cada franja una sola vez
+select throws_ok($$ insert into public.habits (nombre, turnos) values ('repetido', '[["manana"],["manana"]]') $$,
+  '23514', null, 'turnos con una franja repetida violan el CHECK');
+select throws_ok($$ update public.habits set slot = 'tarde' where id = 'aaaaaaaa-0000-4000-8000-000000000005' $$,
+  '428C9', null, 'slot es generado (primera franja) y no se escribe');
+update public.habits set turnos = '[["tarde"],["noche"]]' where id = 'aaaaaaaa-0000-4000-8000-000000000005';
+select is((select count(*)::int from public.habit_periods where habit_id = 'aaaaaaaa-0000-4000-8000-000000000005'), 3,
+  'cambiar los turnos de un hábito activo abre un periodo nuevo');
+select is((select turnos from public.habit_periods where habit_id = 'aaaaaaaa-0000-4000-8000-000000000005' and hasta is null),
+  '[["tarde"],["noche"]]'::jsonb, 'el periodo abierto guarda la nueva programación');
+select lives_ok($$ insert into public.habit_logs (habit_id, fecha, slot) values
+  ('aaaaaaaa-0000-4000-8000-000000000005', '2026-10-01', 'tarde'),
+  ('aaaaaaaa-0000-4000-8000-000000000005', '2026-10-01', 'noche') $$,
+  'un hábito puede tener registros en varias franjas el mismo día');
+select throws_ok($$ insert into public.habit_logs (habit_id, fecha, slot) values
+  ('aaaaaaaa-0000-4000-8000-000000000005', '2026-10-01', 'tarde') $$,
+  '23505', null, 'un solo registro por hábito, fecha y franja');
+
 -- Reloj del navegador atrasado: archivar "en el pasado" no debe cerrar antes de abrir
 insert into public.habits (id, nombre) values ('aaaaaaaa-0000-4000-8000-000000000006', 'Hábito reloj');
 update public.habits set archived_at = now() - interval '1 minute' where id = 'aaaaaaaa-0000-4000-8000-000000000006';
