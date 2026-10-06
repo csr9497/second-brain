@@ -7,7 +7,8 @@ alter table public.habits
 -- Relleno: los hábitos existentes "nacen" el día de su primer registro
 update public.habits h
    set created_at = coalesce((select min(l.fecha)::timestamptz from public.habit_logs l where l.habit_id = h.id), h.created_at);
-update public.habits set archived_at = now() where not active;
+-- Los inactivos nunca contaron: se archivan desde su creación para no alterar el historial
+update public.habits set archived_at = created_at where not active;
 
 alter table public.habits drop column active;
 alter table public.habits add column active boolean generated always as (archived_at is null) stored;
