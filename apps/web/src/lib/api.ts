@@ -134,7 +134,7 @@ async function loadDashboard(now = new Date()): Promise<DashboardInput> {
   const weekStartTs = new Date(`${start}T00:00:00`).toISOString();
 
   const [habits, logs, tasks, projects] = await Promise.all([
-    sb.from('habits').select('id, nombre, slot, position, created_at, archived_at').order('position'),
+    sb.from('habits').select('id, nombre, slot, position, periods:habit_periods(desde, hasta)').order('position'),
     fetchAll<Row>((a, b) =>
       sb
         .from('habit_logs')
@@ -163,8 +163,7 @@ async function loadDashboard(now = new Date()): Promise<DashboardInput> {
       nombre: h.nombre,
       slot: h.slot as HabitSlot,
       position: Number(h.position),
-      createdAt: h.created_at,
-      archivedAt: h.archived_at,
+      periods: (h.periods ?? []).map((p: Row) => ({ desde: p.desde, hasta: p.hasta })),
     })),
     doneLogs: logs.map((l) => ({ habitId: l.habit_id, fecha: l.fecha })),
     tasks: tasks.map(toTask),
@@ -264,9 +263,9 @@ export const api = {
   archiveHabit: async (id: string) => {
     must(await sb.from('habits').update({ archived_at: new Date().toISOString() }).eq('id', id));
   },
-  /** Cuenta como nuevo desde hoy: los días que pasó archivado no se vuelven incumplidos. */
+  /** El trigger habits_sync_periods abre un periodo nuevo; el historial anterior se conserva. */
   reactivateHabit: async (id: string) => {
-    must(await sb.from('habits').update({ archived_at: null, created_at: new Date().toISOString() }).eq('id', id));
+    must(await sb.from('habits').update({ archived_at: null }).eq('id', id));
   },
   /** Borrado real: sus habit_logs se van en cascada. */
   deleteHabit: async (id: string) => {

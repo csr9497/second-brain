@@ -11,6 +11,7 @@ erDiagram
   projects ||--o{ tasks : contiene
   tasks ||--o{ steps : se_divide
   habits ||--o{ habit_logs : registra
+  habits ||--o{ habit_periods : vigencia
   areas {
     uuid id PK
     text nombre
@@ -73,6 +74,12 @@ erDiagram
     uuid habit_id FK
     date fecha
     bool done
+  }
+  habit_periods {
+    uuid id PK
+    uuid habit_id FK
+    timestamptz desde
+    timestamptz hasta "null = abierto"
   }
   ideas {
     uuid id PK
