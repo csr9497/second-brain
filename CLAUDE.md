@@ -18,13 +18,28 @@ Producción:
 - Backend en **Supabase**, project ref `cwmqgjeqtpilhcagotmn`.
 - **No hay servidor propio**: el navegador habla directo con Supabase vía `supabase-js`.
 
+Ambientes (cada modo de Vite lee su archivo en `apps/web/`, todos ignorados por git):
+
+| Comando | Backend | Env |
+|---|---|---|
+| `pnpm dev` | Supabase **dev** en la nube: `second-brain-dev`, ref `lvaeqltfbbixbpwogeul` | `.env.dev.local` |
+| `pnpm dev:local` | Supabase local en Docker | `.env.docker.local` (`pnpm db:env`) |
+| GitHub Pages | Producción, ref `cwmqgjeqtpilhcagotmn` | variables del repo |
+
+- `supabase.ts` lanza un error si el servidor de desarrollo apunta al ref de producción. Además, en dev el título de la pestaña muestra el modo.
+- El proyecto **linkeado** (`supabase link`) sigue siendo **producción**: `supabase db push` a secas va a prod. Para dev usa `pnpm db:push:dev` / `pnpm db:reset:dev`, que leen `SUPABASE_DEV_DB_URL` de `.env.dev.local` en la raíz (ver `.env.dev.example`).
+- Dev tiene el mismo seed y el mismo usuario que local (`dev@local.test` / `devpassword`) y el registro desactivado. Su config de Auth se sincroniza con `supabase config push --project-ref lvaeqltfbbixbpwogeul`.
+
 ## Comandos (desde la raíz)
 
 ```bash
 pnpm db:start           # Supabase local (Docker): aplica migraciones + supabase/seed.sql
 pnpm db:reset           # recrea la DB local desde migraciones + seed
-pnpm db:env             # genera apps/web/.env.local (URL + anon key locales)
-pnpm dev                # Vite :5173 — usuario demo local: dev@local.test / devpassword
+pnpm db:env             # genera apps/web/.env.docker.local (URL + anon key locales)
+pnpm dev                # Vite :5173 contra Supabase dev (nube) — usuario: dev@local.test / devpassword
+pnpm dev:local          # Vite :5173 contra Supabase local (Docker)
+pnpm db:push:dev        # aplica migraciones pendientes al proyecto dev
+pnpm db:reset:dev       # recrea la DB dev desde migraciones + seed
 pnpm test               # vitest de packages/shared
 supabase test db        # tests pgTAP de RLS y triggers (supabase/tests/database)
 pnpm typecheck
@@ -40,7 +55,7 @@ Studio local: http://127.0.0.1:54323. Deploy: cada push a `main` ejecuta `.githu
 
 - **`supabase/migrations/`** es el esquema fuente de verdad. Todas las tablas tienen `user_id default auth.uid()` y RLS con la política `owner_all`. **La anon key es pública**: toda tabla nueva debe activar RLS y su política de dueño, o queda expuesta. `anon` no tiene grants.
   - Hay tres reglas en **triggers** (no en el cliente): `completed_at` solo cuando `status = 'hecha'`; los pasos sincronizan el estado de su tarea (`steps_sync_task`); y tocar una tarea actualiza `projects.last_activity_at`.
-  - Cambios de esquema: `supabase migration new <nombre>`. Prueba con `pnpm db:reset` y `supabase test db`, y en producción aplica con `supabase db push`. Hay que añadir un pgTAP si tocas RLS o triggers.
+  - Cambios de esquema: `supabase migration new <nombre>`. Prueba con `pnpm db:reset` y `supabase test db`, luego aplica en dev con `pnpm db:push:dev` y en producción con `supabase db push`. Hay que añadir un pgTAP si tocas RLS o triggers.
 - **`packages/shared`** (sin build: exporta `src/index.ts`):
   - Esquemas Zod y tipos de salida (`Task`, `TodayPayload`, `WeeklyReport`…).
   - En `src/domain/`, la lógica pura con tests: fechas, `positionBetween`, `computeStreak`, `bucketTasks`, y `buildToday`/`buildWeeklyReport`, que agregan filas ya cargadas.

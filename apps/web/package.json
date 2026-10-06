@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --mode dev",
+    "dev:local": "vite --mode docker",
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p ."
