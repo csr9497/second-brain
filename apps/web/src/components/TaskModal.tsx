@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { taskType, type CreateTaskInput, type Task, type TaskStatus } from '@sb/shared';
+import { type CreateTaskInput, type Task, type TaskStatus } from '@sb/shared';
 import { api } from '../lib/api';
+import { PRIORITY_OPTIONS, TASK_STATUS_OPTIONS, TASK_TYPE_OPTIONS } from '../lib/options';
 import { TODAY_KEY } from '../lib/useToday';
 import { ConfirmDelete, Field, Modal, ModalActions } from './Modal';
+import { Select, type SelectOption } from './ui/Select';
 import { useToast } from './Toast';
 
 type StepDraft = { id?: string; title: string };
@@ -20,7 +22,7 @@ export function TaskModal({ task, onClose }: { task?: Task; onClose: () => void 
     description: task?.description ?? '',
     type: task?.type ?? '',
     projectId: task?.projectId ?? '',
-    priority: task?.priority ?? ('media' as CreateTaskInput['priority']),
+    priority: task?.priority ?? ('media' as Task['priority']),
     status: task?.status ?? ('por_hacer' as TaskStatus),
     startDate: task?.startDate ?? '',
     deadline: task?.deadline ?? '',
@@ -28,6 +30,15 @@ export function TaskModal({ task, onClose }: { task?: Task; onClose: () => void 
   });
   const [steps, setSteps] = useState<StepDraft[]>(task ? task.steps.map((s) => ({ id: s.id, title: s.title })) : [{ title: '' }]);
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const setValue = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const projectOptions: SelectOption[] = [
+    { value: '', label: '— Ninguno —' },
+    ...(projects.data ?? []).map((p) => ({
+      value: p.id,
+      label: p.nombre + (p.estado !== 'en_curso' ? ` (${p.estado.replace('_', ' ')})` : ''),
+      color: p.color,
+    })),
+  ];
 
   const fields = () => ({
     title: form.title.trim(),
@@ -122,40 +133,19 @@ export function TaskModal({ task, onClose }: { task?: Task; onClose: () => void 
         </Field>
         <div className="grid grid-cols-2 gap-[11px]">
           <Field label="Tipo de actividad">
-            <select className="input" value={form.type} onChange={set('type')}>
-              <option value="">—</option>
-              {taskType.options.map((t) => (
-                <option key={t}>{t}</option>
-              ))}
-            </select>
+            <Select value={form.type} onChange={setValue('type')} options={TASK_TYPE_OPTIONS} />
           </Field>
           <Field label="Prioridad">
-            <select className="input" value={form.priority} onChange={set('priority')}>
-              <option value="alta">Alta</option>
-              <option value="media">Media</option>
-              <option value="baja">Baja</option>
-            </select>
+            <Select value={form.priority} onChange={setValue('priority')} options={PRIORITY_OPTIONS} />
           </Field>
         </div>
         <div className={editing ? 'grid grid-cols-2 gap-[11px]' : ''}>
           <Field label="Proyecto relacionado">
-            <select className="input" value={form.projectId} onChange={set('projectId')}>
-              <option value="">— Ninguno —</option>
-              {projects.data?.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nombre}
-                  {p.estado !== 'en_curso' ? ` (${p.estado.replace('_', ' ')})` : ''}
-                </option>
-              ))}
-            </select>
+            <Select value={form.projectId} onChange={setValue('projectId')} options={projectOptions} />
           </Field>
           {editing && (
             <Field label="Estado">
-              <select className="input" value={form.status} onChange={set('status')}>
-                <option value="por_hacer">Por hacer</option>
-                <option value="en_curso">En curso</option>
-                <option value="hecha">Hecha</option>
-              </select>
+              <Select value={form.status} onChange={setValue('status')} options={TASK_STATUS_OPTIONS} />
             </Field>
           )}
         </div>
