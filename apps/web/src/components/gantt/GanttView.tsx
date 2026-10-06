@@ -4,6 +4,7 @@ import {
   addDays,
   aplicarBorrador,
   borradorVacio,
+  cambiosDelBorrador,
   daysBetween,
   estirarPaso,
   estirarTarea,
@@ -19,10 +20,12 @@ import {
   type Task,
 } from '@sb/shared';
 import { api } from '../../lib/api';
+import { useGuardiaSalida } from '../../lib/useVista';
 import { rangoPaso, shortDate } from '../../lib/format';
 import { Dot } from '../ui/Dot';
 import { Barra, type Fase, type Op } from './Barra';
 import { COL, ETIQUETA } from './constantes';
+import { ResumenCambios } from './ResumenCambios';
 
 type Objetivo = { tipo: 'tarea'; tarea: Task } | { tipo: 'paso'; paso: Step };
 export const aplicarOp = (draft: GanttDraft, obj: Objetivo, op: Op, d: number) =>
@@ -59,7 +62,8 @@ export function GanttView({ onEditTask }: { onEditTask: (t: Task) => void }) {
   const hoy = todayISO();
   const [incluirHechas, setIncluirHechas] = useState(false);
   const { data, isLoading, error } = useQuery({ queryKey: ['gantt', incluirHechas], queryFn: () => api.gantt(incluirHechas) });
-  const [editando] = useState(false);
+  const [editando, setEditando] = useState(false);
+  const [resumen, setResumen] = useState(false);
   const [draft, setDraft] = useState<GanttDraft>(borradorVacio);
   const [plegados, setPlegados] = useState<Set<string>>(new Set());
   const scroller = useRef<HTMLDivElement>(null);
@@ -99,19 +103,62 @@ export function GanttView({ onEditTask }: { onEditTask: (t: Task) => void }) {
       return n;
     });
 
-  // En la Task 6 se conectan con el modo edición
-  const onArrastre = (_obj: Objetivo, _op: Op, _d: number, _fase: Fase) => {};
+  const cambios = useMemo(() => cambiosDelBorrador(originales, draft), [originales, draft]);
+  // Ids con cambios reales: una barra que vuelve a su sitio deja de marcarse
+  const modificados = useMemo(() => new Set(cambios.map((c) => c.id)), [cambios]);
+  useGuardiaSalida(cambios.length > 0, 'Tienes cambios sin guardar en el Gantt. ¿Descartarlos?');
+
+  // Arrastre: se parte del borrador y de la entidad al empezar; cada paso recalcula desde ahí
+  const base = useRef<{ draft: GanttDraft; obj: Objetivo } | null>(null);
+  const onArrastre = (obj: Objetivo, op: Op, d: number, fase: Fase) => {
+    if (fase === 'inicio') {
+      base.current = { draft, obj };
+      return;
+    }
+    if (!base.current) return;
+    setDraft(d === 0 ? base.current.draft : aplicarOp(base.current.draft, base.current.obj, op, d));
+    if (fase === 'fin') base.current = null;
+  };
+  const salir = () => {
+    if (cambios.length && !window.confirm('¿Descartar los cambios sin guardar?')) return;
+    setDraft(borradorVacio());
+    setEditando(false);
+  };
   const onTecla = (obj: Objetivo, op: Op, d: number) => setDraft((dr) => aplicarOp(dr, obj, op, d));
 
   return (
     <section className="mt-6">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="m-0 font-display text-lg font-semibold">Gantt</h2>
-        <label className="flex items-center gap-1.5 text-xs text-muted">
-          <input type="checkbox" checked={incluirHechas} disabled={editando} onChange={(e) => setIncluirHechas(e.target.checked)} className="accent-accent" />
-          Incluir hechas
-        </label>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-1.5 text-xs text-muted">
+            <input type="checkbox" checked={incluirHechas} disabled={editando} onChange={(e) => setIncluirHechas(e.target.checked)} className="accent-accent" />
+            Incluir hechas
+          </label>
+          {!editando ? (
+            <button type="button" className="btn btn-primary px-3 py-1.5 text-xs" disabled={!data || grupos.length === 0} onClick={() => setEditando(true)}>
+              ✏️ Editar
+            </button>
+          ) : (
+            <>
+              <span className="text-xs font-semibold" aria-live="polite">
+                {cambios.length} {cambios.length === 1 ? 'cambio' : 'cambios'}
+              </span>
+              <button type="button" className="btn px-3 py-1.5 text-xs" onClick={salir}>
+                {cambios.length ? 'Descartar' : 'Salir'}
+              </button>
+              <button type="button" className="btn btn-primary px-3 py-1.5 text-xs" disabled={cambios.length === 0} onClick={() => setResumen(true)}>
+                Guardar
+              </button>
+            </>
+          )}
+        </div>
       </div>
+      {editando && (
+        <p className="m-0 mb-2 text-[12px] text-faint">
+          Arrastra una barra para moverla y su borde derecho para alargarla. Con el teclado: ← → mueve un día, Shift + ← → alarga o acorta. Mover una tarea mueve también sus pasos.
+        </p>
+      )}
       {isLoading && <p className="text-sm text-muted">Cargando…</p>}
       {error && <div className="card text-sm text-hot">No se pudo cargar: {error.message}</div>}
       {data && grupos.length === 0 && <div className="card text-sm text-faint">No hay tareas con fechas ni pasos programados.</div>}
@@ -157,7 +204,7 @@ export function GanttView({ onEditTask }: { onEditTask: (t: Task) => void }) {
                             color={t.projectColor ?? 'gris'}
                             deadline={t.deadline ? x(t.deadline) - x(inicio) : null}
                             alerta={t.steps.some((s) => fueraDePlazo(s, t))}
-                            modificada={!!draft.tasks[t.id] || t.steps.some((s) => !!draft.steps[s.id])}
+                            modificada={modificados.has(t.id) || t.steps.some((s) => modificados.has(s.id))}
                             editable={editando}
                             etiqueta={`Tarea ${t.title}: ${shortDate(inicio)} a ${shortDate(fin)}${t.deadline ? `, vence ${shortDate(t.deadline)}` : ''}`}
                             onArrastre={(op, d, fase) => onArrastre({ tipo: 'tarea', tarea: t }, op, d, fase)}
@@ -184,7 +231,7 @@ export function GanttView({ onEditTask }: { onEditTask: (t: Task) => void }) {
                                 color={t.projectColor ?? 'gris'}
                                 deadline={null}
                                 alerta={fueraDePlazo(s, t)}
-                                modificada={!!draft.steps[s.id]}
+                                modificada={modificados.has(s.id)}
                                 editable={editando}
                                 etiqueta={`Paso ${s.title} (${t.title}): ${rangoPaso(s)}`}
                                 onArrastre={(op, d, fase) => onArrastre({ tipo: 'paso', paso: s }, op, d, fase)}
@@ -201,6 +248,17 @@ export function GanttView({ onEditTask }: { onEditTask: (t: Task) => void }) {
             ))}
           </div>
         </div>
+      )}
+      {resumen && (
+        <ResumenCambios
+          cambios={cambios}
+          onVolver={() => setResumen(false)}
+          onGuardado={() => {
+            setResumen(false);
+            setDraft(borradorVacio());
+            setEditando(false);
+          }}
+        />
       )}
     </section>
   );
