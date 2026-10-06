@@ -17,7 +17,7 @@ alter table public.habits
 
 -- Relleno: los hábitos existentes "nacen" el día de su primer registro
 update public.habits h
-   set created_at = coalesce((select min(l.fecha)::timestamptz from public.habit_logs l where l.habit_id = h.id), h.created_at);
+   set created_at = coalesce((select (min(l.fecha) + time '12:00')::timestamptz  -- mediodía UTC (ver migración) from public.habit_logs l where l.habit_id = h.id), h.created_at);
 update public.habits set archived_at = now() where not active;
 
 -- active pasa a derivarse de archived_at (una sola fuente de verdad)
@@ -31,7 +31,7 @@ alter table public.habits add column active boolean generated always as (archive
 
 ## Dominio (`packages/shared`)
 
-- `HabitRow` gana `createdAt: string` y `archivedAt: string | null`, ambos ISO timestamp.
+- *(Sustituido: ver «Revisión: periodos de vigencia».)* `HabitRow` gana `createdAt: string` y `archivedAt: string | null`, ambos ISO timestamp.
 - `dates.ts` o `metrics.ts` gana `habitsOn(habits, fecha)`. Devuelve los hábitos con `toISO(createdAt) <= fecha` y que no tienen `archivedAt` o tienen `toISO(archivedAt) > fecha`. `toISO` convierte a fecha local, igual que `completedAt` en las tareas.
   - Un hábito archivado hoy ya no cuenta hoy.
 - `computeStreak(doneByDate, today, totalOn: (fecha) => number, threshold?)`:
@@ -56,7 +56,7 @@ alter table public.habits add column active boolean generated always as (archive
 - `createHabit({ nombre, slot })`: la `position` es el máximo actual más 1000, así queda al final, como en las tareas.
 - `updateHabit(id, { nombre?, slot? })`.
 - `archiveHabit(id)`: pone `archived_at = now()`.
-- `reactivateHabit(id)`: pone `archived_at = null` y `created_at = now()`. El hábito cuenta como nuevo desde hoy, para que los días que pasó archivado no se vuelvan incumplidos. Sus registros antiguos se conservan pero dejan de contar.
+- *(Sustituido: ver «Revisión: periodos de vigencia».)* `reactivateHabit(id)`: pone `archived_at = null` y `created_at = now()`. El hábito cuenta como nuevo desde hoy, para que los días que pasó archivado no se vuelvan incumplidos. Sus registros antiguos se conservan pero dejan de contar.
 - `deleteHabit(id)`: borrado real. Sus `habit_logs` se van en cascada.
 - Todas las mutaciones invalidan `['today']` y `['habits']`.
 
@@ -125,7 +125,7 @@ create index habit_periods_habit_idx on public.habit_periods (habit_id);
 
 - **Seguridad:** RLS activado, política `owner_all`, índice por `user_id`, `revoke all … from anon` y grants a `authenticated`, igual que el resto de tablas.
 - **Relleno:** un periodo por hábito existente, de `created_at` a `archived_at`.
-- **Triggers sobre `habits`.** Son la única forma de escribir periodos, así el cliente no puede desincronizarlos:
+- **Triggers sobre `habits`.** Son el único camino que usa la app para escribir periodos (los grants permiten que el dueño los toque, pero el cliente nunca lo hace):
   - `after insert`: abre un periodo con `desde = new.created_at` y `hasta = new.archived_at`.
   - `after update of archived_at`:
     - Si pasa de null a fecha (archivar), cierra el periodo abierto con `hasta = new.archived_at`.
