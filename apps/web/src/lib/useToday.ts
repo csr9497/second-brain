@@ -24,6 +24,10 @@ export function useTodayMutation<V, R>(fn: (v: V) => Promise<R>, optimistic?: (d
     onError: (_e, _v, ctx) => {
       if (ctx?.prev) qc.setQueryData(TODAY_KEY, ctx.prev);
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: TODAY_KEY }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: TODAY_KEY });
+      // lo que se marca en Hoy también se ve en el calendario
+      qc.invalidateQueries({ queryKey: ['calendar'] });
+    },
   });
 }

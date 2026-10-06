@@ -1,5 +1,5 @@
 import { Children, useState, type ReactNode } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { SLOT_NOMBRE, isOverdue, mesDe, sumarMeses, todayISO, type CalendarDay, type HabitSlot, type PaletteColor, type Task } from '@sb/shared';
 import { api } from '../lib/api';
 import { headerDate, mesLabel, rangoPaso } from '../lib/format';
@@ -16,7 +16,8 @@ export function CalendarView({ onEditTask }: { onEditTask: (t: Task) => void }) 
   const hoy = todayISO();
   const [mes, setMes] = useState(mesDe(hoy));
   const [sel, setSel] = useState(hoy);
-  const { data, isLoading, error } = useQuery({ queryKey: ['calendar', mes], queryFn: () => api.calendar(mes) });
+  // `hoy` en la clave: al cruzar la medianoche se recalcula qué días son pasados o futuros
+  const { data, isLoading, error } = useQuery({ queryKey: ['calendar', mes, hoy], queryFn: () => api.calendar(mes), placeholderData: keepPreviousData });
   const dias = data?.semanas.flat() ?? [];
   const dia = dias.find((d) => d.fecha === sel) ?? null;
 
@@ -73,8 +74,10 @@ function Celda({ dia, hoy, activo, onClick }: { dia: CalendarDay; hoy: string; a
     ...dia.pasos.map(({ paso, tarea }) => ({ key: `p-${paso.id}`, tipo: 'paso' as const, color: color(tarea), vencida: false })),
   ];
   const extra = marcas.length - MAX_MARCAS;
+  const vencidas = dia.vencen.filter((t) => isOverdue(t, hoy)).length;
   const resumen = [
     `${dia.vencen.length} ${dia.vencen.length === 1 ? 'tarea' : 'tareas'}`,
+    vencidas ? `${vencidas} ${vencidas === 1 ? 'vencida' : 'vencidas'}` : null,
     `${dia.pasos.length} ${dia.pasos.length === 1 ? 'paso' : 'pasos'}`,
     dia.habitos.pct != null ? `hábitos ${dia.habitos.pct}%` : null,
   ]
@@ -85,7 +88,7 @@ function Celda({ dia, hoy, activo, onClick }: { dia: CalendarDay; hoy: string; a
     <button
       type="button"
       aria-pressed={activo}
-      aria-label={`${headerDate(dia.fecha)}: ${resumen}`}
+      aria-label={`${headerDate(dia.fecha)}${dia.esHoy ? ' (hoy)' : ''}: ${resumen}`}
       onClick={onClick}
       className={`flex min-h-16 flex-col gap-1 rounded-lg border p-1 text-left transition sm:min-h-20 ${
         activo ? 'border-accent bg-surface2' : 'border-transparent hover:bg-surface2'
