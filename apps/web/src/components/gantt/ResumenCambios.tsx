@@ -20,7 +20,9 @@ export function ResumenCambios({ cambios, onVolver, onGuardado }: { cambios: Cam
   const qc = useQueryClient();
   const guardar = useMutation({
     mutationFn: () => api.aplicarPlan(cambios),
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Espera los datos nuevos antes de vaciar el borrador: si no, las barras vuelven un instante a su sitio viejo
+      await qc.invalidateQueries({ queryKey: ['gantt'] });
       toast(`✅ ${cambios.length} ${cambios.length === 1 ? 'cambio guardado' : 'cambios guardados'}`);
       onGuardado();
     },
@@ -34,7 +36,7 @@ export function ResumenCambios({ cambios, onVolver, onGuardado }: { cambios: Cam
   const fuera = cambios.filter((c) => c.tipo === 'paso' && c.fueraDePlazo).length;
 
   return (
-    <Modal title="Revisar cambios" hint="Todavía no se ha guardado nada. Al confirmar se aplican todos a la vez." onClose={onVolver}>
+    <Modal title="Revisar cambios" hint="Todavía no se ha guardado nada. Al confirmar se aplican todos a la vez." onClose={guardar.isPending ? () => {} : onVolver}>
       <ul className="m-0 flex max-h-[55vh] list-none flex-col gap-2 overflow-auto p-0">
         {cambios.map((c) => (
           <li key={`${c.tipo}-${c.id}`} className="rounded-lg bg-surface2 px-3 py-2 text-[13px]">

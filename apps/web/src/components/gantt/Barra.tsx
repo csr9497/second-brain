@@ -81,7 +81,7 @@ export function Barra({
       role="button"
       aria-roledescription="barra del Gantt"
       aria-label={etiqueta}
-      tabIndex={0}
+      tabIndex={editable || onAbrir ? 0 : -1}
       onKeyDown={tecla}
       onPointerDown={empezar('mover')}
       onPointerMove={mover}
@@ -96,7 +96,7 @@ export function Barra({
       {modificada && <span aria-hidden className="pointer-events-none absolute -inset-[3px] rounded-lg border-2 border-dashed border-accent" />}
       {deadline != null && <span aria-hidden className="absolute -top-[3px] -bottom-[3px] w-[3px] rounded bg-text" style={{ left: deadline + COL - 3 }} />}
       {editable && (
-        <span aria-hidden onPointerDown={empezar('estirar')} className="absolute top-0 right-0 h-full w-2.5 cursor-ew-resize rounded-r-md bg-black/25" />
+        <span aria-hidden onPointerDown={empezar('estirar')} className="absolute top-0 right-0 h-full w-2.5 cursor-ew-resize rounded-r-md bg-black/25 before:absolute before:-inset-y-1.5 before:-right-1.5 before:left-0 before:content-['']" />
       )}
     </div>
   );

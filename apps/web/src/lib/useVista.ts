@@ -30,7 +30,10 @@ export function useGuardiaSalida(activa: boolean, mensaje: string) {
   useEffect(() => {
     if (!activa) return;
     guardia = () => window.confirm(mensaje);
-    const antesDeCerrar = (e: BeforeUnloadEvent) => e.preventDefault();
+    const antesDeCerrar = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = ''; // navegadores antiguos
+    };
     window.addEventListener('beforeunload', antesDeCerrar);
     return () => {
       guardia = null;

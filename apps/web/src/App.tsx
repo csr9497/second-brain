@@ -40,6 +40,7 @@ function Home() {
           <h1 className="mt-1.5 mb-1 font-display text-[33px] leading-[1.05] font-bold tracking-[-.01em]">🧠 Second Brain</h1>
           <button
             onClick={async () => {
+              if (!puedeSalir()) return;
               await sb.auth.signOut();
               qc.clear();
             }}

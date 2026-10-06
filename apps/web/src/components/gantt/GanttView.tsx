@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   addDays,
@@ -88,12 +88,23 @@ export function GanttView({ onEditTask }: { onEditTask: (t: Task) => void }) {
   const x = (f: string) => daysBetween(ventana.inicio, f) * COL;
   const original = (id: string) => originales.find((t) => t.id === id)!;
 
-  // Al cargar, deja hoy a la vista (3 días a la izquierda)
-  useEffect(() => {
-    if (data && scroller.current) scroller.current.scrollLeft = Math.max(0, (daysBetween(ventana.inicio, hoy) - 3) * COL);
-    // solo al llegar los datos
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data]);
+  // La primera vez que se monta la cuadrícula, deja hoy a la vista (3 días a la izquierda); un refetch no mueve el scroll.
+  // Si después cambia el inicio de la ventana (p. ej. al arrastrar fuera del borde), compensa el scroll
+  // para que las barras no se desplacen respecto al puntero.
+  const centradoEn = useRef<HTMLDivElement | null>(null);
+  const inicioPrevio = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    if (centradoEn.current !== el) {
+      el.scrollLeft = Math.max(0, (daysBetween(ventana.inicio, hoy) - 3) * COL);
+      centradoEn.current = el;
+    } else if (inicioPrevio.current && inicioPrevio.current !== ventana.inicio) {
+      // Ventana que empieza antes => el contenido se corre a la derecha => scroll a la derecha
+      el.scrollLeft += daysBetween(ventana.inicio, inicioPrevio.current) * COL;
+    }
+    inicioPrevio.current = ventana.inicio;
+  }, [ventana.inicio, data, grupos.length, hoy]);
 
   const plegar = (id: string) =>
     setPlegados((s) => {
