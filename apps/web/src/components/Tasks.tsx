@@ -11,10 +11,10 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { Task, TaskFilter, TodayPayload } from '@sb/shared';
+import { fueraDePlazo, type Task, type TaskFilter, type TodayPayload } from '@sb/shared';
 import { api } from '../lib/api';
 import { useTodayMutation } from '../lib/useToday';
-import { dueLabel } from '../lib/format';
+import { dueLabel, rangoPaso } from '../lib/format';
 
 type ListFilter = Exclude<TaskFilter, 'incumplimiento'>;
 const FILTERS: { f: ListFilter; label: string }[] = [
@@ -184,6 +184,8 @@ function TaskItem({ task, today, onEdit, sortable = false }: { task: Task; today
               <label key={s.id} className="flex cursor-pointer items-center gap-2 text-[13px]">
                 <input type="checkbox" checked={s.done} onChange={() => toggleStep.mutate(s.id)} className="size-4 accent-accent" />
                 <span className={s.done ? 'text-faint line-through' : ''}>{s.title}</span>
+                {rangoPaso(s) && <span className="text-[11px] text-faint">{rangoPaso(s)}</span>}
+                {fueraDePlazo(s, task) && <span className="rounded-full bg-hot/15 px-1.5 text-[10.5px] font-semibold text-hot">fuera de plazo</span>}
               </label>
             ))}
           </div>
