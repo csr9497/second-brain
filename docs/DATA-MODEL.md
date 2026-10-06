@@ -58,6 +58,8 @@ erDiagram
     uuid task_id FK
     text title
     bool done
+    date start_date
+    int duracion_dias "fin = inicio + días - 1"
     numeric position
   }
   habits {

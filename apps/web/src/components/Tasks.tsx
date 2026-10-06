@@ -181,7 +181,7 @@ function TaskItem({ task, today, onEdit, sortable = false }: { task: Task; today
         {(open || task.steps.length === 1) && (
           <div className="mt-2 flex flex-col gap-1.5 border-l-2 border-line pl-3">
             {task.steps.map((s) => (
-              <label key={s.id} className="flex cursor-pointer items-center gap-2 text-[13px]">
+              <label key={s.id} className="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-0.5 text-[13px]">
                 <input type="checkbox" checked={s.done} onChange={() => toggleStep.mutate(s.id)} className="size-4 accent-accent" />
                 <span className={s.done ? 'text-faint line-through' : ''}>{s.title}</span>
                 {rangoPaso(s) && <span className="text-[11px] text-faint">{rangoPaso(s)}</span>}

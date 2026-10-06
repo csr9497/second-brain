@@ -78,6 +78,7 @@ Studio local: http://127.0.0.1:54323. Deploy: cada push a `main` ejecuta `.githu
   - Las vencidas sin terminar van **solo** a `incumplimiento`.
   - `hoy` = deadline hoy, o sin deadline y con `start_date` hoy.
   - `semana` = hoy + deadline hasta el domingo.
+- **Pasos programados:** `steps.start_date` + `duracion_dias` (ambos o ninguno, CHECK); el fin es inclusivo (`finPaso` = inicio + días − 1). Un paso fuera del rango `start_date`–`deadline` de su tarea se permite y se marca "fuera de plazo" (`fueraDePlazo`); sin programar no sale en el Gantt.
 - **Semana:** de lunes a domingo. **`schedule_days`:** enteros 0–6, con 0 = domingo.
 - **Racha:** días consecutivos al 100% de los **turnos** de los hábitos vigentes ese día (`periodoEn`: el periodo de `habit_periods` que cubre ese día, con sus turnos). Hoy suma si está completo, pero si no lo está no rompe la racha; un día sin hábitos vigentes la corta.
 - **Hábitos:** archivar pone `archived_at` y conserva el historial; `active` es una columna generada (`archived_at is null`), no se escribe. Reactivar pone `archived_at = null` y el trigger abre un periodo nuevo: el historial previo se conserva. Eliminar borra también sus `habit_logs`.

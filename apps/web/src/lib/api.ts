@@ -13,6 +13,8 @@ import {
   todayISO,
   updateHabitInput,
   updateStepInput,
+  createStepInput,
+  type CreateStepInput,
   weekRange,
   type CreateHabitInput,
   type CreateTaskInput,
@@ -243,7 +245,8 @@ export const api = {
     const { done } = must(await sb.from('steps').select('done').eq('id', id).single());
     must(await sb.from('steps').update({ done: !done }).eq('id', id));
   },
-  addStep: async (taskId: string, step: { title: string; startDate?: string | null; duracionDias?: number | null }) => {
+  addStep: async (taskId: string, input: CreateStepInput) => {
+    const step = createStepInput.parse(input);
     const position = positionBetween(await maxPosition('steps', taskId), null);
     must(
       await sb

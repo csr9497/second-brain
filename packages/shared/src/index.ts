@@ -69,7 +69,8 @@ export const reorderInput = z.object({
 });
 export type ReorderInput = z.input<typeof reorderInput>;
 
-export const createStepInput = z.object({ title: z.string().trim().min(1) });
+export const createStepInput = stepFields;
+export type CreateStepInput = z.input<typeof createStepInput>;
 
 const nonEmpty = (o: object) => Object.values(o).some((v) => v !== undefined);
 
