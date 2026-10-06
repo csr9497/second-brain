@@ -2,7 +2,7 @@
 -- Verifica el aislamiento por usuario (RLS) y las reglas de negocio en triggers.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(35);
+select plan(38);
 
 -- Dos usuarios: A (dueño de los datos) y B (intruso)
 insert into auth.users (instance_id, id, aud, role, email) values
@@ -96,6 +96,14 @@ insert into public.habits (id, nombre) values ('aaaaaaaa-0000-4000-8000-00000000
 update public.habits set archived_at = now() - interval '1 minute' where id = 'aaaaaaaa-0000-4000-8000-000000000006';
 select is((select hasta = desde from public.habit_periods where habit_id = 'aaaaaaaa-0000-4000-8000-000000000006'), true,
   'archivar con reloj atrasado cierra el periodo sin violar el CHECK');
+
+-- Pasos programados: fecha y días van juntos, duración ≥ 1
+select throws_ok($$ update public.steps set start_date = '2026-10-06' where id = 'aaaaaaaa-0000-4000-8000-000000000003' $$,
+  '23514', null, 'fecha de paso sin días viola el CHECK');
+select throws_ok($$ update public.steps set start_date = '2026-10-06', duracion_dias = 0 where id = 'aaaaaaaa-0000-4000-8000-000000000003' $$,
+  '23514', null, 'duración 0 viola el CHECK');
+select lives_ok($$ update public.steps set start_date = '2026-10-06', duracion_dias = 2 where id = 'aaaaaaaa-0000-4000-8000-000000000003' $$,
+  'un paso con fecha y días es válido');
 
 -- ---------- Como B ----------
 set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
