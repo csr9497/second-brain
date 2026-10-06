@@ -68,3 +68,33 @@ describe('buildCalendar', () => {
     expect(dia('2026-09-28').habitos.pct).toBeNull();
   });
 });
+
+describe('items por día', () => {
+  const c = buildCalendar({
+    mes: '2026-10',
+    hoy: '2026-10-06',
+    tasks: [
+      // jue 8 → mar 13: cruza el lunes 12
+      task('rango', { title: 'Rango', startDate: '2026-10-08', deadline: '2026-10-13', steps: [step('p', '2026-10-09', 2)] }),
+      task('soloDeadline', { title: 'Solo deadline', deadline: '2026-10-09' }),
+    ],
+    habits: [],
+    doneLogs: [],
+  });
+  const items = (f: string) => c.semanas.flat().find((d) => d.fecha === f)!.items;
+
+  it('la tarea con rango ocupa sus días y se etiqueta al inicio y cada lunes', () => {
+    expect(items('2026-10-08').find((i) => i.key === 't-rango')).toMatchObject({ tipo: 'tarea', inicio: true, etiqueta: true });
+    expect(items('2026-10-10').find((i) => i.key === 't-rango')).toMatchObject({ inicio: false, etiqueta: false });
+    expect(items('2026-10-12').find((i) => i.key === 't-rango')).toMatchObject({ etiqueta: true });
+    expect(items('2026-10-13').find((i) => i.key === 't-rango')).toMatchObject({ fin: true });
+    expect(items('2026-10-14').find((i) => i.key === 't-rango')).toBeUndefined();
+  });
+  it('solo deadline → vence; los pasos son items de paso', () => {
+    expect(items('2026-10-09').map((i) => [i.tipo, i.titulo])).toEqual([
+      ['tarea', 'Rango'],
+      ['paso', '↳ p'],
+      ['vence', 'Solo deadline'],
+    ]);
+  });
+});
