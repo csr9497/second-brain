@@ -118,10 +118,10 @@ describe('vigencia de hábitos', () => {
     const t = buildToday({
       ...base,
       habits: [habit('a'), habit('nuevo', { createdAt: at(2026, 10, 1) })],
-      doneLogs: logs([['a', '2026-09-30'], ['a', '2026-09-29']]),
+      doneLogs: logs([['a', '2026-10-01'], ['a', '2026-09-30'], ['a', '2026-09-29']]),
     });
     expect(t.habits.streak).toBe(2);
-    expect(t.habits.pctDia).toBe(0);
+    expect(t.habits.pctDia).toBe(50);
   });
 
   it('archivar un hábito no reescribe los días pasados y lo saca de Hoy', () => {
@@ -136,12 +136,26 @@ describe('vigencia de hábitos', () => {
   });
 
   it('un día sin hábitos vigentes corta la racha', () => {
+    // el 29 no hay hábitos vigentes: "viejo" se archivó ese día y "nuevo" nace el 30
     const t = buildToday({
       ...base,
-      habits: [habit('a', { createdAt: at(2026, 9, 30) })],
-      doneLogs: logs([['a', '2026-09-30'], ['a', '2026-09-29']]),
+      habits: [
+        habit('viejo', { archivedAt: at(2026, 9, 29) }),
+        habit('nuevo', { createdAt: at(2026, 9, 30) }),
+      ],
+      doneLogs: logs([['viejo', '2026-09-27'], ['viejo', '2026-09-28'], ['nuevo', '2026-09-30']]),
     });
     expect(t.habits.streak).toBe(1);
+  });
+
+  it('pctDia ignora el registro de hoy de un hábito archivado hoy', () => {
+    const t = buildToday({
+      ...base,
+      habits: [habit('a'), habit('b', { archivedAt: at(2026, 10, 1) })],
+      doneLogs: logs([['a', '2026-10-01'], ['b', '2026-10-01']]),
+    });
+    expect(t.habits.pctDia).toBe(100);
+    expect(Object.values(t.habits.porFranja).flat().map((h) => h.id)).toEqual(['a']);
   });
 
   it('habitsPct semanal suma los hábitos vigentes de cada día', () => {
