@@ -11,6 +11,8 @@ create table public.habit_periods (
 );
 create index habit_periods_habit_idx on public.habit_periods (habit_id);
 create index habit_periods_user_idx on public.habit_periods (user_id);
+-- Como mucho un periodo abierto por hábito
+create unique index habit_periods_one_open_idx on public.habit_periods (habit_id) where hasta is null;
 
 alter table public.habit_periods enable row level security;
 create policy owner_all on public.habit_periods for all to authenticated
@@ -20,7 +22,9 @@ grant select, insert, update, delete on public.habit_periods to authenticated;
 
 -- Relleno: un periodo por hábito existente
 insert into public.habit_periods (user_id, habit_id, desde, hasta)
-  select user_id, id, created_at, archived_at from public.habits;
+  select user_id, id, created_at,
+         case when archived_at is null then null else greatest(archived_at, created_at) end
+  from public.habits;
 
 create function public.habits_sync_periods() returns trigger
 language plpgsql set search_path = '' as $$

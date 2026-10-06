@@ -2,7 +2,7 @@
 -- Verifica el aislamiento por usuario (RLS) y las reglas de negocio en triggers.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(25);
+select plan(28);
 
 -- Dos usuarios: A (dueño de los datos) y B (intruso)
 insert into auth.users (instance_id, id, aud, role, email) values
@@ -64,6 +64,13 @@ select isnt((select hasta from public.habit_periods where habit_id = 'aaaaaaaa-0
 update public.habits set archived_at = null where id = 'aaaaaaaa-0000-4000-8000-000000000005';
 select is((select count(*)::int from public.habit_periods where habit_id = 'aaaaaaaa-0000-4000-8000-000000000005' and hasta is null), 1,
   'reactivar abre un periodo nuevo');
+select is((select count(*)::int from public.habit_periods where habit_id = 'aaaaaaaa-0000-4000-8000-000000000005'), 2,
+  'reactivar conserva el periodo anterior (2 en total)');
+select is((select count(*)::int from public.habit_periods where habit_id = 'aaaaaaaa-0000-4000-8000-000000000005' and hasta is not null), 1,
+  'el periodo anterior sigue cerrado');
+insert into public.habits (id, nombre, archived_at) values ('aaaaaaaa-0000-4000-8000-000000000007', 'Nace archivado', now());
+select isnt((select hasta from public.habit_periods where habit_id = 'aaaaaaaa-0000-4000-8000-000000000007'), null,
+  'un hábito creado ya archivado tiene su periodo cerrado');
 -- Reloj del navegador atrasado: archivar "en el pasado" no debe cerrar antes de abrir
 insert into public.habits (id, nombre) values ('aaaaaaaa-0000-4000-8000-000000000006', 'Hábito reloj');
 update public.habits set archived_at = now() - interval '1 minute' where id = 'aaaaaaaa-0000-4000-8000-000000000006';
