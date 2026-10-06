@@ -12,5 +12,6 @@ export function useInvalidateHabits() {
   return () => {
     qc.invalidateQueries({ queryKey: TODAY_KEY });
     qc.invalidateQueries({ queryKey: HABITS_KEY });
+    qc.invalidateQueries({ queryKey: ['calendar'] });
   };
 }

@@ -3,8 +3,10 @@
 // base (triggers): completed_at, pasos → tarea hecha y actividad del proyecto.
 import {
   addDays,
+  buildCalendar,
   buildToday,
   buildWeeklyReport,
+  calendarGrid,
   createHabitInput,
   createProjectInput,
   createTaskInput,
@@ -14,12 +16,14 @@ import {
   updateHabitInput,
   updateStepInput,
   createStepInput,
+  type CalendarMonth,
   type CreateStepInput,
   weekRange,
   type CreateHabitInput,
   type CreateTaskInput,
   type DashboardInput,
   type HabitAdmin,
+  type HabitRow,
   type HabitSlot,
   type Idea,
   type Project,
@@ -67,10 +71,22 @@ async function userId() {
 
 type Row = Record<string, any>;
 
+const TASK_SELECT = '*, project:projects(nombre, color), steps(*)';
+
+const toHabitRow = (h: Row): HabitRow => ({
+  id: h.id,
+  nombre: h.nombre,
+  position: Number(h.position),
+  periods: (h.periods ?? [])
+    .map((p: Row) => ({ desde: p.desde, hasta: p.hasta, turnos: p.turnos as HabitSlot[][] }))
+    .sort((a: { desde: string }, b: { desde: string }) => Date.parse(a.desde) - Date.parse(b.desde)),
+});
+
 const toTask = (r: Row): Task => ({
   id: r.id,
   projectId: r.project_id,
   projectName: r.project?.nombre ?? null,
+  projectColor: r.project?.color ?? null,
   title: r.title,
   description: r.description,
   type: r.type,
@@ -157,7 +173,7 @@ async function loadDashboard(now = new Date()): Promise<DashboardInput> {
     fetchAll<Row>((a, b) =>
       sb
         .from('tasks')
-        .select('*, project:projects(nombre), steps(*)')
+        .select(TASK_SELECT)
         .or(`status.neq.hecha,completed_at.gte.${weekStartTs},deadline.gte.${start}`)
         .order('position')
         .order('id')
@@ -167,14 +183,7 @@ async function loadDashboard(now = new Date()): Promise<DashboardInput> {
   ]);
 
   return {
-    habits: must(habits).map((h) => ({
-      id: h.id,
-      nombre: h.nombre,
-      position: Number(h.position),
-      periods: (h.periods ?? [])
-        .map((p: Row) => ({ desde: p.desde, hasta: p.hasta, turnos: p.turnos as HabitSlot[][] }))
-        .sort((a: { desde: string }, b: { desde: string }) => Date.parse(a.desde) - Date.parse(b.desde)),
-    })),
+    habits: must(habits).map(toHabitRow),
     doneLogs: logs.map((l) => ({ habitId: l.habit_id, fecha: l.fecha, slot: l.slot as HabitSlot })),
     tasks: tasks.map(toTask),
     projects: must(projects).map(toProjectRow),
@@ -190,13 +199,39 @@ async function maxPosition(table: 'tasks' | 'steps' | 'habits', taskId?: string)
 }
 
 async function getTask(id: string): Promise<Task> {
-  return toTask(must(await sb.from('tasks').select('*, project:projects(nombre), steps(*)').eq('id', id).single()));
+  return toTask(must(await sb.from('tasks').select(TASK_SELECT).eq('id', id).single()));
 }
 
 // ---------- API ----------
 
 export const api = {
   today: async (): Promise<TodayPayload> => buildToday(await loadDashboard()),
+
+  /** Mes del calendario: tareas que vencen o tienen pasos en la rejilla, hábitos y sus registros. */
+  calendar: async (mes: string): Promise<CalendarMonth> => {
+    const { start, end } = calendarGrid(mes);
+    const [porDeadline, pasos, habits, logs] = await Promise.all([
+      fetchAll<Row>((a, b) => sb.from('tasks').select(TASK_SELECT).gte('deadline', start).lte('deadline', end).order('position').order('id').range(a, b)),
+      // pasos que empiezan hasta 1 año antes de la rejilla pueden cruzarla
+      fetchAll<Row>((a, b) =>
+        sb.from('steps').select('task_id').gte('start_date', addDays(start, -366)).lte('start_date', end).order('id').range(a, b),
+      ),
+      sb.from('habits').select('id, nombre, position, periods:habit_periods(desde, hasta, turnos)').order('position'),
+      fetchAll<Row>((a, b) =>
+        sb.from('habit_logs').select('habit_id, fecha, slot').eq('done', true).gte('fecha', start).lte('fecha', end).order('fecha').order('id').range(a, b),
+      ),
+    ]);
+    const vistas = new Set(porDeadline.map((t) => t.id));
+    const faltan = [...new Set(pasos.map((p) => p.task_id as string))].filter((id) => !vistas.has(id));
+    const extra = faltan.length ? must(await sb.from('tasks').select(TASK_SELECT).in('id', faltan)) : [];
+    return buildCalendar({
+      mes,
+      hoy: todayISO(),
+      tasks: [...porDeadline, ...extra].map(toTask),
+      habits: must(habits).map(toHabitRow),
+      doneLogs: logs.map((l) => ({ habitId: l.habit_id, fecha: l.fecha, slot: l.slot as HabitSlot })),
+    });
+  },
 
   // Tareas
   createTask: async (input: CreateTaskInput): Promise<Task> => {

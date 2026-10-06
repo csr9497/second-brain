@@ -41,6 +41,7 @@ export function ProjectModal({ project, onClose }: { project?: Project; onClose:
   const refresh = () => {
     qc.invalidateQueries({ queryKey: TODAY_KEY });
     qc.invalidateQueries({ queryKey: ['projects'] });
+    qc.invalidateQueries({ queryKey: ['calendar'] });
   };
 
   const save = useMutation({
