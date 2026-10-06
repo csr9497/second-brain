@@ -102,3 +102,55 @@ alter table public.habits add column active boolean generated always as (archive
 
 - La migración se aplica en local, luego en dev y, al publicar el entregable, en producción, **antes** que el frontend.
 - Compatibilidad: el frontend publicado hoy filtra por `active`. Como esa columna sigue existiendo (ahora generada), aplicar la migración antes del frontend nuevo no rompe la versión publicada.
+
+## Revisión: periodos de vigencia (historial exacto)
+
+La revisión final detectó un problema con reactivar: al poner `created_at = now()`, el hábito desaparece de los días en que sí estuvo activo. Eso permite inflar la racha (archivar y reactivar hace que un día incumplido cuente como completo), y el calendario perdería su historial. Por decisión de Cesar, la vigencia pasa a **periodos**.
+
+### Datos
+
+Migración `habit_periods`:
+
+```sql
+create table public.habit_periods (
+  id       uuid primary key default gen_random_uuid(),
+  user_id  uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  habit_id uuid not null references public.habits(id) on delete cascade,
+  desde    timestamptz not null,
+  hasta    timestamptz,                 -- null = periodo abierto (hábito activo)
+  check (hasta is null or hasta >= desde)
+);
+create index habit_periods_habit_idx on public.habit_periods (habit_id);
+```
+
+- **Seguridad:** RLS activado, política `owner_all`, índice por `user_id`, `revoke all … from anon` y grants a `authenticated`, igual que el resto de tablas.
+- **Relleno:** un periodo por hábito existente, de `created_at` a `archived_at`.
+- **Triggers sobre `habits`.** Son la única forma de escribir periodos, así el cliente no puede desincronizarlos:
+  - `after insert`: abre un periodo con `desde = new.created_at` y `hasta = new.archived_at`.
+  - `after update of archived_at`:
+    - Si pasa de null a fecha (archivar), cierra el periodo abierto con `hasta = new.archived_at`.
+    - Si pasa de fecha a null (reactivar), abre un periodo con `desde = now()`.
+    - En cualquier otro caso no hace nada.
+- **Datos que se conservan:**
+  - `habits.created_at` queda como la fecha de creación original y ya no se reescribe.
+  - `habits.archived_at` sigue siendo el estado actual, y de él sale `active`.
+
+### Dominio y API
+
+- `HabitRow` sustituye `createdAt`/`archivedAt` por `periods: { desde: string; hasta: string | null }[]`.
+- `vigente(h, d)` es verdadero si **algún** periodo cumple `toISO(desde) <= d` y además no tiene `hasta` o `toISO(hasta) > d`. Con esto, `habitsOn`, `doneByDate`, la racha y los porcentajes quedan igual.
+- `loadDashboard` trae los hábitos con sus periodos embebidos: `select('id, nombre, slot, position, periods:habit_periods(desde, hasta)')`.
+- `reactivateHabit` solo pone `archived_at = null`; el trigger abre el periodo nuevo.
+
+### Pruebas
+
+- **pgTAP:**
+  - Un hábito nuevo tiene 1 periodo abierto.
+  - Archivar cierra ese periodo.
+  - Reactivar abre un segundo periodo.
+  - Otro usuario no ve los periodos.
+  - `anon` no tiene acceso.
+- **vitest:**
+  - Con dos periodos y un hueco entre ellos, el hábito no es vigente en el hueco y sí antes y después.
+  - Archivar y reactivar el mismo día no infla la racha.
+  - Los tests de vigencia existentes se adaptan a `periods`.
