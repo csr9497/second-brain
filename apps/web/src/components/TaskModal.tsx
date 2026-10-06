@@ -12,7 +12,16 @@ import { Select, type SelectOption } from './ui/Select';
 import { useToast } from './Toast';
 
 /** Crea una tarea o, si recibe `task`, la edita (campos, estado y pasos). */
-export function TaskModal({ task, onClose }: { task?: Task; onClose: () => void }) {
+export function TaskModal({
+  task,
+  inicial,
+  onClose,
+}: {
+  task?: Task;
+  /** Fechas de partida al crear (p. ej., desde un día del Calendario) */
+  inicial?: { startDate: string; deadline: string };
+  onClose: () => void;
+}) {
   const toast = useToast();
   const qc = useQueryClient();
   const editing = !!task;
@@ -25,8 +34,8 @@ export function TaskModal({ task, onClose }: { task?: Task; onClose: () => void 
     projectId: task?.projectId ?? '',
     priority: task?.priority ?? ('media' as Task['priority']),
     status: task?.status ?? ('por_hacer' as TaskStatus),
-    startDate: task?.startDate ?? '',
-    deadline: task?.deadline ?? '',
+    startDate: task?.startDate ?? inicial?.startDate ?? '',
+    deadline: task?.deadline ?? inicial?.deadline ?? '',
     notes: task?.notes ?? '',
   });
   const [steps, setSteps] = useState<StepDraft[]>(

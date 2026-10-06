@@ -69,10 +69,13 @@ function Home() {
       </nav>
 
       {vista === 'hoy' && <HoyView onOpen={setModal} />}
-      {vista === 'calendario' && <CalendarView onEditTask={(task) => setModal({ kind: 'tarea', task })} />}
+      {vista === 'calendario' && <CalendarView
+          onEditTask={(task) => setModal({ kind: 'tarea', task })}
+          onNewTask={(fecha) => setModal({ kind: 'tarea', inicial: { startDate: fecha, deadline: fecha } })}
+        />}
       {vista === 'gantt' && <GanttView onEditTask={(task) => setModal({ kind: 'tarea', task })} />}
 
-      {modal?.kind === 'tarea' && <TaskModal task={modal.task} onClose={close} />}
+      {modal?.kind === 'tarea' && <TaskModal task={modal.task} inicial={modal.inicial} onClose={close} />}
       {modal?.kind === 'proyecto' && <ProjectModal project={modal.project} onClose={close} />}
       {modal?.kind === 'revision' && <ReviewModal onClose={close} />}
       {modal?.kind === 'idea' && <IdeaModal onClose={close} />}

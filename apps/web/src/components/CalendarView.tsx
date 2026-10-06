@@ -12,7 +12,7 @@ const navBtn = 'rounded-full border border-line px-3 py-1 text-xs font-semibold 
 const itemBtn = 'flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-left text-[13px] hover:bg-surface2';
 
 /** Mes con tareas (puntos), pasos (barras) y % de hábitos (anillo); panel con el detalle del día. */
-export function CalendarView({ onEditTask }: { onEditTask: (t: Task) => void }) {
+export function CalendarView({ onEditTask, onNewTask }: { onEditTask: (t: Task) => void; onNewTask: (fecha: string) => void }) {
   const hoy = todayISO();
   const [mes, setMes] = useState(mesDe(hoy));
   const [sel, setSel] = useState(hoy);
@@ -60,7 +60,7 @@ export function CalendarView({ onEditTask }: { onEditTask: (t: Task) => void }) 
               ))}
             </div>
           </div>
-          {dia && <PanelDia dia={dia} hoy={hoy} onEditTask={onEditTask} />}
+          {dia && <PanelDia dia={dia} hoy={hoy} onEditTask={onEditTask} onNewTask={onNewTask} />}
         </div>
       )}
     </section>
@@ -119,11 +119,24 @@ function Celda({ dia, hoy, activo, onClick }: { dia: CalendarDay; hoy: string; a
   );
 }
 
-function PanelDia({ dia, hoy, onEditTask }: { dia: CalendarDay; hoy: string; onEditTask: (t: Task) => void }) {
+function PanelDia({
+  dia,
+  hoy,
+  onEditTask,
+  onNewTask,
+}: {
+  dia: CalendarDay;
+  hoy: string;
+  onEditTask: (t: Task) => void;
+  onNewTask: (fecha: string) => void;
+}) {
   const fichas = (['manana', 'tarde', 'noche'] as const).flatMap((f) => dia.habitos.porFranja[f]);
   return (
     <aside className="card self-start" aria-label={`Detalle: ${headerDate(dia.fecha)}`}>
       <h3 className="m-0 mb-3 font-display text-base font-semibold">{headerDate(dia.fecha)}</h3>
+      <button type="button" onClick={() => onNewTask(dia.fecha)} className="mb-3 rounded-lg border border-dashed border-line px-2.5 py-[5px] text-xs font-semibold text-muted hover:text-text">
+        ＋ Tarea este día
+      </button>
       <Seccion titulo="Vencen" vacio="Nada vence este día.">
         {dia.vencen.map((t) => (
           <li key={t.id}>
