@@ -54,7 +54,7 @@ Studio local: http://127.0.0.1:54323. Deploy: cada push a `main` ejecuta `.githu
 ## Arquitectura
 
 - **`supabase/migrations/`** es el esquema fuente de verdad. Todas las tablas tienen `user_id default auth.uid()` y RLS con la política `owner_all`. **La anon key es pública**: toda tabla nueva debe activar RLS y su política de dueño, o queda expuesta. `anon` no tiene grants.
-  - Hay cuatro reglas en **triggers** (no en el cliente): `completed_at` solo cuando `status = 'hecha'`; los pasos sincronizan el estado de su tarea (`steps_sync_task`); tocar una tarea actualiza `projects.last_activity_at`; y archivar o reactivar un hábito cierra o abre su periodo en `habit_periods` (`habits_sync_periods`).
+  - Hay cuatro reglas en **triggers** (no en el cliente): `completed_at` solo cuando `status = 'hecha'`; los pasos sincronizan el estado de su tarea (`steps_sync_task`); tocar una tarea actualiza `projects.last_activity_at`; y archivar, reactivar o cambiar los turnos de un hábito cierra o abre su periodo en `habit_periods` (`habits_sync_periods`), que guarda la programación vigente.
   - Cambios de esquema: `supabase migration new <nombre>`. Prueba con `pnpm db:reset` y `supabase test db`, luego aplica en dev con `pnpm db:push:dev` y en producción con `supabase db push`. Hay que añadir un pgTAP si tocas RLS o triggers.
 - **`packages/shared`** (sin build: exporta `src/index.ts`):
   - Esquemas Zod y tipos de salida (`Task`, `TodayPayload`, `WeeklyReport`…).
@@ -79,7 +79,8 @@ Studio local: http://127.0.0.1:54323. Deploy: cada push a `main` ejecuta `.githu
   - `hoy` = deadline hoy, o sin deadline y con `start_date` hoy.
   - `semana` = hoy + deadline hasta el domingo.
 - **Semana:** de lunes a domingo. **`schedule_days`:** enteros 0–6, con 0 = domingo.
-- **Racha:** días consecutivos al 100% de los hábitos **vigentes ese día** (`habitsOn`: algún periodo de `habit_periods` cubre ese día). Hoy suma si está completo, pero si no lo está no rompe la racha; un día sin hábitos vigentes la corta.
+- **Racha:** días consecutivos al 100% de los **turnos** de los hábitos vigentes ese día (`periodoEn`: el periodo de `habit_periods` que cubre ese día, con sus turnos). Hoy suma si está completo, pero si no lo está no rompe la racha; un día sin hábitos vigentes la corta.
 - **Hábitos:** archivar pone `archived_at` y conserva el historial; `active` es una columna generada (`archived_at is null`), no se escribe. Reactivar pone `archived_at = null` y el trigger abre un periodo nuevo: el historial previo se conserva. Eliminar borra también sus `habit_logs`.
+- **Turnos de un hábito:** `habits.turnos` es una lista "y" de franjas alternativas "o" (`[["manana"],["tarde","noche"]]` = Mañana + (Tarde o Noche)); ninguna franja se repite (CHECK `turnos_validos` = `turnosSchema`). Se marca **una vez por turno**: `habit_logs.slot` guarda la franja donde se hizo, único por (hábito, fecha, franja). `habits.slot` es generado (primera franja) solo por compatibilidad; no se escribe.
 - **Revisión semanal:** se calcula en el cliente. "Archivar" hace upsert en `reviews` por `(user_id, week_start)`.
 - **Auth:** el registro está desactivado (`[auth] enable_signup = false`). No desactives `[auth.email] enable_signup`: eso apaga el login por email.

@@ -5,11 +5,11 @@ export const pct = (done: number, total: number) => (total === 0 ? 0 : Math.roun
 export const STREAK_THRESHOLD = 100;
 
 /**
- * Días consecutivos con % de hábitos ≥ umbral, contando hacia atrás.
+ * Días consecutivos con % de turnos de hábitos ≥ umbral, contando hacia atrás.
  * Hoy suma si ya está completo; si no, no rompe la racha (el día no ha cerrado).
  * Un día sin hábitos vigentes corta la racha.
- * @param doneByDate nº de hábitos vigentes hechos por fecha
- * @param totalOn nº de hábitos vigentes en cada fecha
+ * @param doneByDate nº de turnos hechos por fecha
+ * @param totalOn nº de turnos vigentes en cada fecha
  */
 export function computeStreak(
   doneByDate: Map<string, number>,

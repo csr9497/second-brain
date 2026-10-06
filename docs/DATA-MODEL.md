@@ -63,7 +63,8 @@ erDiagram
   habits {
     uuid id PK
     text nombre
-    text slot
+    jsonb turnos "[[franja,...],...] y/o"
+    text slot "generada: primera franja"
     timestamptz created_at
     timestamptz archived_at
     bool active "generada: archived_at is null"
@@ -73,6 +74,7 @@ erDiagram
     uuid id PK
     uuid habit_id FK
     date fecha
+    text slot "franja donde se hizo"
     bool done
   }
   habit_periods {
@@ -80,6 +82,7 @@ erDiagram
     uuid habit_id FK
     timestamptz desde
     timestamptz hasta "null = abierto"
+    jsonb turnos "programación del periodo"
   }
   ideas {
     uuid id PK
@@ -107,8 +110,8 @@ erDiagram
 - **% semana de un proyecto** = tareas del proyecto con `deadline` en la semana y
   `status = hecha` / total de tareas del proyecto con `deadline` en la semana.
   Se calcula en consulta, no se almacena.
-- **% del día de hábitos** = `habit_logs` done de hoy / hábitos vigentes hoy.
-- **Racha**: recorrer hacia atrás días consecutivos con % = 100% (o umbral) de los hábitos vigentes ese día. Se puede
+- **% del día de hábitos** = turnos hechos hoy / turnos de los hábitos vigentes hoy.
+- **Racha**: recorrer hacia atrás días consecutivos con % = 100% (o umbral) de los turnos vigentes ese día. Se puede
   calcular al vuelo o cachear en una tabla `streaks` si crece el volumen.
 - **Incumplimiento** = `deadline < current_date AND status <> 'hecha'`.
 - **Subtarea completa la tarea**: al marcar el último `step`, un trigger o la capa de
