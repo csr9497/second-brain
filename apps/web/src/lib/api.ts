@@ -12,6 +12,7 @@ import {
   projectViews,
   todayISO,
   updateHabitInput,
+  updateStepInput,
   weekRange,
   type CreateHabitInput,
   type CreateTaskInput,
@@ -26,6 +27,7 @@ import {
   type Task,
   type TodayPayload,
   type UpdateHabitInput,
+  type UpdateStepInput,
   type UpdateTaskInput,
   type WeeklyReport,
 } from '@sb/shared';
@@ -78,7 +80,12 @@ const toTask = (r: Row): Task => ({
   notes: r.notes,
   completedAt: r.completed_at,
   steps: (r.steps ?? [])
-    .map((s: Row) => ({ id: s.id, taskId: s.task_id, title: s.title, done: s.done, position: Number(s.position) }))
+    .map((s: Row) => ({ id: s.id, taskId: s.task_id, title: s.title,
+      done: s.done,
+      position: Number(s.position),
+      startDate: s.start_date,
+      duracionDias: s.duracion_dias,
+    }))
     .sort((a: { position: number }, b: { position: number }) => a.position - b.position),
 });
 
@@ -195,7 +202,17 @@ export const api = {
     const position = positionBetween(await maxPosition('tasks'), null);
     const task = must(await sb.from('tasks').insert({ ...taskColumns(fields), position }).select('id').single());
     if (steps.length > 0) {
-      must(await sb.from('steps').insert(steps.map((s, i) => ({ task_id: task.id, title: s.title, position: (i + 1) * 1000 }))));
+      must(
+        await sb.from('steps').insert(
+          steps.map((s, i) => ({
+            task_id: task.id,
+            title: s.title,
+            start_date: s.startDate ?? null,
+            duracion_dias: s.duracionDias ?? null,
+            position: (i + 1) * 1000,
+          })),
+        ),
+      );
     }
     return getTask(task.id);
   },
@@ -226,12 +243,21 @@ export const api = {
     const { done } = must(await sb.from('steps').select('done').eq('id', id).single());
     must(await sb.from('steps').update({ done: !done }).eq('id', id));
   },
-  addStep: async (taskId: string, title: string) => {
+  addStep: async (taskId: string, step: { title: string; startDate?: string | null; duracionDias?: number | null }) => {
     const position = positionBetween(await maxPosition('steps', taskId), null);
-    must(await sb.from('steps').insert({ task_id: taskId, title, position }));
+    must(
+      await sb
+        .from('steps')
+        .insert({ task_id: taskId, title: step.title, start_date: step.startDate ?? null, duracion_dias: step.duracionDias ?? null, position }),
+    );
   },
-  renameStep: async (id: string, title: string) => {
-    must(await sb.from('steps').update({ title }).eq('id', id));
+  /** Título y/o programación del paso; solo escribe los campos definidos. */
+  updateStep: async (id: string, patch: UpdateStepInput) => {
+    const { title, startDate, duracionDias } = updateStepInput.parse(patch);
+    const cols = Object.fromEntries(
+      Object.entries({ title, start_date: startDate, duracion_dias: duracionDias }).filter(([, v]) => v !== undefined),
+    );
+    must(await sb.from('steps').update(cols).eq('id', id));
   },
   deleteStep: async (id: string) => {
     must(await sb.from('steps').delete().eq('id', id));
