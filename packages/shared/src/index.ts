@@ -67,7 +67,7 @@ export const createStepInput = z.object({ title: z.string().trim().min(1) });
 const nonEmpty = (o: object) => Object.values(o).some((v) => v !== undefined);
 
 const habitFields = z.object({ nombre: z.string().trim().min(1), turnos: turnosSchema });
-export const createHabitInput = habitFields.extend({ turnos: turnosSchema.default(() => [['manana']]) });
+export const createHabitInput = habitFields.extend({ turnos: turnosSchema.default(() => [['manana' as const]]) });
 export type CreateHabitInput = z.input<typeof createHabitInput>;
 export const updateHabitInput = habitFields.partial().refine(nonEmpty, 'Nada que actualizar');
 export type UpdateHabitInput = z.input<typeof updateHabitInput>;

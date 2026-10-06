@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Task } from '../index';
-import { buildToday, buildWeeklyReport, habitsOn, projectViews, type DashboardInput, type HabitRow, type ProjectRow } from './dashboard';
+import type { HabitSlot, Task } from '../index';
+import { buildToday, buildWeeklyReport, doneByDate, habitsOn, projectViews, type DashboardInput, type HabitRow, type ProjectRow } from './dashboard';
 
 // Jueves 2026-10-01, 15:00 hora local → franja "tarde"; semana 28 sep – 4 oct
 const now = new Date(2026, 9, 1, 15, 0);
@@ -8,16 +8,18 @@ const today = '2026-10-01';
 
 // Timestamps a las 10:00 locales del día indicado (mes 1-12)
 const at = (y: number, m: number, d: number) => new Date(y, m - 1, d, 10).toISOString();
-const per = (desde: string, hasta: string | null = null) => ({ desde, hasta });
+const per = (desde: string, hasta: string | null = null, turnos: HabitSlot[][] = [['manana']]) => ({ desde, hasta, turnos });
 const habit = (id: string, o: Partial<HabitRow> = {}): HabitRow => ({
   id,
   nombre: id,
-  slot: 'manana',
   position: 1,
   periods: [per(at(2026, 9, 1))],
   ...o,
 });
-const habits: HabitRow[] = [habit('h1', { nombre: 'Ejercicio' }), habit('h2', { nombre: 'Leer', slot: 'tarde', position: 2 })];
+const habits: HabitRow[] = [
+  habit('h1', { nombre: 'Ejercicio' }),
+  habit('h2', { nombre: 'Leer', position: 2, periods: [per(at(2026, 9, 1), null, [['tarde']])] }),
+];
 const project = (id: string, o: Partial<ProjectRow> = {}): ProjectRow => ({
   id,
   nombre: id,
@@ -51,12 +53,12 @@ const task = (id: string, o: Partial<Task> = {}): Task => ({
 const input: DashboardInput = {
   habits,
   doneLogs: [
-    { habitId: 'h1', fecha: today },
-    { habitId: 'h1', fecha: '2026-09-30' },
-    { habitId: 'h2', fecha: '2026-09-30' },
-    { habitId: 'h1', fecha: '2026-09-29' },
-    { habitId: 'h2', fecha: '2026-09-29' },
-    { habitId: 'borrado', fecha: '2026-09-28' }, // hábito inactivo: no cuenta
+    { habitId: 'h1', fecha: today, slot: 'manana' },
+    { habitId: 'h1', fecha: '2026-09-30', slot: 'manana' },
+    { habitId: 'h2', fecha: '2026-09-30', slot: 'tarde' },
+    { habitId: 'h1', fecha: '2026-09-29', slot: 'manana' },
+    { habitId: 'h2', fecha: '2026-09-29', slot: 'tarde' },
+    { habitId: 'borrado', fecha: '2026-09-28', slot: 'manana' }, // hábito inactivo: no cuenta
   ],
   tasks: [
     task('a', { projectId: 'p1', deadline: today, status: 'hecha', completedAt: new Date(2026, 9, 1, 9).toISOString() }),
@@ -103,7 +105,7 @@ describe('projectViews', () => {
 });
 
 describe('vigencia de hábitos', () => {
-  const logs = (pairs: [string, string][]) => pairs.map(([habitId, fecha]) => ({ habitId, fecha }));
+  const logs = (rows: [string, string, HabitSlot?][]) => rows.map(([habitId, fecha, slot = 'manana']) => ({ habitId, fecha, slot }));
   const base = { tasks: [], projects: [], now }; // jueves 2026-10-01
 
   it('con dos periodos el hábito no es vigente en el hueco', () => {
@@ -187,5 +189,59 @@ describe('vigencia de hábitos', () => {
       false,
     );
     expect(r.habitsPct).toBe(50);
+  });
+});
+
+describe('turnos', () => {
+  const logs = (rows: [string, string, HabitSlot][]) => rows.map(([habitId, fecha, slot]) => ({ habitId, fecha, slot }));
+  const base = { tasks: [], projects: [], now };
+  const conTurnos = (id: string, turnos: HabitSlot[][]) => habit(id, { periods: [per(at(2026, 9, 1), null, turnos)] });
+
+  it('Mañana + Noche con solo la mañana hecha: 50% y ficha en ambas pestañas', () => {
+    const t = buildToday({ ...base, habits: [conTurnos('d', [['manana'], ['noche']])], doneLogs: logs([['d', '2026-10-01', 'manana']]) });
+    expect(t.habits.pctDia).toBe(50);
+    expect(t.habits.porFranja.manana.map((c) => [c.id, c.done])).toEqual([['d', true]]);
+    expect(t.habits.porFranja.noche.map((c) => [c.id, c.done])).toEqual([['d', false]]);
+  });
+
+  it('Tarde o Noche hecho por la tarde: la ficha de noche sale hecha con doneIn tarde', () => {
+    const t = buildToday({ ...base, habits: [conTurnos('w', [['tarde', 'noche']])], doneLogs: logs([['w', '2026-10-01', 'tarde']]) });
+    expect(t.habits.pctDia).toBe(100);
+    expect(t.habits.porFranja.noche[0]).toMatchObject({ id: 'w', done: true, doneIn: 'tarde', turno: ['tarde', 'noche'] });
+  });
+
+  it('un día con dos turnos exige los dos para la racha', () => {
+    const t = buildToday({
+      ...base,
+      habits: [conTurnos('d', [['manana'], ['noche']])],
+      doneLogs: logs([['d', '2026-09-30', 'manana'], ['d', '2026-09-30', 'noche'], ['d', '2026-09-29', 'manana']]),
+    });
+    expect(t.habits.streak).toBe(1);
+  });
+
+  it('cambiar los turnos hoy no reescribe los días pasados', () => {
+    // hasta ayer era solo Mañana (hecho); desde hoy es Mañana + Noche
+    const x = habit('x', { periods: [per(at(2026, 9, 1), at(2026, 10, 1)), per(at(2026, 10, 1), null, [['manana'], ['noche']])] });
+    const t = buildToday({ ...base, habits: [x], doneLogs: logs([['x', '2026-09-30', 'manana'], ['x', '2026-09-29', 'manana']]) });
+    expect(t.habits.streak).toBe(2);
+    expect(t.habits.porFranja.noche.map((c) => c.id)).toEqual(['x']);
+  });
+
+  it('habitsPct semanal cuenta turnos', () => {
+    // lun 28 – jue 1, "d" = Mañana + Noche → 8 turnos; 3 hechos
+    const r = buildWeeklyReport(
+      {
+        ...base,
+        habits: [conTurnos('d', [['manana'], ['noche']])],
+        doneLogs: logs([['d', '2026-09-28', 'manana'], ['d', '2026-09-28', 'noche'], ['d', '2026-09-29', 'manana']]),
+      },
+      false,
+    );
+    expect(r.habitsPct).toBe(38);
+  });
+
+  it('dos registros del mismo turno alternativo cuentan una vez', () => {
+    const w = conTurnos('w', [['tarde', 'noche']]);
+    expect(doneByDate([w], logs([['w', '2026-09-30', 'tarde'], ['w', '2026-09-30', 'noche']])).get('2026-09-30')).toBe(1);
   });
 });

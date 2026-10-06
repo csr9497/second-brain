@@ -1,7 +1,7 @@
 // Agregados de la pantalla Hoy y de la revisión semanal, calculados a partir de
 // filas ya cargadas (sin acceso a datos). Nada de esto se almacena salvo al
 // archivar una semana.
-import type { Habit, HabitSlot, PaletteColor, Project, Task, TodayPayload, WeeklyReport } from '../index';
+import type { HabitChip, HabitSlot, PaletteColor, Project, Task, TodayPayload, WeeklyReport } from '../index';
 import { addDays, slotForHour, toISO, todayISO, weekRange, weekday } from './dates';
 import { bucketTasks, computeStreak, isOverdue, pct } from './metrics';
 
@@ -9,12 +9,13 @@ import { bucketTasks, computeStreak, isOverdue, pct } from './metrics';
 export interface HabitPeriod {
   desde: string;
   hasta: string | null;
+  /** Programación vigente en el periodo */
+  turnos: HabitSlot[][];
 }
 
 export interface HabitRow {
   id: string;
   nombre: string;
-  slot: HabitSlot;
   position: number;
   /** Cuenta los días locales cubiertos por algún periodo */
   periods: HabitPeriod[];
@@ -36,7 +37,7 @@ export interface DashboardInput {
   /** Todos los hábitos (también archivados, para el historial), ordenados por position */
   habits: HabitRow[];
   /** Registros hechos (done = true) */
-  doneLogs: { habitId: string; fecha: string }[];
+  doneLogs: { habitId: string; fecha: string; slot: HabitSlot }[];
   /** Tareas ordenadas por position */
   tasks: Task[];
   projects: ProjectRow[];
@@ -45,21 +46,40 @@ export interface DashboardInput {
 
 const PRIORITY_RANK: Record<string, number> = { alta: 0, media: 1, baja: 2 };
 
-const vigente = (h: HabitRow, fecha: string) =>
-  h.periods.some((p) => toISO(new Date(p.desde)) <= fecha && (p.hasta == null || toISO(new Date(p.hasta)) > fecha));
+const cubre = (p: HabitPeriod, fecha: string) =>
+  toISO(new Date(p.desde)) <= fecha && (p.hasta == null || toISO(new Date(p.hasta)) > fecha);
+
+/** Periodo que cubre `fecha` (día local), si el hábito estaba vigente ese día. */
+export const periodoEn = (h: HabitRow, fecha: string) => h.periods.find((p) => cubre(p, fecha));
 
 /** Hábitos vigentes en `fecha` (día local): algún periodo cubre ese día. */
-export const habitsOn = (habits: HabitRow[], fecha: string) => habits.filter((h) => vigente(h, fecha));
+export const habitsOn = (habits: HabitRow[], fecha: string) => habits.filter((h) => periodoEn(h, fecha) != null);
 
-/** Hábitos hechos por fecha, contando solo los vigentes ese día. */
+/** Hábitos vigentes en `fecha` con los turnos de su programación de ese día. */
+export function turnosEn(habits: HabitRow[], fecha: string) {
+  return habits.flatMap((h) => {
+    const p = periodoEn(h, fecha);
+    return p ? [{ habit: h, turnos: p.turnos }] : [];
+  });
+}
+
+/** Nº de turnos vigentes en `fecha`. */
+const totalTurnos = (habits: HabitRow[], fecha: string) => turnosEn(habits, fecha).reduce((n, x) => n + x.turnos.length, 0);
+
+/** Turnos hechos por fecha, según la programación vigente de cada hábito ese día. */
 export function doneByDate(habits: HabitRow[], doneLogs: DashboardInput['doneLogs']) {
   const byId = new Map(habits.map((h) => [h.id, h]));
-  const map = new Map<string, number>();
+  const hechos = new Map<string, Set<string>>(); // fecha → "hábito|índice de turno"
   for (const l of doneLogs) {
     const h = byId.get(l.habitId);
-    if (h && vigente(h, l.fecha)) map.set(l.fecha, (map.get(l.fecha) ?? 0) + 1);
+    const p = h && periodoEn(h, l.fecha);
+    const i = p ? p.turnos.findIndex((t) => t.includes(l.slot)) : -1;
+    if (i < 0) continue;
+    const set = hechos.get(l.fecha) ?? new Set<string>();
+    set.add(`${l.habitId}|${i}`);
+    hechos.set(l.fecha, set);
   }
-  return map;
+  return new Map([...hechos].map(([fecha, set]) => [fecha, set.size]));
 }
 
 /** % semana y "hoy toca". Orden: hoy toca → prioridad → nombre. */
@@ -92,17 +112,20 @@ export function projectViews(projects: ProjectRow[], tasks: Pick<Task, 'projectI
 
 export function buildToday({ habits, doneLogs, tasks, projects, now }: DashboardInput): TodayPayload {
   const today = todayISO(now);
-  const doneToday = new Set(doneLogs.filter((l) => l.fecha === today).map((l) => l.habitId));
-  const habitList: Habit[] = habitsOn(habits, today).map((h) => ({
-    id: h.id,
-    nombre: h.nombre,
-    slot: h.slot,
-    position: h.position,
-    done: doneToday.has(h.id),
-  }));
-
-  const porFranja: Record<HabitSlot, Habit[]> = { manana: [], tarde: [], noche: [] };
-  for (const h of habitList) porFranja[h.slot].push(h);
+  const logsHoy = doneLogs.filter((l) => l.fecha === today);
+  const porFranja: Record<HabitSlot, HabitChip[]> = { manana: [], tarde: [], noche: [] };
+  let turnosHoy = 0;
+  let hechosHoy = 0;
+  for (const { habit, turnos } of turnosEn(habits, today)) {
+    for (const turno of turnos) {
+      turnosHoy++;
+      const doneIn = turno.find((f) => logsHoy.some((l) => l.habitId === habit.id && l.slot === f)) ?? null;
+      if (doneIn) hechosHoy++;
+      for (const slot of turno) {
+        porFranja[slot].push({ id: habit.id, nombre: habit.nombre, position: habit.position, slot, turno, done: doneIn != null, doneIn });
+      }
+    }
+  }
 
   const completedToday = (t: Task) => t.completedAt != null && toISO(new Date(t.completedAt)) === today;
 
@@ -111,8 +134,8 @@ export function buildToday({ habits, doneLogs, tasks, projects, now }: Dashboard
     habits: {
       slotActual: slotForHour(now.getHours()),
       porFranja,
-      pctDia: pct(habitList.filter((h) => h.done).length, habitList.length),
-      streak: computeStreak(doneByDate(habits, doneLogs), today, (d) => habitsOn(habits, d).length),
+      pctDia: pct(hechosHoy, turnosHoy),
+      streak: computeStreak(doneByDate(habits, doneLogs), today, (d) => totalTurnos(habits, d)),
     },
     tasks: bucketTasks(tasks, today, weekRange(today).end, completedToday),
     projects: projectViews(projects.filter((p) => p.estado === 'en_curso'), tasks, today),
@@ -125,7 +148,7 @@ export function buildWeeklyReport({ habits, doneLogs, tasks, projects, now }: Da
   // Solo cuentan los días ya transcurridos de la semana
   const lastDay = today < end ? today : end;
   const byDate = doneByDate(habits, doneLogs);
-  const totalOn = (d: string) => habitsOn(habits, d).length;
+  const totalOn = (d: string) => totalTurnos(habits, d);
   let habitsDone = 0;
   let habitsTotal = 0;
   for (let d = start; d <= lastDay; d = addDays(d, 1)) {
