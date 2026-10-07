@@ -82,7 +82,7 @@ Studio local: http://127.0.0.1:54323. Deploy: cada push a `main` ejecuta `.githu
 - **Listas de tareas (`bucketTasks`):**
   - Las hechas solo se ven el día en que se completaron.
   - Las vencidas sin terminar van **solo** a `incumplimiento`.
-  - `hoy` = deadline hoy, o sin deadline y con `start_date` hoy, o un paso pendiente que cubre hoy.
+  - `hoy` = hoy cae entre `start_date` y `deadline` (todos los días del rango), o deadline hoy, o `start_date` hoy (sin deadline), o un paso pendiente que cubre hoy.
   - `semana` = hoy + deadline hasta el domingo, o `start_date` dentro de la semana (lun–dom), o un paso pendiente en algún día de la semana.
 - **Pasos programados:** `steps.start_date` + `duracion_dias` (ambos o ninguno, CHECK); el fin es inclusivo (`finPaso` = inicio + días − 1). Un paso fuera del rango `start_date`–`deadline` de su tarea se permite y se marca "fuera de plazo" (`fueraDePlazo`); sin programar no sale en el Gantt.
 - **Duración de un paso:** o un rango de fechas (`start_date` + `duracion_dias`), o un **tiempo estimado** (`duracion_min`, en horas o minutos en el formulario) en un solo día (CHECK: `duracion_dias = 1`, máx. 24 h). No hay hora de inicio: los pasos por tiempo de un mismo día van en el orden de la lista (`tramosDelDia`). «⛓ Encadenar» (`encadenar`) los pone seguidos en el mismo día mientras quepan en la jornada (`JORNADA_MIN` = 8 h) y salta al día siguiente si no. Toda la lógica por días los trata como pasos de un día.
