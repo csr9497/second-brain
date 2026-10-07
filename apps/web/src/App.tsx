@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { greeting, headerDate } from './lib/format';
 import { TaskModal } from './components/TaskModal';
+import { AvisosModal } from './components/AvisosModal';
 import { IdeaModal } from './components/IdeaModal';
 import { ReviewModal } from './components/ReviewModal';
 import { ProjectModal } from './components/ProjectModal';
@@ -55,16 +56,25 @@ function Home() {
         <div className="text-xs font-semibold tracking-[.08em] text-faint uppercase">{headerDate(todayISO())}</div>
         <div className="flex items-start justify-between gap-3">
           <h1 className="mt-1.5 mb-1 font-display text-[33px] leading-[1.05] font-bold tracking-[-.01em]">🧠 Second Brain</h1>
-          <button
-            onClick={async () => {
-              if (!(await puedeSalir())) return;
-              await sb.auth.signOut();
-              qc.clear();
-            }}
-            className="mt-2 rounded-full border border-line px-3 py-1 text-xs font-semibold text-muted hover:text-text"
-          >
-            Salir
-          </button>
+          <div className="mt-2 flex gap-1.5">
+            <button
+              onClick={() => setModal({ kind: 'avisos' })}
+              aria-label="Avisos"
+              className="rounded-full border border-line px-3 py-1 text-xs font-semibold text-muted hover:text-text"
+            >
+              🔔
+            </button>
+            <button
+              onClick={async () => {
+                if (!(await puedeSalir())) return;
+                await sb.auth.signOut();
+                qc.clear();
+              }}
+              className="rounded-full border border-line px-3 py-1 text-xs font-semibold text-muted hover:text-text"
+            >
+              Salir
+            </button>
+          </div>
         </div>
         <p className="m-0 text-sm text-muted">{greeting()}</p>
       </header>
@@ -101,6 +111,7 @@ function Home() {
       {modal?.kind === 'proyecto' && <ProjectModal project={modal.project} onClose={close} />}
       {modal?.kind === 'revision' && <ReviewModal onClose={close} />}
       {modal?.kind === 'idea' && <IdeaModal onClose={close} />}
+      {modal?.kind === 'avisos' && <AvisosModal onClose={close} />}
       {modal?.kind === 'habitos' && (
         <HabitsManager onClose={close} onNew={() => setModal({ kind: 'habito' })} onEdit={(habit) => setModal({ kind: 'habito', habit })} />
       )}
