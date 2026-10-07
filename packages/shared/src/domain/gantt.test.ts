@@ -7,12 +7,13 @@ import {
   estirarPaso,
   estirarTarea,
   moverPaso,
+  estirarPasoMin,
   moverTarea,
   spanTarea,
   ventanaGantt,
 } from './gantt';
 
-const step = (id: string, startDate: string | null, duracionDias: number | null): Step => ({ id, taskId: 't', title: id, done: false, position: 1, startDate, duracionDias });
+const step = (id: string, startDate: string | null, duracionDias: number | null): Step => ({ id, taskId: 't', title: id, done: false, position: 1, startDate, duracionDias, duracionMin: null });
 const task = (o: Partial<Task> = {}): Task => ({
   id: 't',
   projectId: null,
@@ -44,7 +45,7 @@ describe('borrador', () => {
   it('mover una tarea arrastra sus pasos programados (no los sin programar)', () => {
     const d = moverTarea(borradorVacio(), task(), 3);
     expect(d.tasks.t).toEqual({ startDate: '2026-10-09', deadline: '2026-10-12' });
-    expect(d.steps).toEqual({ s1: { startDate: '2026-10-09', duracionDias: 2 } });
+    expect(d.steps).toEqual({ s1: { startDate: '2026-10-09', duracionDias: 2, duracionMin: null } });
     expect(aplicarBorrador([task()], d)[0].steps[0].startDate).toBe('2026-10-09');
   });
   it('ida y vuelta no deja cambios', () => {
@@ -58,7 +59,7 @@ describe('borrador', () => {
   });
   it('mover y estirar un paso (mínimo 1 día)', () => {
     const s1 = task().steps[0];
-    expect(moverPaso(borradorVacio(), s1, 1).steps.s1).toEqual({ startDate: '2026-10-07', duracionDias: 2 });
+    expect(moverPaso(borradorVacio(), s1, 1).steps.s1).toEqual({ startDate: '2026-10-07', duracionDias: 2, duracionMin: null });
     expect(estirarPaso(borradorVacio(), s1, -5).steps.s1.duracionDias).toBe(1);
     expect(moverPaso(borradorVacio(), task().steps[1], 1)).toEqual(borradorVacio());
   });
@@ -75,5 +76,22 @@ describe('ventanaGantt', () => {
     expect(ventanaGantt([], '2026-10-06')).toEqual({ inicio: '2026-09-29', fin: '2026-12-01', dias: 64 });
     const v = ventanaGantt([task({ startDate: '2026-09-01', deadline: '2026-09-03', steps: [] })], '2026-10-06');
     expect(v.inicio).toBe('2026-08-30');
+  });
+});
+
+describe('pasos por tiempo en el Gantt', () => {
+  const h = (duracionMin: number): Step => ({ ...step('h', '2026-10-06', 1), duracionMin });
+  it('estirar de 15 en 15 min: mínimo 15 min y máximo 24 h', () => {
+    expect(estirarPasoMin(borradorVacio(), h(60), 2).steps.h.duracionMin).toBe(90);
+    expect(estirarPasoMin(borradorVacio(), h(60), -10).steps.h.duracionMin).toBe(15);
+    expect(estirarPasoMin(borradorVacio(), h(1430), 4).steps.h.duracionMin).toBe(1440);
+  });
+  it('estirar por días no cambia un paso por tiempo, y moverlo de día conserva el tiempo', () => {
+    expect(estirarPaso(borradorVacio(), h(60), 2)).toEqual(borradorVacio());
+    expect(moverPaso(borradorVacio(), h(60), 1).steps.h).toMatchObject({ startDate: '2026-10-07', duracionDias: 1, duracionMin: 60 });
+  });
+  it('el resumen detecta un cambio solo de tiempo', () => {
+    const t = { ...task(), steps: [{ ...h(60), id: 's1' }] };
+    expect(cambiosDelBorrador([t], estirarPasoMin(borradorVacio(), t.steps[0], 1))).toMatchObject([{ id: 's1', despues: { duracionMin: 75 } }]);
   });
 });

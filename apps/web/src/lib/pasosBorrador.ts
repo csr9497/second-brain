@@ -1,7 +1,40 @@
-import { daysBetween, type GanttDraft, type PaletteColor, type Task } from '@sb/shared';
+import { MIN_DIA, addDays, daysBetween, type GanttDraft, type PaletteColor, type Task } from '@sb/shared';
 
 // Borradores del modal de tarea: strings de formulario ('' = vacío), compartidos con el planificador.
-export type StepDraft = { id?: string; title: string; startDate: string; dias: string; /** Hecho (solo pasos ya guardados) */ done?: boolean };
+export type StepDraft = {
+  id?: string;
+  /** Clave local estable de un paso aún no guardado (para reordenarlo arrastrando) */
+  uid?: string;
+  title: string;
+  startDate: string;
+  dias: string;
+  /** Tiempo estimado (alternativa al rango: solo en un día); '' = por días. `unidad`: horas (admite '1.5') o minutos */
+  tiempo?: string;
+  unidad?: UnidadTiempo;
+  /** Hecho (solo pasos ya guardados) */
+  done?: boolean;
+};
+
+export type UnidadTiempo = 'h' | 'min';
+
+/** Minutos → texto y unidad del formulario: horas si es múltiplo de 15 min y ≥ 1 h (90 → '1.5' h), si no minutos. */
+export function tiempoTexto(min: number): { tiempo: string; unidad: UnidadTiempo } {
+  return min >= 60 && min % 15 === 0 ? { tiempo: String(min / 60), unidad: 'h' } : { tiempo: String(min), unidad: 'min' };
+}
+
+/** El borrador es por tiempo estimado. */
+export const porTiempo = (s: StepDraft) => !!s.tiempo?.trim();
+
+/** Tiempo escrito en minutos (≥ 1, máximo 24 h), o null. */
+export function minutosDe(s: StepDraft) {
+  const n = Number((s.tiempo ?? '').replace(',', '.'));
+  const min = Math.round((s.unidad ?? 'h') === 'h' ? n * 60 : n);
+  return s.tiempo?.trim() && Number.isFinite(min) && min >= 1 ? Math.min(min, MIN_DIA) : null;
+}
+
+/** Último día del rango del borrador ('' si no tiene fecha). */
+export const finBorrador = (s: StepDraft) => (s.startDate ? addDays(s.startDate, (diasDe(s) ?? 1) - 1) : '');
+
 /** `titulo` solo se usa para rotular la barra de la tarea en el calendario. */
 export type TareaPlan = { startDate: string; deadline: string; titulo?: string };
 /** Qué se está colocando en el planificador: la tarea o el paso de ese índice. */
@@ -23,6 +56,12 @@ export interface PlanProps {
   setSel: (r: Seleccion | null) => void;
 }
 
+/** Clave estable de un paso del borrador: su id o, si es nuevo, su `uid`. */
+export const claveDe = (s: StepDraft) => s.id ?? s.uid ?? '';
+
+/** Fila de paso vacía, con clave local. */
+export const pasoVacio = (): StepDraft => ({ uid: crypto.randomUUID(), title: '', startDate: '', dias: '' });
+
 /** Nombre visible de un paso: su título o, si está vacío, «Paso N» (también al guardarlo). */
 export const nombrePaso = (s: StepDraft, i: number) => s.title.trim() || `Paso ${i + 1}`;
 
@@ -32,17 +71,35 @@ export function diasDe(s: StepDraft) {
   return s.dias.trim() && Number.isFinite(n) && n >= 1 ? n : null;
 }
 
-/** Borrador → programación: con fecha y sin días se usa 1; días redondeados, mínimo 1; sin fecha, nada. */
+/**
+ * Borrador → programación: con fecha y sin días se usa 1; días redondeados, mínimo 1; sin fecha, nada.
+ * Por tiempo (solo en un día): duracionDias = 1 y los minutos; con un rango de varios días el tiempo no cuenta.
+ */
 export function programacion(s: StepDraft) {
-  if (!s.startDate) return { startDate: null, duracionDias: null };
-  return { startDate: s.startDate, duracionDias: diasDe(s) ?? 1 };
+  if (!s.startDate) return { startDate: null, duracionDias: null, duracionMin: null };
+  const dias = diasDe(s) ?? 1;
+  const min = dias === 1 ? minutosDe(s) : null;
+  return { startDate: s.startDate, duracionDias: dias, duracionMin: min };
 }
 
-/** Coloca la tarea (inicio–deadline) o un paso (inicio + días) en el rango [inicio, fin]. */
+/** Programación guardada → campos del borrador. */
+export function aBorrador(p: { startDate: string | null; duracionDias: number | null; duracionMin: number | null }) {
+  return {
+    startDate: p.startDate ?? '',
+    dias: p.duracionDias ? String(p.duracionDias) : '',
+    ...(p.duracionMin ? tiempoTexto(p.duracionMin) : { tiempo: '', unidad: 'h' as UnidadTiempo }),
+  };
+}
+
+/** Coloca la tarea (inicio–deadline) o un paso (inicio + días) en el rango [inicio, fin]. Un paso por tiempo
+ *  lo conserva si el rango es de un día; si abarca varios, pasa a ser por días. */
 export function colocar(tarea: TareaPlan, steps: StepDraft[], activo: Activo, inicio: string, fin: string) {
   if (activo === 'tarea') return { tarea: { startDate: inicio, deadline: fin }, steps };
   const dias = daysBetween(inicio, fin) + 1;
-  return { tarea, steps: steps.map((s, i) => (i === activo ? { ...s, startDate: inicio, dias: String(dias) } : s)) };
+  return {
+    tarea,
+    steps: steps.map((s, i) => (i === activo ? { ...s, startDate: inicio, dias: String(dias), ...(dias > 1 ? { tiempo: '' } : {}) } : s)),
+  };
 }
 
 /** Tarea virtual (los pasos llevan su índice como id y su `done`) para reutilizar la lógica del Gantt. */
@@ -74,7 +131,7 @@ export function desdeBorrador(tarea: TareaPlan, steps: StepDraft[], d: GanttDraf
     tarea: dt ? { startDate: dt.startDate ?? '', deadline: dt.deadline ?? '' } : tarea,
     steps: steps.map((s, i) => {
       const ds = d.steps[String(i)];
-      return ds ? { ...s, startDate: ds.startDate ?? '', dias: ds.duracionDias ? String(ds.duracionDias) : '' } : s;
+      return ds ? { ...s, ...aBorrador(ds) } : s;
     }),
   };
 }

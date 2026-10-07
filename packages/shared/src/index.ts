@@ -48,11 +48,13 @@ const taskFields = z.object({
   habitIds: z.array(z.uuid()),
 });
 
-// Programación de un paso: fecha de inicio + duración en días (ambos o ninguno; lo garantiza el CHECK de la DB)
+// Programación de un paso: fecha de inicio + duración en días (ambos o ninguno; lo garantiza el CHECK de la DB).
+// Por tiempo: en vez de un rango, minutos estimados en un solo día (duracionDias = 1), sin hora de inicio.
 const stepFields = z.object({
   title: z.string().trim().min(1),
   startDate: isoDate.nullish(),
   duracionDias: z.number().int().min(1).nullish(),
+  duracionMin: z.number().int().min(1).max(1440).nullish(),
 });
 
 export const createTaskInput = taskFields.extend({
@@ -126,6 +128,8 @@ export interface Step {
   done: boolean;
   startDate: string | null;
   duracionDias: number | null;
+  /** Paso por tiempo: minutos estimados en un solo día; null = por días */
+  duracionMin: number | null;
   position: number;
 }
 

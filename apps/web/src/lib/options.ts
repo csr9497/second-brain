@@ -34,3 +34,9 @@ export const TASK_TYPE_OPTIONS: SelectOption[] = [
   { value: '', label: '—' },
   ...taskType.options.map((v) => ({ value: v, label: v, color: TASK_TYPE_COLOR[v] })),
 ];
+
+/** Unidad del tiempo estimado de un paso. */
+export const UNIDADES_TIEMPO: SelectOption<'h' | 'min'>[] = [
+  { value: 'h', label: 'h' },
+  { value: 'min', label: 'min' },
+];

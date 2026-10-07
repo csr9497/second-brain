@@ -55,8 +55,10 @@ begin
 
   insert into public.tasks (user_id, title, priority, type, project_id, deadline, position)
     values (uid, 'Repasar AWS serverless', 'alta', 'Trabajo', p_ntt, today, 1000) returning id into t_aws;
-  insert into public.steps (user_id, task_id, title, position) values
-    (uid, t_aws, 'Lambda', 1000), (uid, t_aws, 'API Gateway', 2000), (uid, t_aws, 'DynamoDB', 3000);
+  -- Pasos por tiempo el mismo día (encadenados en el orden de la lista) y uno sin programar
+  insert into public.steps (user_id, task_id, title, position, start_date, duracion_dias, duracion_min) values
+    (uid, t_aws, 'Lambda', 1000, today, 1, 60), (uid, t_aws, 'API Gateway', 2000, today, 1, 90),
+    (uid, t_aws, 'DynamoDB', 3000, null, null, null);
   insert into public.tasks (user_id, title, priority, type, project_id, deadline, position)
     values (uid, 'Avanzar módulo Docker/K8s', 'alta', 'Estudio', p_devops, today, 2000);
   insert into public.tasks (user_id, title, type, project_id, deadline, position)

@@ -1,7 +1,7 @@
 // Borrador del modo edición del Gantt: funciones puras sobre tareas y pasos (fechas ISO, días locales).
 import type { Step, Task } from '../index';
 import { addDays, daysBetween } from './dates';
-import { finPaso, fueraDePlazo } from './pasos';
+import { MIN_DIA, PASO_MINUTOS, finPaso, fueraDePlazo } from './pasos';
 
 export interface TaskPlan {
   startDate: string | null;
@@ -10,7 +10,13 @@ export interface TaskPlan {
 export interface StepPlan {
   startDate: string | null;
   duracionDias: number | null;
+  duracionMin: number | null;
 }
+const planDe = (s: Pick<Step, 'startDate' | 'duracionDias' | 'duracionMin'>): StepPlan => ({
+  startDate: s.startDate,
+  duracionDias: s.duracionDias,
+  duracionMin: s.duracionMin,
+});
 /** Cambios pendientes por id (aún no guardados). */
 export interface GanttDraft {
   tasks: Record<string, TaskPlan>;
@@ -53,7 +59,7 @@ const desplazar = (f: string | null, d: number) => (f ? addDays(f, d) : null);
 /** Mueve la tarea `d` días con todos sus pasos programados. `t` va con el borrador aplicado. */
 export function moverTarea(draft: GanttDraft, t: Task, d: number): GanttDraft {
   const steps = { ...draft.steps };
-  for (const s of t.steps) if (s.startDate) steps[s.id] = { startDate: addDays(s.startDate, d), duracionDias: s.duracionDias };
+  for (const s of t.steps) if (s.startDate) steps[s.id] = { ...planDe(s), startDate: addDays(s.startDate, d) };
   return { tasks: { ...draft.tasks, [t.id]: { startDate: desplazar(t.startDate, d), deadline: desplazar(t.deadline, d) } }, steps };
 }
 
@@ -69,13 +75,20 @@ export function estirarTarea(draft: GanttDraft, t: Task, d: number): GanttDraft 
 /** Mueve el inicio del paso `d` días (si está programado). */
 export function moverPaso(draft: GanttDraft, s: Step, d: number): GanttDraft {
   if (!s.startDate) return draft;
-  return { ...draft, steps: { ...draft.steps, [s.id]: { startDate: addDays(s.startDate, d), duracionDias: s.duracionDias } } };
+  return { ...draft, steps: { ...draft.steps, [s.id]: { ...planDe(s), startDate: addDays(s.startDate, d) } } };
 }
 
-/** Cambia la duración del paso `d` días (mínimo 1). */
+/** Cambia la duración del paso `d` días (mínimo 1). Un paso por tiempo siempre dura un día: no cambia. */
 export function estirarPaso(draft: GanttDraft, s: Step, d: number): GanttDraft {
-  if (!s.startDate || !s.duracionDias) return draft;
-  return { ...draft, steps: { ...draft.steps, [s.id]: { startDate: s.startDate, duracionDias: Math.max(1, s.duracionDias + d) } } };
+  if (!s.startDate || !s.duracionDias || s.duracionMin != null) return draft;
+  return { ...draft, steps: { ...draft.steps, [s.id]: { ...planDe(s), duracionDias: Math.max(1, s.duracionDias + d) } } };
+}
+
+/** Alarga o acorta un paso por tiempo `n` saltos de 15 min (mínimo 15 min, máximo 24 h). */
+export function estirarPasoMin(draft: GanttDraft, s: Step, n: number): GanttDraft {
+  if (!s.startDate || s.duracionMin == null) return draft;
+  const duracionMin = Math.min(MIN_DIA, Math.max(PASO_MINUTOS, s.duracionMin + n * PASO_MINUTOS));
+  return { ...draft, steps: { ...draft.steps, [s.id]: { ...planDe(s), duracionMin } } };
 }
 
 /** Lista de cambios reales (omite lo que volvió a su valor original), para el resumen y el guardado. */
@@ -89,13 +102,16 @@ export function cambiosDelBorrador(tasks: Task[], draft: GanttDraft): Cambio[] {
     }
     t.steps.forEach((s, j) => {
       const ds = draft.steps[s.id];
-      if (ds && (ds.startDate !== s.startDate || ds.duracionDias !== s.duracionDias)) {
+      if (
+        ds &&
+        (ds.startDate !== s.startDate || ds.duracionDias !== s.duracionDias || ds.duracionMin !== s.duracionMin)
+      ) {
         out.push({
           tipo: 'paso',
           id: s.id,
           titulo: s.title,
           tarea: t.title,
-          antes: { startDate: s.startDate, duracionDias: s.duracionDias },
+          antes: planDe(s),
           despues: ds,
           fueraDePlazo: fueraDePlazo(vistas[i].steps[j], vistas[i]),
         });

@@ -1,22 +1,26 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { addDays, calendarGrid, carriles, finPaso, fueraDePlazo, mesDe, rangoSeleccion, sumarMeses, todayISO, weekday } from '@sb/shared';
-import { headerDate, mesLabel, shortDate } from '../../lib/format';
+import { Fragment, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { JORNADA_MIN, addDays, calendarGrid, carriles, daysBetween, duracionHoras, finPaso, fueraDePlazo, mesDe, rangoSeleccion, sumarMeses, todayISO, tramosDelDia, weekday } from '@sb/shared';
+import { headerDate, mesLabel } from '../../lib/format';
 import { nombrePaso, programacion, type PlanProps } from '../../lib/pasosBorrador';
 
 const DIAS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 const navBtn = 'rounded-full border border-line px-2.5 py-0.5 text-xs font-semibold text-muted hover:text-text';
 
-/** Mes en el que se seleccionan días (arrastrando, o con dos toques) para agregar un paso. La tarea solo se muestra. */
+/**
+ * Mes del planificador. Tocar un día lo expande (debajo de su semana) con la tarea y los pasos de ese día, por hora.
+ * Arrastrar de un día a otro selecciona el rango para agregar un paso; desde el día expandido también se puede
+ * agregar un paso ese día o marcar un rango con dos toques (táctil). La tarea solo se muestra.
+ */
 export function CalendarioPlan({ tarea, steps, color, sel, setSel }: PlanProps) {
   const hoy = todayISO();
   const [mes, setMes] = useState(mesDe(tarea.startDate || tarea.deadline || hoy));
   const [arrastre, setArrastre] = useState<{ desde: string; hasta: string } | null>(null);
-  const [pendiente, setPendiente] = useState<string | null>(null);
+  // Día expandido (detalle debajo de su semana)
+  const [abierto, setAbierto] = useState<string | null>(null);
   const arrastreRef = useRef<{ desde: string; hasta: string } | null>(null);
 
   const aplicar = (a: string, b: string) => {
     setSel(rangoSeleccion(a, b));
-    setPendiente(null);
   };
   const aplicarRef = useRef(aplicar);
   aplicarRef.current = aplicar;
@@ -42,24 +46,20 @@ export function CalendarioPlan({ tarea, steps, color, sel, setSel }: PlanProps) 
     };
   }, []);
 
-  const tocar = (d: string) => {
-    if (pendiente) aplicar(pendiente, d);
-    else {
-      setPendiente(d);
-      setSel(null);
-    }
-  };
+  // Un toque expande (o pliega) el día; solo arrastrar de un día a otro selecciona un rango
+  const tocar = (d: string) => setAbierto((a) => (a === d ? null : d));
   const tecla = (e: KeyboardEvent) => {
-    if (e.key !== 'Escape' || (!pendiente && !sel)) return;
+    if (e.key !== 'Escape' || (!sel && !abierto)) return;
     e.preventDefault(); // el modal ignora los Esc ya atendidos
-    setPendiente(null);
-    setSel(null);
+    if (sel) {
+      setSel(null);
+    } else setAbierto(null);
   };
 
   const { start, end } = calendarGrid(mes);
   const dias: string[] = [];
   for (let d = start; d <= end; d = addDays(d, 1)) dias.push(d);
-  const marca = arrastre ? rangoSeleccion(arrastre.desde, arrastre.hasta) : pendiente ? { inicio: pendiente, fin: pendiente } : sel;
+  const marca = arrastre ? rangoSeleccion(arrastre.desde, arrastre.hasta) : sel;
   const plazo = { startDate: tarea.startDate || null, deadline: tarea.deadline || null };
   const pasos = steps
     .map((s, i) => ({ i, p: programacion(s) }))
@@ -94,11 +94,6 @@ export function CalendarioPlan({ tarea, steps, color, sel, setSel }: PlanProps) 
           </button>
         </div>
       </div>
-      {pendiente && (
-        <p className="m-0 mb-1.5 text-[12px] font-semibold text-accent" aria-live="polite">
-          Inicio: {shortDate(pendiente)} · elige el último día (Esc cancela)
-        </p>
-      )}
       <div className="grid grid-cols-7 text-center text-[10px] font-semibold text-faint" aria-hidden>
         {DIAS.map((d) => (
           <div key={d}>{d}</div>
@@ -107,13 +102,28 @@ export function CalendarioPlan({ tarea, steps, color, sel, setSel }: PlanProps) 
       <div className="grid grid-cols-7 gap-y-0.5">
         {dias.map((d, n) => {
           const k = Math.floor(n / 7);
+          // El detalle del día abierto va tras el domingo de su semana, a todo el ancho
+          const detalle =
+            abierto && n % 7 === 6 && Math.floor(daysBetween(start, abierto) / 7) === k ? (
+              <DiaExpandido
+                key={`detalle-${abierto}`}
+                fecha={abierto}
+                enTarea={enTarea(abierto)}
+                tarea={tarea}
+                color={color}
+                pasos={pasos.filter((x) => abierto >= x.desde && abierto <= x.hasta).map((x) => ({ ...x, nombre: nombrePaso(steps[x.i], x.i), done: !!steps[x.i].done, fuera: !steps[x.i].done && fueraDePlazo(x.p, plazo) }))}
+                onAgregar={() => setSel({ inicio: abierto, fin: abierto })}
+                onCerrar={() => setAbierto(null)}
+              />
+            ) : null;
           const marcado = marca != null && d >= marca.inicio && d <= marca.fin;
           const cubre = pasos.filter((x) => d >= x.desde && d <= x.hasta);
           return (
+            <Fragment key={d}>
             <button
-              key={d}
               type="button"
               aria-pressed={marcado}
+              aria-expanded={abierto === d}
               aria-label={`${headerDate(d)}${enTarea(d) ? ', dentro de la tarea' : ''}${d === tarea.deadline ? ', deadline' : ''}${cubre.length ? `, pasos: ${cubre.map((x) => nombrePaso(steps[x.i], x.i)).join(', ')}` : ''}`}
               onPointerDown={(e) => {
                 if (e.pointerType !== 'mouse' || e.button !== 0) return;
@@ -134,7 +144,7 @@ export function CalendarioPlan({ tarea, steps, color, sel, setSel }: PlanProps) 
                 tocar(d);
               }}
               className={`relative flex min-h-11 flex-col gap-0.5 rounded-md border p-1 text-left text-[11px] select-none ${
-                marcado ? 'border-accent bg-accent/15' : 'border-transparent hover:bg-surface2'
+                marcado ? 'border-accent bg-accent/15' : abierto === d ? 'border-text/40 bg-surface2' : 'border-transparent hover:bg-surface2'
               } ${mesDe(d) === mes ? '' : 'opacity-40'}`}
             >
               <span className={`font-semibold ${d === hoy ? 'text-accent' : ''}`}>{Number(d.slice(8))}</span>
@@ -175,9 +185,105 @@ export function CalendarioPlan({ tarea, steps, color, sel, setSel }: PlanProps) 
                 </span>
               )}
             </button>
+            {detalle}
+            </Fragment>
           );
         })}
       </div>
     </div>
+  );
+}
+
+type PasoDelDia = { i: number; p: ReturnType<typeof programacion>; desde: string; hasta: string; nombre: string; done: boolean; fuera: boolean };
+
+/** Detalle de un día del planificador: la tarea, los pasos (primero los de todo el día, luego por hora) y una línea de 24 h. */
+function DiaExpandido({
+  fecha,
+  enTarea,
+  tarea,
+  color,
+  pasos,
+  onAgregar,
+  onCerrar,
+}: {
+  fecha: string;
+  enTarea: boolean;
+  tarea: PlanProps['tarea'];
+  color: PlanProps['color'];
+  pasos: PasoDelDia[];
+  onAgregar: () => void;
+  onCerrar: () => void;
+}) {
+  // En el orden de la lista: primero los de rango (todo el día), luego los encadenados por tiempo
+  const ordenados = [...pasos].sort((a, b) => a.i - b.i);
+  const deRango = ordenados.filter((x) => x.p.duracionMin == null);
+  const tramos = tramosDelDia(ordenados.map((x) => ({ ...x.p, x }))).map((t) => ({ ...t, x: t.paso.x }));
+  const total = tramos.length ? tramos[tramos.length - 1].hasta : 0;
+  const escala = Math.max(JORNADA_MIN, total);
+  const btn = 'rounded-lg border border-dashed border-line px-2.5 py-[5px] text-xs font-semibold text-muted hover:text-text';
+  const fila = (key: string, icono: ReactNode, texto: ReactNode, detalle: ReactNode) => (
+    <li key={key} className="flex items-center gap-2 py-1 text-[12.5px]">
+      <span aria-hidden className="w-5 flex-none text-center text-faint tabular-nums">{icono}</span>
+      <span className="min-w-0 flex-1 truncate">{texto}</span>
+      <span className="flex-none text-[11.5px] text-faint tabular-nums">{detalle}</span>
+    </li>
+  );
+  const nombre = (x: PasoDelDia) => (
+    <span className={x.done ? 'text-muted line-through' : x.fuera ? 'text-hot' : ''} title={x.fuera ? 'Fuera del plazo de la tarea' : undefined}>
+      {x.nombre}
+    </span>
+  );
+  return (
+    <section aria-label={`Detalle del ${headerDate(fecha)}`} className="col-span-7 my-1 rounded-lg border border-line bg-surface p-3">
+      <div className="mb-2 flex items-center gap-2">
+        <h4 className="m-0 flex-1 text-[13px] font-semibold">{headerDate(fecha)}</h4>
+        <button type="button" aria-label="Cerrar detalle del día" onClick={onCerrar} className="rounded-full border border-line px-2 py-0.5 text-xs text-muted hover:text-text">
+          ✕
+        </button>
+      </div>
+      <ul className="m-0 mb-2 list-none p-0">
+        {enTarea && fila('tarea', '📌', <b>{tarea.titulo || 'Tarea'}</b>, fecha === tarea.deadline ? <span className="font-semibold text-hot">deadline</span> : 'dentro de la tarea')}
+        {deRango.map((x) =>
+          fila(
+            `p${x.i}`,
+            x.done ? <span className="text-good">✓</span> : '↳',
+            nombre(x),
+            x.desde === x.hasta ? 'todo el día' : `día ${daysBetween(x.desde, fecha) + 1} de ${daysBetween(x.desde, x.hasta) + 1}`,
+          ),
+        )}
+        {!enTarea && ordenados.length === 0 && <li className="py-1 text-[12.5px] text-faint">Nada programado este día.</li>}
+      </ul>
+      {tramos.length > 0 && (
+        <div className="mb-2 rounded-md border border-line/70 p-2">
+          <div className="mb-1.5 flex items-baseline justify-between text-[11.5px]">
+            <span className="font-semibold text-muted">⛓ Encadenados en el día</span>
+            <span className={`tabular-nums ${total > JORNADA_MIN ? 'font-semibold text-hot' : 'text-faint'}`}>
+              {duracionHoras(total)} de {duracionHoras(JORNADA_MIN)}
+            </span>
+          </div>
+          {/* Uno detrás de otro, a escala de la jornada */}
+          <div aria-hidden className="relative mb-1.5 flex h-4 overflow-hidden rounded bg-surface2">
+            {tramos.map((t, k) => (
+              <span
+                key={t.x.i}
+                title={`${k + 1}. ${t.x.nombre} · ${duracionHoras(t.hasta - t.desde)}`}
+                className="h-full border-r-2 border-surface last:border-r-0"
+                style={{ width: `${((t.hasta - t.desde) / escala) * 100}%`, background: t.x.fuera ? 'var(--hot)' : `var(--c-${color})`, opacity: t.x.done ? 0.4 : 0.85 }}
+              />
+            ))}
+          </div>
+          <ol className="m-0 list-none p-0">
+            {tramos.map((t, k) =>
+              fila(`t${t.x.i}`, t.x.done ? <span className="text-good">✓</span> : `${k + 1}.`, nombre(t.x), duracionHoras(t.hasta - t.desde)),
+            )}
+          </ol>
+        </div>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className={btn} onClick={onAgregar}>
+          ＋ Paso este día
+        </button>
+      </div>
+    </section>
   );
 }

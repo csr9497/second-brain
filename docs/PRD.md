@@ -66,6 +66,17 @@ Reglas:
 - **Subtareas (pasos).** Una tarea puede tener N pasos (`steps`). Si tiene >1 paso,
   se muestra el contador `hechos/total` y un desplegable con cada paso marcable.
   Al completar todos los pasos, la tarea se marca hecha automáticamente.
+- **Pasos programados.** La duración de un paso es **o** un rango de fechas (un día o
+  varios) **o** un tiempo estimado en horas o minutos en un solo día; no tienen hora de
+  inicio. «Encadenar» coloca los pasos seguidos: los de días, uno tras otro; los de
+  tiempo, en el mismo día en el orden de la lista mientras quepan en una jornada de 8 h.
+  Un paso fuera del plazo de la tarea se marca con color, sin mover la fila.
+- **Planificador del modal.** En el calendario, tocar un día lo expande para ver la
+  tarea, sus pasos y los encadenados por tiempo en orden (con el total del día); solo
+  arrastrar de un día a otro (o «＋ Paso este día») abre el campo para agregar un paso.
+  En los Gantt, seleccionar fechas en la cabecera hace zoom a ese rango; con zoom
+  suficiente los pasos por tiempo de un día se ven uno tras otro y se estiran de 15 en
+  15 minutos. La lista de pasos se reordena arrastrando ⠿ (solo cambia el orden).
 - **Reordenamiento.** El usuario arrastra tareas para ordenarlas manualmente, sin
   importar prioridad. El orden se guarda en `position`. (dnd-kit en el front;
   endpoint de reorder en el back.)

@@ -13,13 +13,12 @@ const itemBtn = 'flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-le
 
 type Rango = { inicio: string; fin: string };
 
-/** Mes con tareas, pasos y vencimientos con título, y % de hábitos (anillo); panel con el detalle del día. Se puede marcar un rango para crear una tarea. */
+/** Mes con tareas, pasos y vencimientos con título, y % de hábitos (anillo); panel con el detalle del día. Arrastrar (o Shift+clic) marca un rango para crear una tarea. */
 export function CalendarView({ onEditTask, onNewTask }: { onEditTask: (t: Task) => void; onNewTask: (rango?: Rango) => void }) {
   const hoy = todayISO();
   const [mes, setMes] = useState(mesDe(hoy));
   const [sel, setSel] = useState(hoy);
   const [rango, setRango] = useState<Rango | null>(null);
-  const [marcandoDesde, setMarcandoDesde] = useState<string | null>(null); // táctil: "marcar rango desde este día"
   // Arrastre con ratón: en un ref (no en estado) para no re-renderizar ni depender de updaters en StrictMode
   const arrastre = useRef<{ desde: string; hasta: string; movio: boolean; activo: boolean } | null>(null);
   // `hoy` en la clave: al cruzar la medianoche se recalcula qué días son pasados o futuros
@@ -47,33 +46,29 @@ export function CalendarView({ onEditTask, onNewTask }: { onEditTask: (t: Task) 
 
   // Esc limpia la selección, salvo que haya un diálogo abierto (ese Esc es suyo)
   useEffect(() => {
-    if (!rango && !marcandoDesde) return;
+    if (!rango) return;
     const onKey = (e: KeyboardEvent) => {
       // `defaultPrevented`: el Esc ya lo atendió un modal
       if (e.key !== 'Escape' || e.defaultPrevented || document.querySelector('[role=dialog],[role=alertdialog]')) return;
       setRango(null);
-      setMarcandoDesde(null);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [rango, marcandoDesde]);
+  }, [rango]);
 
   const irA = (m: string) => {
     setMes(m);
     setSel(m === mesDe(hoy) ? hoy : `${m}-01`);
   };
 
-  const limpiar = () => {
-    setRango(null);
-    setMarcandoDesde(null);
-  };
+  const limpiar = () => setRango(null);
   const nueva = (r?: Rango) => {
     onNewTask(r);
     limpiar();
   };
 
   const alPulsar = (d: string, e: PointerEvent) => {
-    if (e.pointerType !== 'mouse' || e.button !== 0 || e.shiftKey || marcandoDesde) return;
+    if (e.pointerType !== 'mouse' || e.button !== 0 || e.shiftKey) return;
     arrastre.current = { desde: d, hasta: d, movio: false, activo: true };
   };
   const alEntrar = (d: string) => {
@@ -84,10 +79,7 @@ export function CalendarView({ onEditTask, onNewTask }: { onEditTask: (t: Task) 
     setRango(rangoSeleccion(a.desde, d));
   };
   const alClic = (d: string, e: MouseEvent) => {
-    if (marcandoDesde) {
-      setRango(rangoSeleccion(marcandoDesde, d));
-      setMarcandoDesde(null);
-    } else if (e.shiftKey) {
+    if (e.shiftKey) {
       setRango(rangoSeleccion(sel, d));
     } else if (!arrastre.current?.movio) {
       setSel(d);
@@ -131,11 +123,6 @@ export function CalendarView({ onEditTask, onNewTask }: { onEditTask: (t: Task) 
               <span>⚑ vence</span>
               <span>◔ hábitos</span>
             </p>
-            {marcandoDesde && (
-              <p role="status" className="m-0 mb-1.5 px-1 text-xs font-semibold text-accent">
-                Elige el último día del rango (Esc cancela)
-              </p>
-            )}
             <div className="grid grid-cols-7 text-center text-[11px] font-semibold text-faint" aria-hidden>
               {DIAS.map((d) => (
                 <div key={d} className="py-1">
@@ -165,10 +152,6 @@ export function CalendarView({ onEditTask, onNewTask }: { onEditTask: (t: Task) 
               hoy={hoy}
               onEditTask={onEditTask}
               onNewTask={nueva}
-              onRangoDesde={(f) => {
-                setMarcandoDesde(f);
-                setRango({ inicio: f, fin: f });
-              }}
             />
           )}
         </div>
@@ -276,13 +259,11 @@ function PanelDia({
   hoy,
   onEditTask,
   onNewTask,
-  onRangoDesde,
 }: {
   dia: CalendarDay;
   hoy: string;
   onEditTask: (t: Task) => void;
   onNewTask: (rango: Rango) => void;
-  onRangoDesde: (fecha: string) => void;
 }) {
   const fichas = (['manana', 'tarde', 'noche'] as const).flatMap((f) => dia.habitos.porFranja[f]);
   return (
@@ -290,9 +271,6 @@ function PanelDia({
       <h3 className="m-0 mb-3 font-display text-base font-semibold">{headerDate(dia.fecha)}</h3>
       <button type="button" onClick={() => onNewTask({ inicio: dia.fecha, fin: dia.fecha })} className="mb-3 rounded-lg border border-dashed border-line px-2.5 py-[5px] text-xs font-semibold text-muted hover:text-text">
         ＋ Tarea este día
-      </button>
-      <button type="button" onClick={() => onRangoDesde(dia.fecha)} className="mb-3 ml-2 rounded-lg border border-dashed border-line px-2.5 py-[5px] text-xs font-semibold text-muted hover:text-text">
-        ↔ Marcar rango desde este día
       </button>
       <Seccion titulo="Vencen" vacio="Nada vence este día.">
         {dia.vencen.map((t) => (

@@ -2,7 +2,7 @@
 -- Verifica el aislamiento por usuario (RLS) y las reglas de negocio en triggers.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(60);
+select plan(67);
 
 -- Dos usuarios: A (dueño de los datos) y B (intruso)
 insert into auth.users (instance_id, id, aud, role, email) values
@@ -165,6 +165,20 @@ select is((select count(*)::int from public.habit_logs where habit_id = 'aaaaaaa
   'reabrir la tarea desmarca el hábito');
 select is((select count(*)::int from public.habit_logs where habit_id = 'aaaaaaaa-0000-4000-8000-000000000014' and task_id is null), 1,
   'el registro manual se conserva');
+
+-- Pasos por tiempo: minutos en un solo día
+select lives_ok($$ update public.steps set start_date = '2026-10-06', duracion_dias = 1, duracion_min = 90 where id = 'aaaaaaaa-0000-4000-8000-000000000004' $$,
+  'un paso de 90 min en un día es válido');
+select throws_ok($$ update public.steps set duracion_dias = 2 where id = 'aaaaaaaa-0000-4000-8000-000000000004' $$,
+  '23514', null, 'un paso por tiempo dura un solo día');
+select throws_ok($$ update public.steps set duracion_min = 1500 where id = 'aaaaaaaa-0000-4000-8000-000000000004' $$,
+  '23514', null, 'el tiempo estimado no pasa de 24 h');
+select lives_ok($$ select public.aplicar_plan('{"steps":[{"id":"aaaaaaaa-0000-4000-8000-000000000004","start_date":"2026-10-07","duracion_dias":1,"duracion_min":45}]}') $$,
+  'aplicar_plan cambia el tiempo de un paso');
+select is((select duracion_min from public.steps where id = 'aaaaaaaa-0000-4000-8000-000000000004'), 45, 'el paso quedó con 45 min');
+select lives_ok($$ select public.aplicar_plan('{"steps":[{"id":"aaaaaaaa-0000-4000-8000-000000000004","start_date":"2026-10-08","duracion_dias":1}]}') $$,
+  'sin la clave de tiempo, aplicar_plan lo conserva');
+select is((select duracion_min from public.steps where id = 'aaaaaaaa-0000-4000-8000-000000000004'), 45, 'el tiempo se conservó');
 
 -- ---------- Como B ----------
 set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';

@@ -5,6 +5,10 @@ import { addDays, daysBetween, weekday } from './dates';
 import { pct } from './metrics';
 import { finPaso } from './pasos';
 
+/** Orden de los pasos dentro de un día: por tarea y, dentro de ella, el de su lista. */
+const ordenPaso = (a: { paso: Step; tarea: Task }, b: { paso: Step; tarea: Task }) =>
+  a.tarea.position - b.tarea.position || a.tarea.id.localeCompare(b.tarea.id) || a.paso.position - b.paso.position;
+
 /** Lo que se ve en una celda: tareas con rango, pasos y tareas que solo vencen. */
 export interface ItemDia {
   key: string;
@@ -95,7 +99,7 @@ export function buildCalendar({
 }): CalendarMonth {
   const { start, end } = calendarGrid(mes);
   const ORDEN = { tarea: 0, paso: 1, vence: 2 } as const;
-  const rangos: { key: string; tipo: ItemDia['tipo']; titulo: string; tarea: Task; desde: string; hasta: string }[] = [];
+  const rangos: { key: string; tipo: ItemDia['tipo']; titulo: string; tarea: Task; desde: string; hasta: string; orden?: number }[] = [];
   for (const t of tasks) {
     if (t.startDate && (!t.deadline || t.startDate <= t.deadline)) {
       rangos.push({ key: `t-${t.id}`, tipo: 'tarea', titulo: t.title, tarea: t, desde: t.startDate, hasta: t.deadline ?? t.startDate });
@@ -104,10 +108,14 @@ export function buildCalendar({
     }
     for (const s of t.steps) {
       const fin = finPaso(s);
-      if (s.startDate && fin) rangos.push({ key: `p-${s.id}`, tipo: 'paso', titulo: `↳ ${s.title}`, tarea: t, desde: s.startDate, hasta: fin });
+      if (s.startDate && fin) {
+        rangos.push({ key: `p-${s.id}`, tipo: 'paso', titulo: `↳ ${s.title}`, tarea: t, desde: s.startDate, hasta: fin, orden: s.position });
+      }
     }
   }
-  rangos.sort((a, b) => a.desde.localeCompare(b.desde) || ORDEN[a.tipo] - ORDEN[b.tipo] || a.key.localeCompare(b.key));
+  rangos.sort(
+    (a, b) => a.desde.localeCompare(b.desde) || ORDEN[a.tipo] - ORDEN[b.tipo] || (a.tarea.position - b.tarea.position) || (a.orden ?? 0) - (b.orden ?? 0) || a.key.localeCompare(b.key),
+  );
   const porSemana = carriles(rangos, start, end);
 
   const dias: CalendarDay[] = [];
@@ -124,7 +132,7 @@ export function buildCalendar({
         tarea.steps
           .filter((s) => s.startDate != null && s.startDate <= fecha && fecha <= (finPaso(s) ?? ''))
           .map((paso) => ({ paso, tarea })),
-      ),
+      ).sort(ordenPaso),
       habitos: { porFranja, turnos, hechos, pct: esFuturo || turnos === 0 ? null : pct(hechos, turnos) },
       items: rangos
         .map((r, i) => ({ r, carril: porSemana[Math.floor(daysBetween(start, fecha) / 7)][i] }))

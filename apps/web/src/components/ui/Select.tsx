@@ -18,12 +18,15 @@ export function Select<T extends string>({
   onChange,
   options,
   placeholder,
+  className = '',
   'aria-label': ariaLabel,
 }: {
   value: T;
   onChange: (value: T) => void;
   options: SelectOption<T>[];
   placeholder?: string;
+  /** Clases extra del disparador (p. ej. ancho o tamaño de texto) */
+  className?: string;
   'aria-label'?: string;
 }) {
   const selected = options.find((o) => o.value === value);
@@ -43,7 +46,7 @@ export function Select<T extends string>({
     >
       <RS.Trigger
         aria-label={ariaLabel}
-        className="input flex items-center gap-2 text-left data-[placeholder]:text-faint"
+        className={`input flex items-center gap-2 text-left data-[placeholder]:text-faint ${className}`}
       >
         {selected?.color && <Dot color={selected.color} />}
         <span className="min-w-0 flex-1 truncate">
