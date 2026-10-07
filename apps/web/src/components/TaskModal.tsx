@@ -221,8 +221,117 @@ export function TaskModal({
             </Field>
           </div>
         </details>
+        <details className={detalles}>
+          <summary className={resumen}>
+            <span aria-hidden className="transition group-open:rotate-90">▸</span>
+            Detalles
+            <span className="ml-auto truncate font-normal text-faint">{resumenDetalles}</span>
+          </summary>
+          <div className="grid grid-cols-2 gap-x-[11px] px-3 pt-1 pb-0.5 md:grid-cols-4">
+            <Field label="Tipo de actividad">
+              <Select value={form.type} onChange={setValue('type')} options={TASK_TYPE_OPTIONS} />
+            </Field>
+            <Field label="Prioridad">
+              <Select value={form.priority} onChange={setValue('priority')} options={PRIORITY_OPTIONS} />
+            </Field>
+            <Field label="Proyecto relacionado">
+              <Select value={form.projectId} onChange={setValue('projectId')} options={projectOptions} />
+            </Field>
+            {editing && (
+              <Field label="Estado">
+                <Select value={form.status} onChange={setValue('status')} options={TASK_STATUS_OPTIONS} />
+              </Field>
+            )}
+          </div>
+        </details>
+        <details open={verPasos} onToggle={(e) => setVerPasos(e.currentTarget.open)} className={detalles}>
+          <summary className={resumen}>
+            <span aria-hidden className="transition group-open:rotate-90">▸</span>
+            Pasos
+            <span className="ml-auto truncate font-normal text-faint">{`${conTitulo} ${conTitulo === 1 ? 'paso' : 'pasos'} · ${programados} programados`}</span>
+          </summary>
+          <div className="px-3 pt-1 pb-3">
+            {/* Una fila por paso: nombre y, al costado, inicio, días y el rango calculado */}
+            <div role="group" aria-label="Pasos" className="mb-2 flex flex-col divide-y divide-line/60">
+              {steps.map((s, i) => {
+                const p = programacion(s);
+                const rango = rangoPaso(p);
+                return (
+                  <div key={s.id ?? `new-${i}`} className="flex flex-wrap items-center gap-x-2 gap-y-1.5 py-1.5">
+                    <input
+                      className="input min-w-44 flex-1 py-1 text-[13px]"
+                      aria-label={`Nombre del paso ${i + 1}`}
+                      value={s.title}
+                      placeholder={i === 0 ? 'Primer paso' : 'Otro paso…'}
+                      onChange={(e) => setStep(i, { title: e.target.value })}
+                    />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        type="date"
+                        aria-label={`Inicio del paso ${i + 1}`}
+                        className="input w-auto py-1 text-[13px]"
+                        value={s.startDate}
+                        onChange={(e) => setStep(i, { startDate: e.target.value })}
+                      />
+                      <label className="flex items-center gap-1 text-xs text-muted">
+                        <input
+                          type="number"
+                          min={1}
+                          step={1}
+                          inputMode="numeric"
+                          aria-label={`Días del paso ${i + 1}`}
+                          placeholder="—"
+                          className="input w-16 py-1 text-[13px]"
+                          value={s.dias}
+                          onChange={(e) => setStep(i, { dias: e.target.value })}
+                        />
+                        días
+                      </label>
+                      <span className="w-32 text-xs text-muted">{rango ? `${rango} · ${p.duracionDias} ${p.duracionDias === 1 ? 'día' : 'días'}` : 'Sin programar'}</span>
+                      {!s.done && fueraDePlazo(p, { startDate: form.startDate || null, deadline: form.deadline || null }) && (
+                        <span className="rounded-full bg-hot/15 px-2 py-0.5 text-[11px] font-semibold text-hot">fuera de plazo</span>
+                      )}
+                      <button type="button" title="Quitar paso" aria-label={`Quitar paso ${i + 1}`} className="text-base text-faint hover:text-text" onClick={() => quitarPaso(i)}>
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setSteps((xs) => [...xs, { title: '', startDate: '', dias: '' }])}
+                className="rounded-lg border border-dashed border-line px-2.5 py-[5px] text-xs font-semibold text-muted"
+              >
+                + Añadir paso
+              </button>
+              <button
+                type="button"
+                disabled={!steps.some((s) => s.title.trim())}
+                onClick={() => {
+                  // Se calcula fuera del updater de setSteps: React puede ejecutarlo dos veces (StrictMode)
+                  const desde = form.startDate || todayISO();
+                  const nombrados = steps.filter((s) => s.title.trim());
+                  const encadenados = encadenar(nombrados.map((s) => ({ startDate: null, duracionDias: diasDe(s) })), desde);
+                  const nuevo = new Map(nombrados.map((s, i) => [s, encadenados[i]]));
+                  setSteps(
+                    steps.map((x) => {
+                      const e = nuevo.get(x);
+                      return e ? { ...x, startDate: e.startDate ?? '', dias: String(e.duracionDias) } : x;
+                    }),
+                  );
+                }}
+                className="rounded-lg border border-dashed border-line px-2.5 py-[5px] text-xs font-semibold text-muted disabled:opacity-40"
+              >
+                ⛓ Encadenar pasos
+              </button>
+            </div>
+          </div>
+        </details>
         <PlanificadorTarea
-          tarea={{ startDate: form.startDate, deadline: form.deadline }}
+          tarea={{ startDate: form.startDate, deadline: form.deadline, titulo: form.title.trim() }}
           steps={steps}
           color={color}
           onPasos={setSteps}
@@ -230,120 +339,6 @@ export function TaskModal({
           setSel={setSel}
           onAgregarPaso={agregarPaso}
         />
-        <div className="grid gap-x-4 lg:grid-cols-2">
-          <div>
-        <details className={detalles}>
-              <summary className={resumen}>
-                <span aria-hidden className="transition group-open:rotate-90">▸</span>
-                Detalles
-                <span className="ml-auto truncate font-normal text-faint">{resumenDetalles}</span>
-              </summary>
-              <div className="px-3 pt-1 pb-0.5">
-                <div className="grid grid-cols-2 gap-[11px]">
-                  <Field label="Tipo de actividad">
-                    <Select value={form.type} onChange={setValue('type')} options={TASK_TYPE_OPTIONS} />
-                  </Field>
-                  <Field label="Prioridad">
-                    <Select value={form.priority} onChange={setValue('priority')} options={PRIORITY_OPTIONS} />
-                  </Field>
-                </div>
-                <div className={editing ? 'grid grid-cols-2 gap-[11px]' : ''}>
-                  <Field label="Proyecto relacionado">
-                    <Select value={form.projectId} onChange={setValue('projectId')} options={projectOptions} />
-                  </Field>
-                  {editing && (
-                    <Field label="Estado">
-                      <Select value={form.status} onChange={setValue('status')} options={TASK_STATUS_OPTIONS} />
-                    </Field>
-                  )}
-                </div>
-              </div>
-            </details>
-          </div>
-          <div>
-            <details open={verPasos} onToggle={(e) => setVerPasos(e.currentTarget.open)} className={detalles}>
-              <summary className={resumen}>
-                <span aria-hidden className="transition group-open:rotate-90">▸</span>
-                Pasos
-                <span className="ml-auto truncate font-normal text-faint">
-                  {`${conTitulo} ${conTitulo === 1 ? 'paso' : 'pasos'} · ${programados} programados`}
-                </span>
-              </summary>
-              <div className="px-3 pt-1 pb-3">
-                <div role="group" aria-label="Pasos" className="mb-1.5 flex flex-col gap-1.5">
-                  {steps.map((s, i) => (
-                    <div key={s.id ?? `new-${i}`} className="flex flex-col gap-1.5 rounded-lg border border-line p-2">
-                      <div className="flex items-center gap-[7px]">
-                        <input
-                          className="input flex-1"
-                          value={s.title}
-                          placeholder={i === 0 ? 'Primer paso' : 'Otro paso…'}
-                          onChange={(e) => setStep(i, { title: e.target.value })}
-                        />
-                        <button type="button" title="Quitar paso" aria-label={`Quitar paso ${i + 1}`} className="text-base text-faint" onClick={() => quitarPaso(i)}>
-                          ✕
-                        </button>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <input
-                          type="date"
-                          aria-label={`Inicio del paso ${i + 1}`}
-                          className="input w-auto py-1 text-[13px]"
-                          value={s.startDate}
-                          onChange={(e) => setStep(i, { startDate: e.target.value })}
-                        />
-                        <input
-                          type="number"
-                          min={1}
-                          step={1}
-                          inputMode="numeric"
-                          aria-label={`Días del paso ${i + 1}`}
-                          placeholder="días"
-                          className="input w-20 py-1 text-[13px]"
-                          value={s.dias}
-                          onChange={(e) => setStep(i, { dias: e.target.value })}
-                        />
-                        {rangoPaso(programacion(s)) && <span className="text-xs text-muted">{rangoPaso(programacion(s))}</span>}
-                        {!s.done && fueraDePlazo(programacion(s), { startDate: form.startDate || null, deadline: form.deadline || null }) && (
-                          <span className="rounded-full bg-hot/15 px-2 py-0.5 text-[11px] font-semibold text-hot">fuera de plazo</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSteps((xs) => [...xs, { title: '', startDate: '', dias: '' }])}
-                    className="rounded-lg border border-dashed border-line px-2.5 py-[5px] text-xs font-semibold text-muted"
-                  >
-                    + Añadir paso
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!steps.some((s) => s.title.trim())}
-                    onClick={() => {
-                      // Se calcula fuera del updater de setSteps: React puede ejecutarlo dos veces (StrictMode)
-                      const desde = form.startDate || todayISO();
-                      const nombrados = steps.filter((s) => s.title.trim());
-                      const encadenados = encadenar(nombrados.map((s) => ({ startDate: null, duracionDias: diasDe(s) })), desde);
-                      const nuevo = new Map(nombrados.map((s, i) => [s, encadenados[i]]));
-                      setSteps(
-                        steps.map((x) => {
-                          const e = nuevo.get(x);
-                          return e ? { ...x, startDate: e.startDate ?? '', dias: String(e.duracionDias) } : x;
-                        }),
-                      );
-                    }}
-                    className="rounded-lg border border-dashed border-line px-2.5 py-[5px] text-xs font-semibold text-muted disabled:opacity-40"
-                  >
-                    ⛓ Encadenar pasos
-                  </button>
-                </div>
-              </div>
-            </details>
-          </div>
-        </div>
         <ModalActions>
           {editing && <ConfirmDelete label="Eliminar tarea" disabled={remove.isPending} onConfirm={() => remove.mutate()} />}
           <button type="button" className="btn" onClick={() => void cerrar()}>

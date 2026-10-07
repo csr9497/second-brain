@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { addDays, calendarGrid, carriles, finPaso, fueraDePlazo, mesDe, rangoSeleccion, sumarMeses, todayISO, weekday } from '@sb/shared';
 import { headerDate, mesLabel, shortDate } from '../../lib/format';
-import { programacion, type PlanProps } from '../../lib/pasosBorrador';
+import { nombrePaso, programacion, type PlanProps } from '../../lib/pasosBorrador';
 
 const DIAS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 const navBtn = 'rounded-full border border-line px-2.5 py-0.5 text-xs font-semibold text-muted hover:text-text';
@@ -79,7 +79,7 @@ export function CalendarioPlan({ tarea, steps, color, sel, setSel }: PlanProps) 
   const nCarriles = (k: number) => Math.max(0, ...porSemana[k].map((c) => c + 1));
   // De borde a borde de la celda (padding + borde) salvo en los extremos del rango
   const tramo = (d: string, r: { desde: string; hasta: string }) =>
-    `${d === r.desde ? 'ml-0.5 rounded-l-full' : weekday(d) === 1 ? '-ml-1' : '-ml-[5px]'} ${d === r.hasta ? 'mr-0.5 rounded-r-full' : weekday(d) === 0 ? '-mr-1' : '-mr-[5px]'}`;
+    `${d === r.desde ? 'ml-0.5 rounded-l-md' : weekday(d) === 1 ? '-ml-1' : '-ml-[5px]'} ${d === r.hasta ? 'mr-0.5 rounded-r-md' : weekday(d) === 0 ? '-mr-1' : '-mr-[5px]'}`;
 
   return (
     <div onKeyDown={tecla}>
@@ -114,7 +114,7 @@ export function CalendarioPlan({ tarea, steps, color, sel, setSel }: PlanProps) 
               key={d}
               type="button"
               aria-pressed={marcado}
-              aria-label={`${headerDate(d)}${enTarea(d) ? ', dentro de la tarea' : ''}${d === tarea.deadline ? ', deadline' : ''}${cubre.length ? `, ${cubre.length} paso(s)` : ''}`}
+              aria-label={`${headerDate(d)}${enTarea(d) ? ', dentro de la tarea' : ''}${d === tarea.deadline ? ', deadline' : ''}${cubre.length ? `, pasos: ${cubre.map((x) => nombrePaso(steps[x.i], x.i)).join(', ')}` : ''}`}
               onPointerDown={(e) => {
                 if (e.pointerType !== 'mouse' || e.button !== 0) return;
                 arrastreRef.current = { desde: d, hasta: d };
@@ -139,23 +139,34 @@ export function CalendarioPlan({ tarea, steps, color, sel, setSel }: PlanProps) 
             >
               <span className={`font-semibold ${d === hoy ? 'text-accent' : ''}`}>{Number(d.slice(8))}</span>
               {Array.from({ length: nCarriles(k) }, (_, c) => {
+                // El nombre se muestra el primer día de la barra y cada lunes (continúa de la semana anterior)
+                const rotular = (r: { desde: string }) => d === r.desde || weekday(d) === 1;
                 if (banda && c === porSemana[k][0]) {
                   return enTarea(d) ? (
-                    <span key="t" aria-hidden className={`h-1.5 opacity-50 ${tramo(d, banda)}`} style={{ background: `var(--c-${color})` }} />
+                    <span
+                      key="t"
+                      aria-hidden
+                      className={`flex h-4 min-w-0 items-center px-1 text-[10px] font-semibold text-white ${tramo(d, banda)}`}
+                      style={{ background: `var(--c-${color})` }}
+                    >
+                      <span className="truncate">{rotular(banda) ? `📌 ${tarea.titulo || 'Tarea'}` : '\u00a0'}</span>
+                    </span>
                   ) : (
-                    <span key="t" aria-hidden className="h-1.5" />
+                    <span key="t" aria-hidden className="h-4" />
                   );
                 }
                 const x = cubre.find((y) => porSemana[k][pasos.indexOf(y) + desplazo] === c);
-                return x ? (
+                if (!x) return <span key={`v${c}`} aria-hidden className="h-4" />;
+                const fuera = !steps[x.i].done && fueraDePlazo(x.p, plazo);
+                return (
                   <span
                     key={`p${x.i}`}
                     aria-hidden
-                    className={`h-1 ${tramo(d, x)}`}
-                    style={{ background: !steps[x.i].done && fueraDePlazo(x.p, plazo) ? 'var(--hot)' : `var(--c-${color})` }}
-                  />
-                ) : (
-                  <span key={`v${c}`} aria-hidden className="h-1" />
+                    className={`flex h-4 min-w-0 items-center px-1 text-[10px] font-medium ${fuera ? 'text-hot' : 'text-text'} ${tramo(d, x)}`}
+                    style={{ background: `color-mix(in srgb, ${fuera ? 'var(--hot)' : `var(--c-${color})`} 30%, transparent)` }}
+                  >
+                    <span className="truncate">{rotular(x) ? `↳ ${nombrePaso(steps[x.i], x.i)}` : '\u00a0'}</span>
+                  </span>
                 );
               })}
               {d === tarea.deadline && (

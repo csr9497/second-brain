@@ -2,7 +2,8 @@ import { daysBetween, type GanttDraft, type PaletteColor, type Task } from '@sb/
 
 // Borradores del modal de tarea: strings de formulario ('' = vacío), compartidos con el planificador.
 export type StepDraft = { id?: string; title: string; startDate: string; dias: string; /** Hecho (solo pasos ya guardados) */ done?: boolean };
-export type TareaPlan = { startDate: string; deadline: string };
+/** `titulo` solo se usa para rotular la barra de la tarea en el calendario. */
+export type TareaPlan = { startDate: string; deadline: string; titulo?: string };
 /** Qué se está colocando en el planificador: la tarea o el paso de ese índice. */
 export type Activo = 'tarea' | number;
 

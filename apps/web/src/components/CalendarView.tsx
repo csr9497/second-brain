@@ -252,7 +252,7 @@ function Celda({
           const tramo = `${it.inicio ? 'rounded-l-md' : lunes ? '-ml-1' : '-ml-[5px]'} ${it.fin ? 'rounded-r-md' : domingo ? '-mr-1' : '-mr-[5px]'}`;
           return it.tipo === 'tarea' ? (
             <span key={it.key} className={`flex h-4 min-w-0 items-center gap-0.5 px-1 text-[10px] font-semibold text-white ${tramo}`} style={{ background: `var(--c-${c})` }}>
-              <span className="hidden min-w-0 flex-1 truncate sm:inline">{it.etiqueta ? it.titulo : '\u00a0'}</span>
+              <span className="min-w-0 flex-1 truncate">{it.etiqueta ? it.titulo : '\u00a0'}</span>
               {esVencida(it) && <span className="ml-auto flex-none rounded-sm bg-hot px-0.5 leading-none font-bold text-white">!</span>}
             </span>
           ) : (
@@ -261,7 +261,7 @@ function Celda({
               className={`flex h-4 min-w-0 items-center px-1 text-[9.5px] ${tramo}`}
               style={{ background: `color-mix(in srgb, var(--c-${c}) 30%, transparent)` }}
             >
-              <span className="hidden truncate sm:inline">{it.etiqueta ? it.titulo : '\u00a0'}</span>
+              <span className="truncate">{it.etiqueta ? it.titulo : '\u00a0'}</span>
             </span>
           );
         })}
