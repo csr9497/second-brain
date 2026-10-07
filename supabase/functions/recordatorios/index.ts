@@ -75,9 +75,9 @@ async function ronda() {
   }
   let avisos = 0;
   for (const [userId, propias] of porUsuario) {
-    // Un aviso tarde no sirve: si varias franjas vencen a la vez (config guardada tarde), solo la más reciente con pendientes
-    const ultima = propias.filter((f) => f.habitos.length).sort((a, b) => ORDEN.indexOf(a.franja) - ORDEN.indexOf(b.franja)).at(-1);
-    if (ultima) avisos += await enviar(userId, textoAviso(ultima.franja, ultima.habitos)).catch((err) => (console.error(err), 0));
+    // Un aviso tarde no sirve: si varias franjas vencen a la vez (config guardada tarde), solo cuenta la más reciente
+    const ultima = propias.sort((a, b) => ORDEN.indexOf(a.franja) - ORDEN.indexOf(b.franja)).at(-1);
+    if (ultima?.habitos.length) avisos += await enviar(userId, textoAviso(ultima.franja, ultima.habitos)).catch((err) => (console.error(err), 0));
   }
   return { franjas: filas.length, avisos };
 }
