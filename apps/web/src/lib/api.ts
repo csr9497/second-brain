@@ -217,6 +217,21 @@ async function getTask(id: string): Promise<Task> {
 
 // ---------- API ----------
 
+/** Hora local "HH:MM" por franja; null = sin aviso en esa franja. */
+export interface AvisosConfig {
+  activo: boolean;
+  horas: Record<HabitSlot, string | null>;
+}
+export interface Dispositivo {
+  id: string;
+  endpoint: string;
+  userAgent: string;
+  createdAt: string;
+}
+
+/** Postgres devuelve "HH:MM:SS"; el input type=time usa "HH:MM". */
+const hhmm = (t: string | null) => (t ? t.slice(0, 5) : null);
+
 export const api = {
   /** Tareas con alguna fecha o con pasos programados, y los proyectos para agruparlas. */
   gantt: async (incluirHechas: boolean): Promise<{ tasks: Task[]; projects: { id: string; nombre: string; color: PaletteColor }[] }> => {
@@ -499,5 +514,55 @@ export const api = {
         { onConflict: 'user_id,week_start' },
       ),
     );
+  },
+  // Avisos (Web Push): horas por franja y dispositivos suscritos. La Edge Function `recordatorios` envía.
+  avisos: async (): Promise<{ config: AvisosConfig | null; dispositivos: Dispositivo[] }> => {
+    const [config, subs] = await Promise.all([
+      sb.from('recordatorios_config').select('activo, hora_manana, hora_tarde, hora_noche').maybeSingle(),
+      sb.from('push_subscriptions').select('id, endpoint, user_agent, created_at').order('created_at'),
+    ]);
+    if (config.error) throw new Error(config.error.message);
+    const c = config.data;
+    return {
+      config: c ? { activo: c.activo, horas: { manana: hhmm(c.hora_manana), tarde: hhmm(c.hora_tarde), noche: hhmm(c.hora_noche) } } : null,
+      dispositivos: must(subs).map((s) => ({ id: s.id, endpoint: s.endpoint, userAgent: s.user_agent ?? '', createdAt: s.created_at })),
+    };
+  },
+  /** Guarda las horas con la zona del navegador: el cron evalúa cada franja en esa zona. */
+  guardarAvisos: async (c: AvisosConfig) => {
+    must(
+      await sb.from('recordatorios_config').upsert(
+        {
+          user_id: await userId(),
+          activo: c.activo,
+          zona: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          hora_manana: c.horas.manana,
+          hora_tarde: c.horas.tarde,
+          hora_noche: c.horas.noche,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id' },
+      ),
+    );
+  },
+  suscribir: async (sub: PushSubscriptionJSON) => {
+    if (!sub.endpoint || !sub.keys?.p256dh || !sub.keys.auth) throw new Error('Suscripción incompleta');
+    must(
+      await sb
+        .from('push_subscriptions')
+        .upsert({ endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth, user_agent: navigator.userAgent }, { onConflict: 'endpoint' }),
+    );
+  },
+  quitarDispositivo: async (id: string) => {
+    must(await sb.from('push_subscriptions').delete().eq('id', id));
+  },
+  quitarEndpoint: async (endpoint: string) => {
+    must(await sb.from('push_subscriptions').delete().eq('endpoint', endpoint));
+  },
+  /** Aviso de prueba a todos mis dispositivos; devuelve a cuántos llegó. */
+  probarAviso: async () => {
+    const { data, error } = await sb.functions.invoke<{ enviados: number }>('recordatorios', { body: { prueba: true } });
+    if (error) throw new Error(error.message);
+    return data?.enviados ?? 0;
   },
 };
