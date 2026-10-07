@@ -2,7 +2,7 @@
 -- Verifica el aislamiento por usuario (RLS) y las reglas de negocio en triggers.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(45);
+select plan(60);
 
 -- Dos usuarios: A (dueño de los datos) y B (intruso)
 insert into auth.users (instance_id, id, aud, role, email) values
@@ -114,6 +114,58 @@ select throws_ok($$ select public.aplicar_plan('{"tasks":[{"id":"aaaaaaaa-0000-4
   '23514', null, 'un paso inválido aborta todo el plan');
 select is((select deadline from public.tasks where id = 'aaaaaaaa-0000-4000-8000-000000000002'), '2026-10-20'::date, 'tras el fallo la tarea no cambió');
 
+-- Hora local: la cabecera x-timezone del navegador fija el día y la franja (UTC si no es válida)
+set local request.headers = '{"x-timezone":"Not/AZone"}';
+select is(public.hora_local(), (now() at time zone 'UTC'), 'una zona inválida cae en UTC');
+set local request.headers = '{"x-timezone":"America/Lima"}';
+select is(public.hora_local(), (now() at time zone 'America/Lima'), 'hora_local usa la zona de x-timezone');
+
+-- Hábitos semanales: la meta va en el periodo y cambiarla abre otro
+insert into public.habits (id, nombre, veces_semana) values ('aaaaaaaa-0000-4000-8000-000000000014', 'Inglés semanal', 3);
+select is((select veces_semana from public.habit_periods where habit_id = 'aaaaaaaa-0000-4000-8000-000000000014'), 3::smallint,
+  'el periodo guarda la meta semanal');
+update public.habits set veces_semana = 4 where id = 'aaaaaaaa-0000-4000-8000-000000000014';
+select is((select array_agg(veces_semana order by desde, hasta nulls last) from public.habit_periods where habit_id = 'aaaaaaaa-0000-4000-8000-000000000014'),
+  array[3, 4]::smallint[], 'cambiar la meta cierra el periodo y abre otro');
+select throws_ok($$ update public.habits set veces_semana = 8 where id = 'aaaaaaaa-0000-4000-8000-000000000014' $$,
+  '23514', null, 'la meta semanal va de 1 a 7');
+
+-- Tareas vinculadas a hábitos: completar la tarea o un paso marca el hábito hoy
+insert into public.habits (id, nombre, turnos) values ('aaaaaaaa-0000-4000-8000-000000000013', 'Estudio', '[["manana"],["noche"]]');
+insert into public.tasks (id, title) values ('aaaaaaaa-0000-4000-8000-000000000010', 'Leer libro de matemática');
+insert into public.steps (id, task_id, title) values
+  ('aaaaaaaa-0000-4000-8000-000000000011', 'aaaaaaaa-0000-4000-8000-000000000010', 'cap. 1'),
+  ('aaaaaaaa-0000-4000-8000-000000000012', 'aaaaaaaa-0000-4000-8000-000000000010', 'cap. 2');
+insert into public.task_habits (task_id, habit_id) values
+  ('aaaaaaaa-0000-4000-8000-000000000010', 'aaaaaaaa-0000-4000-8000-000000000013'),
+  ('aaaaaaaa-0000-4000-8000-000000000010', 'aaaaaaaa-0000-4000-8000-000000000014');
+
+update public.steps set done = true where id = 'aaaaaaaa-0000-4000-8000-000000000011';
+select is((select count(*)::int from public.habit_logs where habit_id = 'aaaaaaaa-0000-4000-8000-000000000013' and done
+  and fecha = public.hora_local()::date and step_id = 'aaaaaaaa-0000-4000-8000-000000000011'), 1, 'un paso hecho marca el hábito diario hoy');
+select is((select count(*)::int from public.habit_logs where habit_id = 'aaaaaaaa-0000-4000-8000-000000000014' and done), 1,
+  'y también el semanal');
+update public.steps set done = true where id = 'aaaaaaaa-0000-4000-8000-000000000012';
+select is((select count(*)::int from public.habit_logs where habit_id = 'aaaaaaaa-0000-4000-8000-000000000013'), 1,
+  'la tarea (con sus pasos) cuenta una sola vez por día');
+update public.steps set done = false where id = 'aaaaaaaa-0000-4000-8000-000000000012';
+update public.steps set done = false where id = 'aaaaaaaa-0000-4000-8000-000000000011';
+select is((select count(*)::int from public.habit_logs where habit_id in ('aaaaaaaa-0000-4000-8000-000000000013', 'aaaaaaaa-0000-4000-8000-000000000014')), 0,
+  'desmarcar los pasos borra lo que marcaron');
+
+-- Un registro hecho a mano no se toca
+insert into public.habit_logs (habit_id, fecha, slot) values ('aaaaaaaa-0000-4000-8000-000000000014', public.hora_local()::date, 'manana');
+update public.tasks set status = 'hecha' where id = 'aaaaaaaa-0000-4000-8000-000000000010';
+select is((select count(*)::int from public.habit_logs where habit_id = 'aaaaaaaa-0000-4000-8000-000000000013' and task_id is not null and step_id is null), 1,
+  'completar la tarea marca el hábito diario');
+select is((select count(*)::int from public.habit_logs where habit_id = 'aaaaaaaa-0000-4000-8000-000000000014'), 1,
+  'el semanal ya hecho hoy no se duplica');
+update public.tasks set status = 'por_hacer' where id = 'aaaaaaaa-0000-4000-8000-000000000010';
+select is((select count(*)::int from public.habit_logs where habit_id = 'aaaaaaaa-0000-4000-8000-000000000013'), 0,
+  'reabrir la tarea desmarca el hábito');
+select is((select count(*)::int from public.habit_logs where habit_id = 'aaaaaaaa-0000-4000-8000-000000000014' and task_id is null), 1,
+  'el registro manual se conserva');
+
 -- ---------- Como B ----------
 set local request.jwt.claims = '{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}';
 
@@ -121,6 +173,7 @@ select is((select count(*)::int from public.tasks), 0, 'B no ve las tareas de A'
 select is((select count(*)::int from public.projects), 0, 'B no ve los proyectos de A');
 select is((select count(*)::int from public.steps), 0, 'B no ve los pasos de A');
 select is((select count(*)::int from public.habit_periods), 0, 'B no ve los periodos de A');
+select is((select count(*)::int from public.task_habits), 0, 'B no ve los vínculos tarea-hábito de A');
 select throws_ok($$ select public.aplicar_plan('{"tasks":[{"id":"aaaaaaaa-0000-4000-8000-000000000002","start_date":null,"deadline":null}]}') $$,
   'P0002', null, 'B no puede aplicar un plan sobre tareas de A');
 
@@ -132,6 +185,7 @@ set local role anon;
 set local request.jwt.claims = '{"role":"anon"}';
 select throws_ok($$ select * from public.tasks $$, '42501', null, 'anon no tiene acceso a las tablas');
 select throws_ok($$ select * from public.habit_periods $$, '42501', null, 'anon no tiene acceso a habit_periods');
+select throws_ok($$ select * from public.task_habits $$, '42501', null, 'anon no tiene acceso a task_habits');
 select throws_ok($$ select public.aplicar_plan('{}') $$, '42501', null, 'anon no puede ejecutar aplicar_plan');
 
 -- ---------- De vuelta como A: lo de B no tuvo efecto ----------

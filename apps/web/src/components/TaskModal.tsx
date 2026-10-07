@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { daysBetween, encadenar, fueraDePlazo, todayISO, type CreateTaskInput, type Task, type TaskStatus } from '@sb/shared';
+import { daysBetween, encadenar, formatFrecuencia, fueraDePlazo, todayISO, type CreateTaskInput, type Task, type TaskStatus } from '@sb/shared';
 import { api } from '../lib/api';
 import { rangoPaso } from '../lib/format';
 import { diasDe, nombrePaso, programacion, type Seleccion, type StepDraft } from '../lib/pasosBorrador';
 import { PRIORITY_OPTIONS, TASK_STATUS_OPTIONS, TASK_TYPE_OPTIONS } from '../lib/options';
+import { useHabits } from '../lib/useHabits';
 import { TODAY_KEY } from '../lib/useToday';
 import { ConfirmDelete, Field, Modal, ModalActions } from './Modal';
 import { PlanificadorTarea } from './planner/PlanificadorTarea';
@@ -30,6 +31,7 @@ export function TaskModal({
   const qc = useQueryClient();
   const editing = !!task;
   const projects = useQuery({ queryKey: ['projects', 'all'], queryFn: () => api.projects() });
+  const habits = useHabits();
 
   const [form, setForm] = useState({
     title: task?.title ?? '',
@@ -42,6 +44,8 @@ export function TaskModal({
     deadline: task?.deadline ?? inicial?.deadline ?? '',
     notes: task?.notes ?? '',
   });
+  // Hábitos vinculados: completar la tarea o un paso los marca ese día (trigger en la DB)
+  const [habitIds, setHabitIds] = useState<string[]>(task?.habitIds ?? []);
   const [steps, setSteps] = useState<StepDraft[]>(
     task
       ? task.steps.map((s) => ({ id: s.id, title: s.title, startDate: s.startDate ?? '', dias: s.duracionDias ? String(s.duracionDias) : '', done: s.done }))
@@ -51,10 +55,10 @@ export function TaskModal({
   const [sel, setSel] = useState<Seleccion | null>(null);
   const [verPasos, setVerPasos] = useState(!!task && task.steps.length > 0);
   // Foto del estado inicial (solo en el montaje) para avisar al cerrar con cambios sin guardar
-  const [foto] = useState(() => JSON.stringify({ form, steps }));
+  const [foto] = useState(() => JSON.stringify({ form, steps, habitIds }));
   const cerrar = async () => {
     if (
-      JSON.stringify({ form, steps }) !== foto &&
+      JSON.stringify({ form, steps, habitIds }) !== foto &&
       !(await confirmar({ titulo: '¿Descartar los cambios de la tarea?', mensaje: 'Lo que cambiaste en esta tarea no se guardará.' }))
     )
       return;
@@ -93,9 +97,13 @@ export function TaskModal({
     etiqueta(PRIORITY_OPTIONS, form.priority),
     form.projectId ? projectOptions.find((o) => o.value === form.projectId)?.label : 'sin proyecto',
     editing ? etiqueta(TASK_STATUS_OPTIONS, form.status) : null,
+    habitIds.length ? `🔁 ${habitIds.length} ${habitIds.length === 1 ? 'hábito' : 'hábitos'}` : null,
   ]
     .filter(Boolean)
     .join(' · ');
+  // Activos, más los archivados que ya estaban vinculados (para poder quitarlos)
+  const habitOptions = (habits.data ?? []).filter((h) => !h.archivedAt || habitIds.includes(h.id));
+  const toggleHabit = (id: string) => setHabitIds((xs) => (xs.includes(id) ? xs.filter((x) => x !== id) : [...xs, id]));
   const conTitulo = steps.filter((s) => s.title.trim()).length;
   const programados = steps.filter((s) => s.startDate).length;
 
@@ -108,6 +116,7 @@ export function TaskModal({
     startDate: form.startDate || null,
     deadline: form.deadline || null,
     notes: form.notes || null,
+    habitIds,
   });
 
   const refresh = () => {
@@ -125,7 +134,7 @@ export function TaskModal({
         const newSteps = steps.flatMap((s, i) => (titulos[i] ? [{ title: titulos[i], ...programacion(s) }] : []));
         return api.createTask({ ...fields(), steps: newSteps });
       }
-      await api.updateTask(task.id, { ...fields(), status: form.status });
+      await api.updateTask(task.id, { ...fields(), status: form.status }, task.habitIds);
       // Pasos: borrar los quitados (o vaciados), actualizar los cambiados y crear los nuevos
       const kept = new Map(steps.flatMap((s, i) => (s.id && titulos[i] ? [[s.id, { draft: s, title: titulos[i] }] as const] : [])));
       for (const s of task.steps) {
@@ -242,6 +251,30 @@ export function TaskModal({
                 <Select value={form.status} onChange={setValue('status')} options={TASK_STATUS_OPTIONS} />
               </Field>
             )}
+          </div>
+          <div className="px-3 pb-3">
+            <span className="field-label">Cuenta para los hábitos</span>
+            {habitOptions.length === 0 ? (
+              <p className="m-0 text-[12px] text-faint">Aún no tienes hábitos.</p>
+            ) : (
+              <div role="group" aria-label="Hábitos vinculados" className="flex flex-wrap gap-1.5">
+                {habitOptions.map((h) => (
+                  <button
+                    key={h.id}
+                    type="button"
+                    aria-pressed={habitIds.includes(h.id)}
+                    title={formatFrecuencia(h)}
+                    onClick={() => toggleHabit(h.id)}
+                    className="rounded-full border border-line bg-surface2 px-2.5 py-1 text-xs font-medium text-muted transition aria-pressed:border-good aria-pressed:bg-good-ink aria-pressed:text-good"
+                  >
+                    {habitIds.includes(h.id) ? '✓ ' : ''}
+                    {h.nombre}
+                    {h.archivedAt ? ' (archivado)' : ''}
+                  </button>
+                ))}
+              </div>
+            )}
+            <p className="m-0 mt-1.5 text-[11.5px] text-faint">Al completar la tarea o uno de sus pasos, estos hábitos se marcan ese día.</p>
           </div>
         </details>
         <details open={verPasos} onToggle={(e) => setVerPasos(e.currentTarget.open)} className={detalles}>

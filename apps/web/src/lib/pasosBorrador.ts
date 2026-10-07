@@ -63,6 +63,7 @@ export function comoTask(tarea: TareaPlan, steps: StepDraft[]): Task {
     notes: null,
     completedAt: null,
     steps: steps.map((s, i) => ({ id: String(i), taskId: 'tarea', title: s.title, done: s.done ?? false, position: i, ...programacion(s) })),
+    habitIds: [],
   };
 }
 

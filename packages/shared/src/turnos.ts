@@ -28,3 +28,9 @@ export function resumenTurnos(turnos: HabitSlot[][]): string {
   const n = turnos.length;
   return `Se marca ${n} ${n === 1 ? 'vez' : 'veces'} al día: ${lista}`;
 }
+
+/** "3 veces por semana" o, si es diario, sus turnos ("Mañana + Noche"). */
+export function formatFrecuencia(h: { turnos: HabitSlot[][]; vecesSemana: number | null }): string {
+  const n = h.vecesSemana;
+  return n == null ? formatTurnos(h.turnos) : n === 7 ? 'Todos los días de la semana' : `${n} ${n === 1 ? 'vez' : 'veces'} por semana`;
+}

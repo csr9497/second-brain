@@ -18,8 +18,13 @@ describe('hábitos', () => {
   it('updateHabitInput ignora active (archivar tiene acción propia)', () =>
     expect(updateHabitInput.parse({ nombre: 'x', active: false })).toEqual({ nombre: 'x' }));
   it('updateHabitInput sin campos editables falla', () => expect(() => updateHabitInput.parse({ active: false })).toThrow());
-  it('createHabitInput usa la mañana por defecto', () =>
-    expect(createHabitInput.parse({ nombre: 'x' })).toEqual({ nombre: 'x', turnos: [['manana']] }));
+  it('createHabitInput usa la mañana por defecto y es diario', () =>
+    expect(createHabitInput.parse({ nombre: 'x' })).toEqual({ nombre: 'x', turnos: [['manana']], vecesSemana: null }));
+  it('la meta semanal va de 1 a 7', () => {
+    expect(createHabitInput.parse({ nombre: 'x', vecesSemana: 3 }).vecesSemana).toBe(3);
+    expect(() => createHabitInput.parse({ nombre: 'x', vecesSemana: 8 })).toThrow();
+  });
+  it('updateHabitInput no rellena la meta semanal', () => expect(updateHabitInput.parse({ nombre: 'y' })).toEqual({ nombre: 'y' }));
   it('updateHabitInput valida los turnos', () => expect(() => updateHabitInput.parse({ turnos: [['manana'], ['manana']] })).toThrow());
 });
 

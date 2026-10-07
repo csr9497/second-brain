@@ -19,6 +19,7 @@ const task = (id: string, o: Partial<Task> = {}): Task => ({
   notes: null,
   completedAt: null,
   steps: [],
+  habitIds: [],
   ...o,
 });
 const step = (id: string, startDate: string, duracionDias: number) => ({ id, taskId: 't', title: id, done: false, position: 1, startDate, duracionDias });
@@ -27,7 +28,7 @@ const habit = (id: string, turnos: HabitSlot[][], desde = at(2026, 10, 1)): Habi
   id,
   nombre: id,
   position: 1,
-  periods: [{ desde, hasta: null, turnos }],
+  periods: [{ desde, hasta: null, turnos, vecesSemana: null }],
 });
 
 describe('meses', () => {

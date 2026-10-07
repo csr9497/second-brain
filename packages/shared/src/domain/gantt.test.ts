@@ -29,6 +29,7 @@ const task = (o: Partial<Task> = {}): Task => ({
   notes: null,
   completedAt: null,
   steps: [step('s1', '2026-10-06', 2), step('s2', null, null)],
+  habitIds: [],
   ...o,
 });
 

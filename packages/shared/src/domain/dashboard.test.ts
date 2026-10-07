@@ -8,7 +8,12 @@ const today = '2026-10-01';
 
 // Timestamps a las 10:00 locales del día indicado (mes 1-12)
 const at = (y: number, m: number, d: number) => new Date(y, m - 1, d, 10).toISOString();
-const per = (desde: string, hasta: string | null = null, turnos: HabitSlot[][] = [['manana']]) => ({ desde, hasta, turnos });
+const per = (desde: string, hasta: string | null = null, turnos: HabitSlot[][] = [['manana']], vecesSemana: number | null = null) => ({
+  desde,
+  hasta,
+  turnos,
+  vecesSemana,
+});
 const habit = (id: string, o: Partial<HabitRow> = {}): HabitRow => ({
   id,
   nombre: id,
@@ -48,6 +53,7 @@ const task = (id: string, o: Partial<Task> = {}): Task => ({
   notes: null,
   completedAt: null,
   steps: [],
+  habitIds: [],
   ...o,
 });
 
@@ -96,6 +102,44 @@ describe('buildWeeklyReport', () => {
   it('% hábitos sobre los días transcurridos (lun–jue = 4 días × 2 hábitos)', () => expect(r.habitsPct).toBe(63));
   it('tareas de la semana', () => expect([r.tasksDone, r.tasksTotal, r.overdue]).toEqual([1, 3, 1]));
   it('proyectos sin tocar esta semana', () => expect(r.untouched.map((p) => p.id)).toEqual(['p1']));
+  it('seguimiento por proyecto', () => {
+    const p1 = r.perProject.find((p) => p.id === 'p1');
+    expect(p1).toMatchObject({ pct: 50, done: 1, total: 2, overdue: 0, touched: false, color: 'azul' });
+    expect(r.perProject.find((p) => p.id === 'p2')).toMatchObject({ total: 0, touched: true });
+  });
+  it('tareas en seguimiento con el progreso de sus pasos', () => {
+    const step = (id: string, o: Partial<Task['steps'][number]> = {}) => ({ id, taskId: 't', title: id, done: false, startDate: null, duracionDias: null, position: 1, ...o });
+    const tareas = [
+      task('vieja', { projectId: 'p', status: 'hecha', deadline: '2026-09-20', completedAt: at(2026, 9, 20) }),
+      task('hecha', { projectId: 'p', status: 'hecha', completedAt: at(2026, 9, 29) }),
+      task('pend', {
+        projectId: 'p',
+        deadline: '2026-10-02',
+        steps: [
+          step('s2', { position: 2, done: true, startDate: '2026-09-29', duracionDias: 2 }),
+          step('s1', { startDate: '2026-10-01', duracionDias: 5 }),
+          step('s3', { position: 3 }),
+        ],
+      }),
+      task('vencida', { projectId: 'p', deadline: '2026-09-30' }),
+    ];
+    const rp = buildWeeklyReport({ ...input, tasks: tareas, projects: [project('p')] }, false).perProject[0];
+    expect(rp.tasks.map((t) => t.id)).toEqual(['vencida', 'pend', 'hecha']);
+    expect([rp.pasosHechos, rp.pasosTotal]).toEqual([1, 3]);
+    const pend = rp.tasks[1];
+    expect(pend.pasos.map((s) => [s.id, s.inicio, s.fin, s.enSemana, s.fueraDePlazo])).toEqual([
+      ['s1', '2026-10-01', '2026-10-05', true, true],
+      ['s2', '2026-09-29', '2026-09-30', true, false],
+      ['s3', null, null, false, false],
+    ]);
+  });
+  it('cumplimiento por hábito: días transcurridos y futuros', () => {
+    const [ej, leer] = r.perHabit;
+    expect([ej.id, ej.hechos, ej.turnos, ej.pct]).toEqual(['h1', 3, 4, 75]);
+    expect(leer.dias.map((d) => d.hechos)).toEqual([0, 1, 1, 0, 0, 0, 0]);
+    expect(leer.dias.map((d) => d.futuro)).toEqual([false, false, false, false, true, true, true]);
+    expect(leer.dias[4].turnos).toBe(0);
+  });
 });
 
 describe('projectViews', () => {
@@ -246,10 +290,73 @@ describe('turnos', () => {
       false,
     );
     expect(r.habitsPct).toBe(38);
+    expect(r.perHabit[0].dias.slice(0, 2).map((d) => [d.hechos, d.turnos])).toEqual([[2, 2], [1, 2]]);
+  });
+
+  it('un hábito sin vigencia en la semana no sale en el reporte', () => {
+    const r = buildWeeklyReport({ ...base, habits: [habit('viejo', { periods: [per(at(2026, 9, 1), at(2026, 9, 10))] })], doneLogs: [] }, false);
+    expect(r.perHabit).toEqual([]);
   });
 
   it('dos registros del mismo turno alternativo cuentan una vez', () => {
     const w = conTurnos('w', [['tarde', 'noche']]);
     expect(doneByDate([w], logs([['w', '2026-09-30', 'tarde'], ['w', '2026-09-30', 'noche']])).get('2026-09-30')).toBe(1);
+  });
+});
+
+describe('hábitos semanales', () => {
+  const logs = (rows: [string, string][]) => rows.map(([habitId, fecha]) => ({ habitId, fecha, slot: 'tarde' as HabitSlot }));
+  const base = { tasks: [], projects: [], now }; // jueves 2026-10-01; semana 28 sep – 4 oct
+  const semanal = (id: string, meta: number, o: Partial<HabitRow> = {}) => habit(id, { periods: [per(at(2026, 9, 1), null, [['manana']], meta)], ...o });
+  const diario = habit('d');
+
+  it('no cuentan en el % del día ni en la racha, y salen aparte con los días de la semana', () => {
+    const t = buildToday({
+      ...base,
+      habits: [diario, semanal('ing', 3, { nombre: 'Inglés', position: 2 })],
+      doneLogs: [...logs([['ing', '2026-09-28'], ['ing', '2026-09-29'], ['ing', '2026-09-29'], ['ing', '2026-09-20']]), { habitId: 'd', fecha: '2026-09-30', slot: 'manana' }],
+    });
+    expect(t.habits.pctDia).toBe(0);
+    expect(t.habits.streak).toBe(1);
+    expect(Object.values(t.habits.porFranja).flat().map((c) => c.id)).toEqual(['d']);
+    expect(t.habits.semanales).toEqual([{ id: 'ing', nombre: 'Inglés', position: 2, meta: 3, hechas: 2, hoy: false }]);
+  });
+
+  it('un semanal sin diarios no sostiene la racha', () => {
+    const t = buildToday({ ...base, habits: [semanal('ing', 3)], doneLogs: logs([['ing', '2026-09-30'], ['ing', today]]) });
+    expect(t.habits.streak).toBe(0);
+    expect(t.habits.semanales[0].hoy).toBe(true);
+  });
+
+  it('en la revisión: % con tope en la meta y días marcados', () => {
+    const r = buildWeeklyReport(
+      { ...base, habits: [semanal('ing', 2)], doneLogs: logs([['ing', '2026-09-28'], ['ing', '2026-09-29'], ['ing', '2026-09-30']]) },
+      false,
+    );
+    expect(r.habitsPct).toBe(100);
+    expect(r.perHabit[0]).toMatchObject({ meta: 2, hechos: 3, turnos: 2, pct: 100 });
+    expect(r.perHabit[0].dias.map((d) => [d.hechos, d.turnos])).toEqual([[1, 1], [1, 1], [1, 1], [0, 1], [0, 0], [0, 0], [0, 0]]);
+  });
+
+  it('el % semanal suma diarios en turnos y semanales con su meta completa', () => {
+    // diario: 4 turnos (lun–jue), 2 hechos; semanal 3/sem: 1 hecho → (2 + 1) / (4 + 3)
+    const r = buildWeeklyReport(
+      {
+        ...base,
+        habits: [diario, semanal('ing', 3)],
+        doneLogs: [...logs([['ing', '2026-09-28']]), ...['2026-09-28', '2026-09-29'].map((fecha) => ({ habitId: 'd', fecha, slot: 'manana' as HabitSlot }))],
+      },
+      false,
+    );
+    expect(r.habitsPct).toBe(43);
+  });
+
+  it('pasar de diario a semanal no reescribe los días anteriores', () => {
+    const x = habit('x', { periods: [per(at(2026, 9, 1), at(2026, 9, 30)), per(at(2026, 9, 30), null, [['manana']], 4)] });
+    const t = buildToday({ ...base, habits: [x], doneLogs: [{ habitId: 'x', fecha: '2026-09-29', slot: 'manana' }] });
+    expect(t.habits.streak).toBe(0); // desde el miércoles no hay diarios vigentes: la racha se corta
+    expect(t.habits.semanales[0]).toMatchObject({ meta: 4, hechas: 0 });
+    const r = buildWeeklyReport({ ...base, habits: [x], doneLogs: [{ habitId: 'x', fecha: '2026-09-29', slot: 'manana' }] }, false);
+    expect(r.perHabit[0]).toMatchObject({ meta: 4, hechos: 0 });
   });
 });

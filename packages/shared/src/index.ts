@@ -44,6 +44,8 @@ const taskFields = z.object({
   startDate: isoDate.nullish(),
   deadline: isoDate.nullish(),
   notes: z.string().nullish(),
+  /** Hábitos vinculados: completar la tarea o uno de sus pasos los marca ese día */
+  habitIds: z.array(z.uuid()),
 });
 
 // Programación de un paso: fecha de inicio + duración en días (ambos o ninguno; lo garantiza el CHECK de la DB)
@@ -55,6 +57,7 @@ const stepFields = z.object({
 
 export const createTaskInput = taskFields.extend({
   priority: priority.default('media'),
+  habitIds: taskFields.shape.habitIds.default([]),
   steps: z.array(stepFields).default([]),
 });
 export type CreateTaskInput = z.input<typeof createTaskInput>;
@@ -77,8 +80,14 @@ const nonEmpty = (o: object) => Object.values(o).some((v) => v !== undefined);
 export const updateStepInput = stepFields.partial().refine(nonEmpty, 'Nada que actualizar');
 export type UpdateStepInput = z.input<typeof updateStepInput>;
 
-const habitFields = z.object({ nombre: z.string().trim().min(1), turnos: turnosSchema });
-export const createHabitInput = habitFields.extend({ turnos: turnosSchema.default(() => [['manana' as const]]) });
+/** Meta de un hábito semanal: N días por semana (1–7); null = hábito diario por turnos. Igual que el CHECK de habits.veces_semana. */
+export const vecesSemanaSchema = z.number().int().min(1).max(7).nullable();
+
+const habitFields = z.object({ nombre: z.string().trim().min(1), turnos: turnosSchema, vecesSemana: vecesSemanaSchema });
+export const createHabitInput = habitFields.extend({
+  turnos: turnosSchema.default(() => [['manana' as const]]),
+  vecesSemana: vecesSemanaSchema.default(null),
+});
 export type CreateHabitInput = z.input<typeof createHabitInput>;
 export const updateHabitInput = habitFields.partial().refine(nonEmpty, 'Nada que actualizar');
 export type UpdateHabitInput = z.input<typeof updateHabitInput>;
@@ -136,6 +145,8 @@ export interface Task {
   notes: string | null;
   completedAt: string | null;
   steps: Step[];
+  /** Hábitos vinculados */
+  habitIds: string[];
 }
 
 /** Ficha de un hábito en una franja de Hoy: una por cada franja de cada turno vigente. */
@@ -158,8 +169,22 @@ export interface HabitAdmin {
   id: string;
   nombre: string;
   turnos: Turnos;
+  /** Meta semanal (N días por semana); null = diario por turnos */
+  vecesSemana: number | null;
   position: number;
   archivedAt: string | null;
+}
+
+/** Hábito semanal en Hoy: se marca como mucho una vez al día. */
+export interface HabitSemanal {
+  id: string;
+  nombre: string;
+  position: number;
+  meta: number;
+  /** Días hechos esta semana (incluido hoy) */
+  hechas: number;
+  /** Hecho hoy */
+  hoy: boolean;
 }
 
 export interface Project {
@@ -189,6 +214,8 @@ export interface TodayPayload {
     porFranja: Record<HabitSlot, HabitChip[]>;
     pctDia: number;
     streak: number;
+    /** Hábitos semanales: van aparte, sin contar en el % del día ni en la racha */
+    semanales: HabitSemanal[];
   };
   tasks: { hoy: Task[]; semana: Task[]; todas: Task[]; incumplimiento: Task[] };
   projects: Project[];
@@ -202,9 +229,71 @@ export interface WeeklyReport {
   tasksTotal: number;
   overdue: number;
   streak: number;
-  perProject: { id: string; nombre: string; pct: number }[];
+  perProject: WeeklyProject[];
   untouched: { id: string; nombre: string }[];
+  /** Hábitos vigentes algún día transcurrido de la semana, ordenados por position */
+  perHabit: WeeklyHabit[];
   archived: boolean;
+}
+
+/** Seguimiento de un proyecto en curso durante la semana (tareas con deadline en la semana). */
+export interface WeeklyProject {
+  id: string;
+  nombre: string;
+  color: PaletteColor;
+  pct: number;
+  done: number;
+  total: number;
+  overdue: number;
+  /** Tuvo actividad esta semana */
+  touched: boolean;
+  totalProgress: number;
+  nextAction: string | null;
+  /** Pasos hechos / total de sus tareas en seguimiento */
+  pasosHechos: number;
+  pasosTotal: number;
+  /** Tareas pendientes, más las hechas que vencían o se completaron esta semana */
+  tasks: WeeklyTask[];
+}
+
+/** Tarea en el seguimiento semanal de un proyecto, con el progreso de sus pasos. */
+export interface WeeklyTask {
+  id: string;
+  title: string;
+  status: TaskStatus;
+  startDate: string | null;
+  deadline: string | null;
+  overdue: boolean;
+  pasosHechos: number;
+  pasosTotal: number;
+  pasos: WeeklyStep[];
+}
+
+export interface WeeklyStep {
+  id: string;
+  title: string;
+  done: boolean;
+  /** Rango programado (fin inclusivo), o null si no está programado */
+  inicio: string | null;
+  fin: string | null;
+  /** Su rango toca la semana */
+  enSemana: boolean;
+  fueraDePlazo: boolean;
+}
+
+/**
+ * Cumplimiento de un hábito en la semana. Diario: en turnos. Semanal (`meta`): `hechos` = días hechos,
+ * `turnos` = la meta y `pct` tope 100.
+ */
+export interface WeeklyHabit {
+  id: string;
+  nombre: string;
+  meta: number | null;
+  hechos: number;
+  turnos: number;
+  pct: number;
+  /** Lunes a domingo. `turnos` = 0 si no estaba vigente (semanal: 1 si lo estaba); `futuro` = el día aún no llega */
+  dias: { fecha: string; hechos: number; turnos: number; futuro: boolean }[];
 }
 
 export interface ApiError {

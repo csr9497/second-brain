@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { HabitChip, HabitSlot, TodayPayload } from '@sb/shared';
+import type { HabitChip, HabitSemanal, HabitSlot, TodayPayload } from '@sb/shared';
 import { api } from '../lib/api';
 import { useTodayMutation } from '../lib/useToday';
 
@@ -10,6 +10,8 @@ const TABS: { slot: HabitSlot; label: string }[] = [
 ];
 
 type PorFranja = TodayPayload['habits']['porFranja'];
+
+const TODAS: HabitSlot[] = ['manana', 'tarde', 'noche'];
 
 const POR: Record<HabitSlot, string> = { manana: 'la mañana', tarde: 'la tarde', noche: 'la noche' };
 
@@ -37,6 +39,18 @@ export function Habits({ habits }: { habits: TodayPayload['habits'] }) {
     },
   );
 
+  // Semanal: se marca hoy en la franja actual; desmarcar borra el registro de hoy en cualquier franja
+  const toggleSemanal = useTodayMutation(
+    (h: HabitSemanal) => api.toggleHabit({ id: h.id, slot: habits.slotActual, turno: TODAS, done: h.hoy }),
+    (data, h) => ({
+      ...data,
+      habits: {
+        ...data.habits,
+        semanales: data.habits.semanales.map((x) => (x.id === h.id ? { ...x, hoy: !h.hoy, hechas: x.hechas + (h.hoy ? -1 : 1) } : x)),
+      },
+    }),
+  );
+
   return (
     <div className="card">
       <div className="mb-3.5 flex items-center gap-3.5">
@@ -51,7 +65,9 @@ export function Habits({ habits }: { habits: TodayPayload['habits'] }) {
           <b className="font-display text-[15px]">Progreso del día</b>
           <p className="m-0 mt-0.5 text-[12.5px] text-muted">
             {total === 0
-              ? 'Aún no tienes hábitos'
+              ? habits.semanales.length
+                ? 'Sin hábitos diarios'
+                : 'Aún no tienes hábitos'
               : `${hechos} de ${total} hechos${habits.pctDia === 100 ? ' — día completo 🎉' : ''}`}
           </p>
         </div>
@@ -97,6 +113,43 @@ export function Habits({ habits }: { habits: TodayPayload['habits'] }) {
           </button>
         ))}
       </div>
+
+      {habits.semanales.length > 0 && (
+        <section aria-label="Hábitos de la semana" className="mt-4 border-t border-line pt-3">
+          <h4 className="m-0 mb-2 text-xs font-semibold tracking-wide text-faint uppercase">📅 Esta semana</h4>
+          <div className="flex flex-wrap gap-2">
+            {habits.semanales.map((h) => {
+              const cumplido = h.hechas >= h.meta;
+              return (
+                <button
+                  key={h.id}
+                  aria-pressed={h.hoy}
+                  aria-disabled={toggleSemanal.isPending}
+                  aria-label={`${h.nombre}: ${h.hechas} de ${h.meta} esta semana${h.hoy ? ', hecho hoy' : ''}`}
+                  onClick={() => {
+                    if (!toggleSemanal.isPending) toggleSemanal.mutate(h);
+                  }}
+                  className="group inline-flex items-center gap-2 rounded-full border border-line bg-surface2 py-2 pr-[13px] pl-2.5 text-[13px] font-medium transition aria-pressed:border-good aria-pressed:bg-good-ink aria-pressed:text-good"
+                >
+                  <span className="grid size-[18px] place-items-center rounded-md border-[1.5px] border-faint text-xs text-transparent transition group-aria-pressed:border-good group-aria-pressed:bg-good group-aria-pressed:text-white">
+                    ✓
+                  </span>
+                  {h.nombre}
+                  <span aria-hidden className="flex gap-0.5">
+                    {Array.from({ length: h.meta }, (_, i) => (
+                      <i key={i} className={`size-1.5 rounded-full ${i < h.hechas ? 'bg-good' : 'bg-line'}`} />
+                    ))}
+                  </span>
+                  <small className={`text-[11px] font-normal tabular-nums ${cumplido ? 'text-good' : 'opacity-80'}`}>
+                    {h.hechas}/{h.meta}
+                    {cumplido && ' 🎉'}
+                  </small>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

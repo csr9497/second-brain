@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { SLOT_COLOR, formatTurnos, type HabitAdmin } from '@sb/shared';
+import { SLOT_COLOR, formatFrecuencia, type HabitAdmin } from '@sb/shared';
 import { api } from '../lib/api';
 import { useHabits, useInvalidateHabits } from '../lib/useHabits';
 import { ConfirmDelete, Modal, ModalActions } from './Modal';
@@ -46,13 +46,15 @@ export function HabitsManager({ onNew, onEdit, onClose }: { onNew: () => void; o
           {active.map((h) => (
             <li key={h.id} className="flex items-center gap-3 rounded-lg bg-surface2 px-3 py-2 text-sm">
               <span className="flex flex-none gap-1">
-                {h.turnos.flat().map((f) => (
-                  <Dot key={f} color={SLOT_COLOR[f]} />
-                ))}
+                {h.vecesSemana != null ? (
+                  <span aria-hidden className="text-[12px]">📅</span>
+                ) : (
+                  h.turnos.flat().map((f) => <Dot key={f} color={SLOT_COLOR[f]} />)
+                )}
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate">{h.nombre}</span>
-                <span className="block truncate text-[11.5px] text-faint">{formatTurnos(h.turnos)}</span>
+                <span className="block truncate text-[11.5px] text-faint">{formatFrecuencia(h)}</span>
               </span>
               <button type="button" className={linkBtn} aria-label={`Editar ${h.nombre}`} onClick={() => onEdit(h)}>
                 Editar
@@ -88,7 +90,7 @@ export function HabitsManager({ onNew, onEdit, onClose }: { onNew: () => void; o
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-muted">{h.nombre}</span>
-                      <span className="block truncate text-[11.5px] text-faint">{formatTurnos(h.turnos)}</span>
+                      <span className="block truncate text-[11.5px] text-faint">{formatFrecuencia(h)}</span>
                     </span>
                     <button type="button" className={linkBtn} aria-label={`Reactivar ${h.nombre}`} disabled={run.isPending} onClick={() => run.mutate({ action: 'reactivate', id: h.id })}>
                       Reactivar

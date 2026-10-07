@@ -73,14 +73,15 @@ async function userId() {
 
 type Row = Record<string, any>;
 
-const TASK_SELECT = '*, project:projects(nombre, color), steps(*)';
+const TASK_SELECT = '*, project:projects(nombre, color), steps(*), task_habits(habit_id)';
+const HABIT_SELECT = 'id, nombre, position, periods:habit_periods(desde, hasta, turnos, veces_semana)';
 
 const toHabitRow = (h: Row): HabitRow => ({
   id: h.id,
   nombre: h.nombre,
   position: Number(h.position),
   periods: (h.periods ?? [])
-    .map((p: Row) => ({ desde: p.desde, hasta: p.hasta, turnos: p.turnos as HabitSlot[][] }))
+    .map((p: Row) => ({ desde: p.desde, hasta: p.hasta, turnos: p.turnos as HabitSlot[][], vecesSemana: p.veces_semana }))
     .sort((a: { desde: string }, b: { desde: string }) => Date.parse(a.desde) - Date.parse(b.desde)),
 });
 
@@ -107,6 +108,7 @@ const toTask = (r: Row): Task => ({
       duracionDias: s.duracion_dias,
     }))
     .sort((a: { position: number }, b: { position: number }) => a.position - b.position),
+  habitIds: (r.task_habits ?? []).map((th: Row) => th.habit_id),
 });
 
 const toProjectRow = (r: Row): ProjectRow => ({
@@ -149,6 +151,14 @@ const projectColumns = (p: Partial<ProjectInput>): Row =>
     }).filter(([, v]) => v !== undefined),
   );
 
+/** Deja a la tarea vinculada exactamente a `nuevos` (no toca registros ya marcados). */
+async function vincularHabitos(taskId: string, nuevos: string[], antes: string[]) {
+  const quitar = antes.filter((h) => !nuevos.includes(h));
+  const agregar = nuevos.filter((h) => !antes.includes(h));
+  if (quitar.length) must(await sb.from('task_habits').delete().eq('task_id', taskId).in('habit_id', quitar));
+  if (agregar.length) must(await sb.from('task_habits').insert(agregar.map((habit_id) => ({ task_id: taskId, habit_id }))));
+}
+
 // ---------- Carga del dashboard ----------
 
 /**
@@ -161,7 +171,7 @@ async function loadDashboard(now = new Date()): Promise<DashboardInput> {
   const weekStartTs = new Date(`${start}T00:00:00`).toISOString();
 
   const [habits, logs, tasks, projects] = await Promise.all([
-    sb.from('habits').select('id, nombre, position, periods:habit_periods(desde, hasta, turnos)').order('position'),
+    sb.from('habits').select(HABIT_SELECT).order('position'),
     fetchAll<Row>((a, b) =>
       sb
         .from('habit_logs')
@@ -261,7 +271,7 @@ export const api = {
       fetchAll<Row>((a, b) =>
         sb.from('steps').select('task_id').gte('start_date', addDays(start, -366)).lte('start_date', end).order('id').range(a, b),
       ),
-      sb.from('habits').select('id, nombre, position, periods:habit_periods(desde, hasta, turnos)').order('position'),
+      sb.from('habits').select(HABIT_SELECT).order('position'),
       fetchAll<Row>((a, b) =>
         sb.from('habit_logs').select('habit_id, fecha, slot').eq('done', true).gte('fecha', start).lte('fecha', end).order('fecha').order('id').range(a, b),
       ),
@@ -282,9 +292,10 @@ export const api = {
 
   // Tareas
   createTask: async (input: CreateTaskInput): Promise<Task> => {
-    const { steps, ...fields } = createTaskInput.parse(input);
+    const { steps, habitIds, ...fields } = createTaskInput.parse(input);
     const position = positionBetween(await maxPosition('tasks'), null);
     const task = must(await sb.from('tasks').insert({ ...taskColumns(fields), position }).select('id').single());
+    await vincularHabitos(task.id, habitIds, []);
     if (steps.length > 0) {
       must(
         await sb.from('steps').insert(
@@ -300,8 +311,11 @@ export const api = {
     }
     return getTask(task.id);
   },
-  updateTask: async (id: string, patch: UpdateTaskInput) => {
-    must(await sb.from('tasks').update(taskColumns(patch)).eq('id', id));
+  /** Con `habitIds`, reemplaza los vínculos (primero, para que un cambio a «hecha» ya marque los hábitos nuevos). */
+  updateTask: async (id: string, { habitIds, ...patch }: UpdateTaskInput, habitIdsAntes: string[] = []) => {
+    if (habitIds) await vincularHabitos(id, habitIds, habitIdsAntes);
+    const cols = taskColumns(patch);
+    if (Object.keys(cols).length) must(await sb.from('tasks').update(cols).eq('id', id));
   },
   deleteTask: async (id: string) => {
     must(await sb.from('tasks').delete().eq('id', id));
@@ -362,21 +376,22 @@ export const api = {
     }
   },
   habits: async (): Promise<HabitAdmin[]> =>
-    must(await sb.from('habits').select('id, nombre, position, turnos, archived_at').order('position')).map((h) => ({
+    must(await sb.from('habits').select('id, nombre, position, turnos, veces_semana, archived_at').order('position')).map((h) => ({
       id: h.id,
       nombre: h.nombre,
       turnos: h.turnos as HabitSlot[][],
+      vecesSemana: h.veces_semana,
       position: Number(h.position),
       archivedAt: h.archived_at,
     })),
   createHabit: async (input: CreateHabitInput) => {
-    const { nombre, turnos } = createHabitInput.parse(input);
+    const { nombre, turnos, vecesSemana } = createHabitInput.parse(input);
     const position = positionBetween(await maxPosition('habits'), null);
-    must(await sb.from('habits').insert({ nombre, turnos, position }));
+    must(await sb.from('habits').insert({ nombre, turnos, veces_semana: vecesSemana, position }));
   },
   updateHabit: async (id: string, patch: UpdateHabitInput) => {
-    const { nombre, turnos } = updateHabitInput.parse(patch);
-    const cols = Object.fromEntries(Object.entries({ nombre, turnos }).filter(([, v]) => v !== undefined));
+    const { nombre, turnos, vecesSemana } = updateHabitInput.parse(patch);
+    const cols = Object.fromEntries(Object.entries({ nombre, turnos, veces_semana: vecesSemana }).filter(([, v]) => v !== undefined));
     must(await sb.from('habits').update(cols).eq('id', id));
   },
   archiveHabit: async (id: string) => {

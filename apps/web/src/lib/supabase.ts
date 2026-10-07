@@ -19,4 +19,7 @@ if (import.meta.env.DEV && url.includes(PROD_REF)) {
 if (import.meta.env.DEV) document.title = `[${import.meta.env.MODE}] ${document.title}`;
 
 // La anon key es pública: la seguridad la da RLS (ver supabase/migrations).
-export const sb = createClient(url, anonKey);
+// x-timezone: los triggers que marcan hábitos desde tareas usan el día y la franja locales (public.hora_local()).
+export const sb = createClient(url, anonKey, {
+  global: { headers: { 'x-timezone': Intl.DateTimeFormat().resolvedOptions().timeZone } },
+});

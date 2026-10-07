@@ -38,6 +38,17 @@ Orden vertical:
   hábitos vigentes ese día.
 - Persistencia: un registro por (hábito, fecha, franja). Archivar, reactivar y editar
   un hábito conservan el historial exacto mediante periodos.
+- **Hábitos semanales** (`veces_semana` 1–7): en vez de turnos tienen una meta de N días
+  por semana (p. ej. «Inglés — práctica 1 h, 5 veces por semana»), cualquier día. Se marcan
+  como mucho una vez al día. En Hoy van aparte («📅 Esta semana», con su progreso N/M) y
+  **no cuentan en el % del día ni en la racha**. En la revisión suman su meta completa al
+  % semanal, con tope en la meta. Cambiar la meta abre un periodo nuevo, como los turnos.
+- **Hábitos vinculados a tareas**: una tarea puede vincularse a varios hábitos (p. ej.
+  «Leer libro de matemática» → Estudio y Lectura). Al completar la tarea o uno de sus
+  pasos, cada hábito vinculado se marca ese día (diario: el primer turno pendiente,
+  prefiriendo el de la franja actual; semanal: el día). Una tarea, con sus pasos, cuenta
+  una vez por día y hábito. Desmarcar la tarea o el paso borra solo lo que marcó; un
+  registro hecho a mano no se toca.
 
 ## 4. Tareas / Pendientes
 
@@ -91,9 +102,16 @@ Vista:
 - **Captura rápida** → modal con input para una idea nueva; se agrega a la lista de
   ideas (Inbox). Se procesan luego en la revisión.
 - **Revisión semanal** → **reporte** (no formulario) del cumplimiento de la semana:
-  - KPIs: % hábitos de la semana, tareas hechas/total, nº incumplidas.
-  - % de cumplimiento por proyecto.
-  - Señales: racha actual, proyectos sin tocar en la semana.
+  - Dos pestañas:
+    - **Proyectos**: KPIs de tareas hechas/total, nº incumplidas y proyectos sin tocar.
+      Por cada proyecto en curso, una tarjeta con % de la semana (tareas con deadline en la
+      semana), % de pasos hechos, avance total, siguiente acción y si se tocó. Debajo, sus
+      tareas en seguimiento (pendientes, más las hechas que vencían o se completaron en la
+      semana; vencidas primero) con el progreso de sus pasos y cada paso desplegable: hecho
+      o pendiente, rango, «esta semana» y «fuera de plazo».
+    - **Hábitos**: KPIs de % hábitos de la semana y racha actual. Por cada hábito vigente:
+      una fila lunes–domingo con los turnos hechos de cada día (✓, parcial, sin hacer,
+      no vigente o aún no llega) y su % de la semana.
   - Campo opcional de "nota de cierre".
   - Acción "Archivar semana" (guarda una foto del reporte en el historial).
 

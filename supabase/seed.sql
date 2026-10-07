@@ -10,7 +10,7 @@ declare
   today date := (now() at time zone 'America/Lima')::date;
   dow int := extract(dow from (now() at time zone 'America/Lima'))::int;  -- 0 = domingo
   p_ntt uuid; p_devops uuid; p_tesis uuid;
-  t_aws uuid; t_alcance uuid;
+  t_aws uuid; t_alcance uuid; t_math uuid; h_ingles uuid;
 begin
   insert into auth.users (
     instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -36,6 +36,11 @@ begin
     select uid, h.id, today - d, true, t->>0
     from public.habits h, jsonb_array_elements(h.turnos) t, generate_series(1, 5) d
     where h.user_id = uid;
+  -- Hábito semanal (5 días por semana, sin turnos ni racha): hecho ayer y anteayer
+  insert into public.habits (user_id, nombre, veces_semana, position, created_at)
+    values (uid, 'Inglés — práctica 1 h', 5, 8000, now() - interval '10 days') returning id into h_ingles;
+  insert into public.habit_logs (user_id, habit_id, fecha, done, slot)
+    values (uid, h_ingles, today - 1, true, 'tarde'), (uid, h_ingles, today - 2, true, 'noche');
 
   -- Proyectos: dos "tocan hoy", uno no
   insert into public.projects (user_id, nombre, next_action, schedule_days, total_progress, prioridad, color)
@@ -60,7 +65,10 @@ begin
     (uid, t_alcance, 'Definir objetivos', true, 1000), (uid, t_alcance, 'Delimitar alcance', false, 2000),
     (uid, t_alcance, 'Bosquejar cronograma', false, 3000);
   insert into public.tasks (user_id, title, type, deadline, position)
-    values (uid, 'Leer 20 págs. Math for ML', 'Estudio', today + 2, 4000);
+    values (uid, 'Leer 20 págs. Math for ML', 'Estudio', today + 2, 4000) returning id into t_math;
+  -- Completarla marca Estudiar y Leer ese día
+  insert into public.task_habits (user_id, task_id, habit_id)
+    select uid, t_math, id from public.habits where user_id = uid and nombre in ('Estudiar', 'Leer');
   insert into public.tasks (user_id, title, type, deadline, position)
     values (uid, 'Elegir certificación AWS', 'Trabajo', today - 2, 5000);
 
