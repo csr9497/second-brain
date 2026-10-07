@@ -59,7 +59,9 @@ export function bucketTasks<T extends TaskLike>(
   const weekStart = weekRange(today).start;
   const pasoEntre = (t: T, desde: string, hasta: string) =>
     (t.steps ?? []).some((s) => !s.done && s.startDate != null && s.startDate <= hasta && (finPaso(s) ?? s.startDate) >= desde);
-  const isHoy = (t: T) => t.deadline === today || (t.deadline == null && t.startDate === today) || pasoEntre(t, today, today);
+  // Hoy cae dentro de su rango inicio–deadline (o es su inicio o su deadline), o tiene un paso pendiente que cubre hoy
+  const enRango = (t: T) => t.startDate != null && t.deadline != null && t.startDate <= today && today <= t.deadline;
+  const isHoy = (t: T) => t.deadline === today || t.startDate === today || enRango(t) || pasoEntre(t, today, today);
   const hoy = current.filter(isHoy);
   const semana = current.filter(
     (t) =>

@@ -125,3 +125,32 @@ describe('bucketTasks con pasos programados', () => {
     expect(ids(b.semana)).toEqual(['sinDeadlinePasoSemana', 'deadlineProximaPasoSemana', 'pasoHoy', 'inicioSemana']));
   it('hoy incluye tareas con un paso pendiente que cubre hoy', () => expect(ids(b.hoy)).toEqual(['pasoHoy']));
 });
+
+describe('bucketTasks: tareas con rango', () => {
+  const today = '2026-10-07';
+  const weekEnd = '2026-10-11';
+  const t = (id: string, startDate: string | null, deadline: string | null) => ({ id, status: 'por_hacer', startDate, deadline, completedAt: null, steps: [] });
+  const b = bucketTasks(
+    [
+      t('empiezaHoyVenceViernes', today, '2026-10-09'),
+      t('empezoAyerVenceViernes', '2026-10-06', '2026-10-09'),
+      t('empiezaManana', '2026-10-08', '2026-10-09'),
+      t('sinFinEmpezoAyer', '2026-10-06', null),
+    ],
+    today,
+    weekEnd,
+    () => false,
+  );
+  const ids = (xs: { id: string }[]) => xs.map((x) => x.id);
+  it('sale en hoy todos los días de su rango inicio–deadline', () => expect(ids(b.hoy)).toEqual(['empiezaHoyVenceViernes', 'empezoAyerVenceViernes']));
+  it('no antes de empezar; sin deadline, solo el día que empieza', () => {
+    expect(ids(b.hoy)).not.toContain('empiezaManana');
+    expect(ids(b.hoy)).not.toContain('sinFinEmpezoAyer');
+  });
+  it('del mismo rango, mañana y pasado también', () => {
+    for (const dia of ['2026-10-08', '2026-10-09']) {
+      expect(ids(bucketTasks([t('r', today, '2026-10-09')], dia, weekEnd, () => false).hoy)).toEqual(['r']);
+    }
+    expect(ids(bucketTasks([t('r', today, '2026-10-09')], '2026-10-10', weekEnd, () => false).hoy)).toEqual([]);
+  });
+});
