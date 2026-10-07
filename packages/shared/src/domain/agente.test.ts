@@ -94,6 +94,12 @@ const tarea: Task = {
 };
 
 describe('resúmenes', () => {
+  it('resumirTarea con periodo: solo los pasos que caen en él', () => {
+    expect(resumirTarea(tarea, '2026-10-07', { desde: '2026-10-07', hasta: '2026-10-07' }).pasosDelPeriodo).toEqual([
+      { id: 's2', titulo: 'Escribir', hecho: false, inicio: '2026-10-06', fin: '2026-10-08', duracion: '3 días' },
+    ]);
+    expect(resumirTarea(tarea, '2026-10-07')).not.toHaveProperty('pasosDelPeriodo');
+  });
   it('resumirTarea: vencida y avance de pasos', () => {
     expect(resumirTarea(tarea, '2026-10-07')).toMatchObject({ id: 't1', vencida: true, pasos: '1/2', proyecto: 'Tesis', habitIds: ['leer'] });
   });

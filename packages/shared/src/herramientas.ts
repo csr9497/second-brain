@@ -33,11 +33,11 @@ const vacio = z.object({});
 const COMUN = 'Second Brain (app personal de Cesar). Las fechas son YYYY-MM-DD en su zona horaria; toda respuesta incluye `hoy` y `tz`.';
 
 export const HERRAMIENTAS = {
-  get_today: def('get_today', 0, `${COMUN} Pantalla Hoy: franja actual, % de hábitos y racha, hábitos por franja (con id y turno), hábitos semanales y tareas de hoy, de la semana y en incumplimiento.`, vacio),
+  get_today: def('get_today', 0, `${COMUN} Pantalla Hoy: franja actual, % de hábitos y racha, hábitos por franja (con id y turno), hábitos semanales y tareas de hoy, de la semana y en incumplimiento; cada tarea trae en «pasosDelPeriodo» sus pasos de hoy (lista hoy) o de la semana (lista semana).`, vacio),
   list_tasks: def(
     'list_tasks',
     0,
-    `${COMUN} Lista tareas (máx. 50) de una lista: hoy, semana, todas (pendientes) o incumplimiento (vencidas sin terminar).`,
+    `${COMUN} Lista tareas (máx. 50) de una lista: hoy, semana, todas (pendientes) o incumplimiento (vencidas sin terminar). En hoy y semana, cada tarea trae en «pasosDelPeriodo» sus pasos de ese periodo.`,
     z.object({ filtro: taskFilter.describe('hoy | semana | todas | incumplimiento') }),
   ),
   get_task: def('get_task', 0, `${COMUN} Detalle de una tarea: pasos (con id, inicio, días, fin y si está fuera de plazo), notas y hábitos vinculados.`, z.object({ id: id('la tarea') })),
