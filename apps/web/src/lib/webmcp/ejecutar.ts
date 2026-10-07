@@ -2,6 +2,7 @@ import {
   detallarTarea,
   encadenarTarea,
   formatFrecuencia,
+  periodoDeLista,
   programarPaso,
   reordenarPasos,
   resolverMarcaHabito,
@@ -48,7 +49,7 @@ export const ejecutores = (ui: PuenteUI): Ejecutores => ({
   list_tasks: async ({ filtro }) => {
     const t = await api.today();
     const lista = t.tasks[filtro];
-    return { filtro, total: lista.length, tareas: lista.slice(0, 50).map((x) => resumirTarea(x, t.date)) };
+    return { filtro, total: lista.length, tareas: lista.slice(0, 50).map((x) => resumirTarea(x, t.date, periodoDeLista(filtro, t.date))) };
   },
   get_task: async ({ id }) => conHabitos(id),
   search_tasks: async ({ texto }) => ({ tareas: (await api.searchTasks(texto)).map((t) => resumirTarea(t, todayISO())) }),

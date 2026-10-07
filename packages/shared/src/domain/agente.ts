@@ -3,7 +3,8 @@ import type { HabitSlot, Task, TodayPayload, WeeklyReport } from '../index';
 import type { CalendarMonth } from './calendar';
 import { isOverdue } from './metrics';
 import { positionBetween } from './ordering';
-import { duracionPaso, encadenar, finPaso, fueraDePlazo } from './pasos';
+import { weekRange } from './dates';
+import { duracionPaso, encadenar, finPaso, fueraDePlazo, pasosDelPeriodo } from './pasos';
 
 export const FRANJAS: HabitSlot[] = ['manana', 'tarde', 'noche'];
 
@@ -59,7 +60,18 @@ export function resolverMarcaHabito(today: TodayPayload, habitId: string, hecho:
 }
 
 /** Tarea en una línea de datos: lo justo para listar y elegir por id. */
-export function resumirTarea(t: Task, hoy: string) {
+/** Periodo de una lista de tareas: hoy = ese día; semana = lunes–domingo; el resto, sin filtrar pasos. */
+export function periodoDeLista(filtro: string, hoy: string): { desde: string; hasta: string } | null {
+  if (filtro === 'hoy') return { desde: hoy, hasta: hoy };
+  if (filtro === 'semana') {
+    const { start, end } = weekRange(hoy);
+    return { desde: start, hasta: end };
+  }
+  return null;
+}
+
+/** Tarea en una línea de datos: lo justo para listar y elegir por id. Con `periodo`, sus pasos que caen en él. */
+export function resumirTarea(t: Task, hoy: string, periodo: { desde: string; hasta: string } | null = null) {
   return {
     id: t.id,
     titulo: t.title,
@@ -70,6 +82,16 @@ export function resumirTarea(t: Task, hoy: string) {
     deadline: t.deadline,
     vencida: isOverdue(t, hoy),
     pasos: t.steps.length ? `${t.steps.filter((s) => s.done).length}/${t.steps.length}` : null,
+    ...(periodo && {
+      pasosDelPeriodo: pasosDelPeriodo(t.steps, periodo.desde, periodo.hasta).visibles.map((s) => ({
+        id: s.id,
+        titulo: s.title,
+        hecho: s.done,
+        inicio: s.startDate,
+        fin: finPaso(s),
+        duracion: duracionPaso(s),
+      })),
+    }),
     habitIds: t.habitIds,
   };
 }
@@ -100,7 +122,7 @@ export function detallarTarea(t: Task, hoy: string, habitos: { id: string; nombr
 /** La pantalla Hoy, compacta: hábitos por franja (con ids y turnos), semanales y tareas por lista. */
 export function resumirHoy(today: TodayPayload) {
   const { habits, tasks } = today;
-  const lista = (ts: Task[]) => ts.slice(0, 50).map((t) => resumirTarea(t, today.date));
+  const lista = (ts: Task[], filtro: string) => ts.slice(0, 50).map((t) => resumirTarea(t, today.date, periodoDeLista(filtro, today.date)));
   return {
     franjaActual: habits.slotActual,
     pctHabitosDia: habits.pctDia,
@@ -109,7 +131,8 @@ export function resumirHoy(today: TodayPayload) {
       FRANJAS.map((f) => [f, habits.porFranja[f].map((c) => ({ id: c.id, nombre: c.nombre, turno: c.turno, hecho: c.done, hechoEn: c.doneIn }))]),
     ),
     habitosSemanales: habits.semanales.map((h) => ({ id: h.id, nombre: h.nombre, meta: h.meta, hechas: h.hechas, hoy: h.hoy })),
-    tareas: { hoy: lista(tasks.hoy), semana: lista(tasks.semana), incumplimiento: lista(tasks.incumplimiento) },
+    // Cada tarea trae sus pasos del periodo (los de hoy en «hoy», los de la semana en «semana»)
+    tareas: { hoy: lista(tasks.hoy, 'hoy'), semana: lista(tasks.semana, 'semana'), incumplimiento: lista(tasks.incumplimiento, 'incumplimiento') },
   };
 }
 

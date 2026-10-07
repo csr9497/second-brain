@@ -11,7 +11,7 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { fueraDePlazo, type Task, type TaskFilter, type TodayPayload } from '@sb/shared';
+import { fueraDePlazo, pasosDelPeriodo, weekRange, type Task, type TaskFilter, type TodayPayload } from '@sb/shared';
 import { api } from '../lib/api';
 import { useTodayMutation } from '../lib/useToday';
 import { dueLabel, rangoPaso } from '../lib/format';
@@ -33,6 +33,9 @@ function patchTask(data: TodayPayload, id: string, fn: (t: Task) => Task): Today
 export function Tasks({ data, onEdit }: { data: TodayPayload; onEdit: (t: Task) => void }) {
   const [filter, setFilter] = useState<ListFilter>('hoy');
   const list = data.tasks[filter];
+  // Pasos que se muestran en cada card: los de hoy, los de la semana o todos
+  const semana = weekRange(data.date);
+  const periodo = filter === 'hoy' ? { desde: data.date, hasta: data.date } : filter === 'semana' ? { desde: semana.start, hasta: semana.end } : null;
 
   const reorder = useTodayMutation(
     (v: { id: string; beforeId: string | null; afterId: string | null; ordered: Task[] }) =>
@@ -71,14 +74,15 @@ export function Tasks({ data, onEdit }: { data: TodayPayload; onEdit: (t: Task) 
         </div>
       </div>
 
-      <div className="card mb-3.5 py-1.5">
+      {/* Una card por tarea, con sus pasos del periodo agrupados debajo */}
+      <div className="mb-3.5 flex flex-col gap-2">
         {list.length === 0 ? (
-          <p className="my-2.5 text-[13px] text-faint">Nada pendiente aquí. 🎉</p>
+          <p className="card my-0 text-[13px] text-faint">Nada pendiente aquí. 🎉</p>
         ) : (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
             <SortableContext items={list.map((t) => t.id)} strategy={verticalListSortingStrategy}>
               {list.map((t) => (
-                <TaskItem key={t.id} task={t} today={data.date} onEdit={onEdit} sortable />
+                <TaskItem key={t.id} task={t} today={data.date} onEdit={onEdit} periodo={periodo} etiquetaPeriodo={filter === 'hoy' ? 'hoy' : 'esta semana'} sortable />
               ))}
             </SortableContext>
           </DndContext>
@@ -86,10 +90,10 @@ export function Tasks({ data, onEdit }: { data: TodayPayload; onEdit: (t: Task) 
       </div>
 
       {data.tasks.incumplimiento.length > 0 && (
-        <div className="card border-[color-mix(in_srgb,var(--hot)_45%,var(--line))] py-3">
-          <div className="mb-1 flex items-center gap-2 text-[13px] font-semibold text-hot">⚠ En incumplimiento</div>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2 text-[13px] font-semibold text-hot">⚠ En incumplimiento</div>
           {data.tasks.incumplimiento.map((t) => (
-            <TaskItem key={t.id} task={t} today={data.date} onEdit={onEdit} />
+            <TaskItem key={t.id} task={t} today={data.date} onEdit={onEdit} vencida />
           ))}
         </div>
       )}
@@ -103,8 +107,28 @@ const PRIORITY_CHIP: Record<string, string> = {
   baja: 'bg-surface2 text-muted',
 };
 
-function TaskItem({ task, today, onEdit, sortable = false }: { task: Task; today: string; onEdit: (t: Task) => void; sortable?: boolean }) {
+function TaskItem({
+  task,
+  today,
+  onEdit,
+  periodo = null,
+  etiquetaPeriodo = '',
+  sortable = false,
+  vencida = false,
+}: {
+  task: Task;
+  today: string;
+  onEdit: (t: Task) => void;
+  /** Solo se muestran los pasos que caen en el periodo; el resto, al desplegar. null = todos */
+  periodo?: { desde: string; hasta: string } | null;
+  etiquetaPeriodo?: string;
+  sortable?: boolean;
+  /** En la lista de incumplimiento: borde de aviso */
+  vencida?: boolean;
+}) {
   const [open, setOpen] = useState(false);
+  const { visibles, ocultos } = periodo ? pasosDelPeriodo(task.steps, periodo.desde, periodo.hasta) : { visibles: task.steps, ocultos: 0 };
+  const pasos = open ? task.steps : visibles;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id, disabled: !sortable });
   const done = task.status === 'hecha';
   const stepsDone = task.steps.filter((s) => s.done).length;
@@ -127,7 +151,7 @@ function TaskItem({ task, today, onEdit, sortable = false }: { task: Task; today
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`flex items-start gap-[9px] border-t border-line py-[11px] first:border-t-0 ${isDragging ? 'relative z-10 opacity-50' : ''}`}
+      className={`flex items-start gap-[9px] rounded-xl border bg-surface px-3 py-[11px] ${vencida ? 'border-[color-mix(in_srgb,var(--hot)_45%,var(--line))]' : 'border-line'} ${isDragging ? 'relative z-10 opacity-50 shadow-md' : ''}`}
     >
       {sortable ? (
         <span
@@ -158,14 +182,10 @@ function TaskItem({ task, today, onEdit, sortable = false }: { task: Task; today
           >
             {task.title}
           </button>
-          {task.steps.length > 1 && (
-            <button
-              aria-expanded={open}
-              onClick={() => setOpen((o) => !o)}
-              className="flex-none whitespace-nowrap rounded-full border border-line bg-surface2 px-2 py-0.5 text-[11px] font-semibold text-muted"
-            >
-              <span className={`inline-block transition-transform ${open ? 'rotate-90' : ''}`}>▸</span> {stepsDone}/{task.steps.length} pasos
-            </button>
+          {task.steps.length > 0 && (
+            <span className="flex-none text-[11px] whitespace-nowrap text-faint tabular-nums">
+              {stepsDone}/{task.steps.length} pasos
+            </span>
           )}
         </div>
         <div className="mt-[5px] flex flex-wrap items-center gap-1.5">
@@ -177,18 +197,35 @@ function TaskItem({ task, today, onEdit, sortable = false }: { task: Task; today
           )}
           {due && <span className={`whitespace-nowrap text-[11px] ${due.over ? 'font-semibold text-hot' : 'text-muted'}`}>{due.text}</span>}
         </div>
-        {/* Con un solo paso no hay desplegable: se muestra directo */}
-        {(open || task.steps.length === 1) && (
-          <div className="mt-2 flex flex-col gap-1.5 border-l-2 border-line pl-3">
-            {task.steps.map((s) => (
-              <label key={s.id} className="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-0.5 text-[13px]">
-                <input type="checkbox" checked={s.done} onChange={() => toggleStep.mutate(s.id)} className="size-4 accent-accent" />
-                <span className={s.done ? 'text-faint line-through' : ''}>{s.title}</span>
-                {rangoPaso(s) && <span className="text-[11px] text-faint">{rangoPaso(s)}</span>}
-                {fueraDePlazo(s, task) && <span className="rounded-full bg-hot/15 px-1.5 text-[10.5px] font-semibold text-hot">fuera de plazo</span>}
-              </label>
-            ))}
+        {/* Pasos agrupados en la card de su tarea: solo los del periodo (hoy / semana); el resto al desplegar */}
+        {pasos.length > 0 && (
+          <div className="mt-2 flex flex-col gap-1.5 border-l-2 border-line pl-3" aria-label={`Pasos de ${task.title}`}>
+            {pasos.map((s) => {
+              const fuera = !s.done && fueraDePlazo(s, task);
+              return (
+                <label key={s.id} className="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-0.5 text-[13px]">
+                  <input type="checkbox" checked={s.done} onChange={() => toggleStep.mutate(s.id)} className="size-4 accent-accent" />
+                  <span className={s.done ? 'text-faint line-through' : fuera ? 'text-hot' : ''}>{s.title}</span>
+                  {rangoPaso(s) && <span className={`text-[11px] ${fuera ? 'text-hot/80' : 'text-faint'}`}>{rangoPaso(s)}</span>}
+                  {fuera && <span className="text-[10.5px] text-hot">· fuera de plazo</span>}
+                </label>
+              );
+            })}
           </div>
+        )}
+        {(ocultos > 0 || open) && periodo && (
+          <button
+            type="button"
+            aria-expanded={open}
+            onClick={() => setOpen((o) => !o)}
+            className="mt-1.5 text-[11.5px] font-semibold text-muted hover:text-text"
+          >
+            {open
+              ? `Ver solo los de ${etiquetaPeriodo}`
+              : visibles.length
+                ? `+${ocultos} ${ocultos === 1 ? 'paso' : 'pasos'} más`
+                : `${ocultos} ${ocultos === 1 ? 'paso' : 'pasos'}, ninguno ${etiquetaPeriodo} · ver`}
+          </button>
         )}
       </div>
     </div>
