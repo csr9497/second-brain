@@ -2,7 +2,8 @@
 import type { HabitSlot, Task, TodayPayload, WeeklyReport } from '../index';
 import type { CalendarMonth } from './calendar';
 import { isOverdue } from './metrics';
-import { finPaso, fueraDePlazo } from './pasos';
+import { positionBetween } from './ordering';
+import { duracionPaso, encadenar, finPaso, fueraDePlazo } from './pasos';
 
 export const FRANJAS: HabitSlot[] = ['manana', 'tarde', 'noche'];
 
@@ -90,6 +91,7 @@ export function detallarTarea(t: Task, hoy: string, habitos: { id: string; nombr
       dias: s.duracionDias,
       fin: finPaso(s),
       minutos: s.duracionMin,
+      duracion: duracionPaso(s),
       fueraDePlazo: fueraDePlazo(s, plazo),
     })),
   };
@@ -152,4 +154,67 @@ export function resumirRevision(r: WeeklyReport) {
       dias: h.dias.filter((d) => !d.futuro).map((d) => ({ fecha: d.fecha, hechos: d.hechos, turnos: d.turnos })),
     })),
   };
+}
+
+/** Programación de un paso tal como la exige la base: inicio y días juntos; por tiempo = un solo día. */
+export interface ProgramacionPaso {
+  startDate: string | null;
+  duracionDias: number | null;
+  duracionMin: number | null;
+}
+type CambiosPaso = { startDate?: string | null; duracionDias?: number | null; duracionMin?: number | null };
+
+/**
+ * Aplica cambios de programación sobre la actual y la normaliza: `startDate: null` la quita;
+ * `duracionMin` lo vuelve por tiempo (1 día); `duracionDias` lo vuelve por días; con solo inicio, dura 1 día.
+ */
+export function programarPaso(actual: ProgramacionPaso, cambios: CambiosPaso): ProgramacionPaso | { error: string } {
+  if (cambios.startDate === null) return { startDate: null, duracionDias: null, duracionMin: null };
+  const startDate = cambios.startDate ?? actual.startDate;
+  const porTiempo = cambios.duracionMin != null || (cambios.duracionDias == null && cambios.duracionMin === undefined && actual.duracionMin != null);
+  if (!startDate) {
+    return cambios.duracionDias != null || cambios.duracionMin != null
+      ? { error: 'Para dar duración a un paso hace falta su startDate (YYYY-MM-DD)' }
+      : { startDate: null, duracionDias: null, duracionMin: null };
+  }
+  if (porTiempo) return { startDate, duracionDias: 1, duracionMin: cambios.duracionMin ?? actual.duracionMin };
+  return { startDate, duracionDias: cambios.duracionDias ?? actual.duracionDias ?? 1, duracionMin: null };
+}
+
+/**
+ * Nuevas `position` para dejar los pasos en `orden` (ids). Solo mueve los que quedan desordenados;
+ * nunca renumera la lista. Error si `orden` no es exactamente el conjunto de pasos.
+ */
+export function reordenarPasos(pasos: { id: string; position: number }[], orden: string[]): { id: string; position: number }[] | { error: string } {
+  const ids = new Set(pasos.map((p) => p.id));
+  if (orden.length !== ids.size || new Set(orden).size !== orden.length || !orden.every((id) => ids.has(id))) {
+    return { error: `stepIds debe incluir exactamente los ${ids.size} pasos de la tarea, cada uno una vez (usa get_task)` };
+  }
+  const pos = new Map(pasos.map((p) => [p.id, p.position]));
+  const cambios: { id: string; position: number }[] = [];
+  let ultimo: number | null = null;
+  for (const id of orden) {
+    let p = pos.get(id)!;
+    if (ultimo != null && p <= ultimo) {
+      p = positionBetween(ultimo, null);
+      cambios.push({ id, position: p });
+    }
+    ultimo = p;
+  }
+  return cambios;
+}
+
+/**
+ * Encadena los pasos de la tarea en el orden de la lista desde `desde`: por días uno tras otro, y los
+ * de tiempo en el mismo día mientras quepan en la jornada. Los hechos se dejan como están salvo `incluirHechos`.
+ */
+export function encadenarTarea(t: Task, desde: string, incluirHechos = false): ({ id: string; titulo: string } & ProgramacionPaso)[] {
+  const pasos = t.steps.filter((s) => incluirHechos || !s.done);
+  return encadenar(pasos, desde).map((s) => ({
+    id: s.id,
+    titulo: s.title,
+    startDate: s.startDate,
+    duracionDias: s.duracionDias,
+    duracionMin: s.duracionMin ?? null,
+  }));
 }

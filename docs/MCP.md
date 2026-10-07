@@ -5,7 +5,7 @@ y operar** Second Brain conversando ("¿qué tengo hoy?", "anota esta idea", "mu
 vencidas al viernes"). Y que el alcance de lo que Claude puede hacer **crezca solo
 cuando Cesar lo confirma**.
 
-Estado: la **Fase W (WebMCP)** está implementada, con lectura más capturar/marcar. El servidor MCP (variantes B y C) sigue en análisis.
+Estado: la **Fase W (WebMCP)** está implementada, con lectura, capturar/marcar, edición sin borrados y herramientas de interfaz. El servidor MCP (variantes B y C) sigue en análisis.
 
 ---
 
@@ -27,14 +27,26 @@ La página registra herramientas en `document.modelContext`, la API imperativa d
 
 | Nivel | Herramientas |
 |---|---|
-| 0 · Lectura | `get_today`, `list_tasks(filtro)`, `get_task(id)`, `search_tasks(texto)`, `get_calendar(mes)`, `list_projects(estado?)`, `list_habits`, `list_ideas`, `get_weekly_review` |
+| 0 · Lectura | `get_today`, `list_tasks(filtro)`, `get_task(id)` (pasos con días o tiempo estimado), `search_tasks(texto)`, `get_calendar(mes)`, `list_projects(estado?)`, `list_habits`, `list_ideas`, `get_weekly_review` |
 | 1 · Capturar y marcar | `capture_idea`, `create_task` (con pasos y `habitIds`), `add_step`, `set_task_done(id, hecho)`, `set_step_done(id, hecho)`, `set_habit_done(habitId, hecho, franja?)` |
+| 2 · Editar (sin borrar) | `update_task(id, cambios)` (incluye `habitIds`), `update_step(id, cambios)`, `reorder_steps(taskId, stepIds)`, `chain_steps(taskId, desde?)`, `update_project(id, cambios)`, `process_idea(id, estado)` |
+| Interfaz (solo navegador) | `open_task(id)`, `open_new_task(startDate?, deadline?)`, `go_to(vista)` |
 
 Las herramientas de marcar reciben `hecho` en vez de alternar el estado: un agente que reintenta no deshace lo que ya hizo. Marcar una tarea o un paso también marca hoy sus **hábitos vinculados** (trigger). Desmarcarlos borra solo los registros que ellos crearon. Los **hábitos semanales** se marcan una vez al día.
 
+**Pasos** (desde `a884126`): se programan con `startDate` + `duracionDias` (un rango de días) o con `startDate` + `duracionMin` (tiempo estimado en un solo día). `programarPaso` (`domain/agente.ts`) normaliza la programación como la exige la base:
+- inicio y días van juntos;
+- un paso por tiempo dura un día;
+- cambiar solo la fecha conserva el tipo;
+- `startDate: null` lo deja sin programar.
+
+`reorder_steps` solo mueve los pasos que quedan desordenados (nunca renumera la lista). `chain_steps` usa `encadenar`: los de días van uno tras otro y los de tiempo en el mismo día, hasta 8 h. Se guarda con la RPC `aplicar_plan`, todo o nada.
+
+Las herramientas de interfaz **no pisan un modal abierto**: devuelven error y piden a Cesar que lo cierre. `go_to` respeta la guardia de cambios sin guardar. `open_new_task` no guarda: Cesar completa y confirma la tarea.
+
 Pendiente para fases siguientes de W:
-- edición (nivel 2);
-- herramientas de interfaz: `open_task`, `propose_steps` sobre el borrador del planificador, `go_to(vista)`;
+- nivel 3 (borrar, cambios masivos), con confirmación propia (`confirmar()`) y `consequentialHint`;
+- `propose_steps` sobre el borrador del planificador del modal;
 - confirmar qué agentes consumen WebMCP (Gemini en Chrome, extensiones, Claude en Chrome).
 
 ---
@@ -245,7 +257,7 @@ Hay tres capas independientes. Ninguna basta sola.
 
 | Fase | Entrega | Validación |
 |---|---|---|
-| **W · WebMCP** ✅ | Catálogo compartido + registro en la página (niveles 0–1). | Tests de `agente`/catálogo; e2e con un `modelContext` simulado (15 herramientas, idempotencia, hábitos vinculados, desregistro al salir). |
+| **W · WebMCP** ✅ | Catálogo compartido + registro en la página (niveles 0–2 + interfaz, 24 herramientas). | Tests de `agente`/catálogo; e2e con un `modelContext` simulado (idempotencia, hábitos vinculados, pasos por tiempo, reordenar/encadenar, modales, desregistro al salir). |
 | **M0 · Base** | Zona horaria en fechas + `createApi`; la web sigue igual. | `pnpm test`, `pnpm typecheck`, prueba manual de Hoy. |
 | **M1 · MCP local** | `apps/mcp` stdio con niveles 0–1 y permisos de Claude Code. | "¿Qué tengo hoy?", "anota idea X" y "marca hábito Y" desde Claude Code contra la DB local. |
 | **M2 · Confianza** | Migración `mcp_*`, filtrado por nivel, niveles 2–3, `confirm_action`, auditoría, `undo` y selector en la web. | pgTAP + tests de herramientas; intentar `delete_task` con nivel 1 → rechazo. |

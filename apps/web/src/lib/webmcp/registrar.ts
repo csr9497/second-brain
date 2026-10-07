@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { todayISO } from '@sb/shared';
 import { esquemaJson, HERRAMIENTAS, validarEntrada, type NombreHerramienta } from '@sb/shared/herramientas';
-import { EJECUTAR } from './ejecutar';
+import { ejecutores, type PuenteUI } from './ejecutar';
 
 const tz = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 const texto = (datos: object, isError = false) => ({ content: [{ type: 'text', text: JSON.stringify({ hoy: todayISO(), tz: tz(), ...datos }) }], isError });
@@ -17,11 +17,11 @@ function activarOriginTrial() {
   document.head.append(meta);
 }
 
-async function ejecutar(nombre: NombreHerramienta, args: unknown, qc: QueryClient) {
+async function ejecutar(nombre: NombreHerramienta, args: unknown, qc: QueryClient, ui: PuenteUI) {
   const v = validarEntrada(nombre, args);
   if (!v.ok) return texto({ error: v.error }, true);
   try {
-    const datos = await (EJECUTAR[nombre] as (a: unknown) => Promise<object>)(v.datos);
+    const datos = await (ejecutores(ui)[nombre] as (a: unknown) => Promise<object>)(v.datos);
     // Lo escrito por un agente aparece en la pantalla sin recargar
     if (HERRAMIENTAS[nombre].nivel > 0) void qc.invalidateQueries();
     return texto(datos);
@@ -34,7 +34,7 @@ async function ejecutar(nombre: NombreHerramienta, args: unknown, qc: QueryClien
  * Registra el catálogo en WebMCP (`document.modelContext`) si el navegador lo soporta.
  * Devuelve la función que las desregistra (al cerrar sesión), o null si no hay WebMCP.
  */
-export function registrarHerramientas(qc: QueryClient): (() => void) | null {
+export function registrarHerramientas(qc: QueryClient, ui: PuenteUI): (() => void) | null {
   activarOriginTrial();
   const mc = document.modelContext;
   if (!mc) return null;
@@ -47,9 +47,9 @@ export function registrarHerramientas(qc: QueryClient): (() => void) | null {
           name: nombre,
           description: def.description,
           inputSchema: esquemaJson(def),
-          // Todas devuelven texto escrito por el usuario (títulos, notas, ideas)
-          annotations: { readOnlyHint: def.nivel === 0, untrustedContentHint: true },
-          execute: (args) => ejecutar(nombre, args, qc),
+          // Todas devuelven texto escrito por el usuario (títulos, notas, ideas). Las de interfaz cambian la pantalla.
+          annotations: { readOnlyHint: def.nivel === 0 && !def.interfaz, untrustedContentHint: true },
+          execute: (args) => ejecutar(nombre, args, qc, ui),
         },
         { signal: ctrl.signal },
       ),
@@ -58,8 +58,18 @@ export function registrarHerramientas(qc: QueryClient): (() => void) | null {
   return () => ctrl.abort();
 }
 
-/** Herramientas disponibles mientras haya sesión (Home montado). */
-export function useWebMcp() {
+/** Herramientas disponibles mientras haya sesión (Home montado). `ui` puede cambiar en cada render. */
+export function useWebMcp(ui: PuenteUI) {
   const qc = useQueryClient();
-  useEffect(() => registrarHerramientas(qc) ?? undefined, [qc]);
+  const ref = useRef(ui);
+  ref.current = ui;
+  useEffect(
+    () =>
+      registrarHerramientas(qc, {
+        abrirTarea: (t) => ref.current.abrirTarea(t),
+        nuevaTarea: (i) => ref.current.nuevaTarea(i),
+        irA: (v) => ref.current.irA(v),
+      }) ?? undefined,
+    [qc],
+  );
 }

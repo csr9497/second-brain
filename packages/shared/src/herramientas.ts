@@ -2,22 +2,32 @@
 // entrada (Zod) y nivel. Cada transporte aporta la ejecución por nombre.
 // Subruta aparte (`@sb/shared/herramientas`): importa valores de `./index`, así que no puede reexportarse desde allí (ciclo).
 import { z } from 'zod';
-import { createStepInput, createTaskInput, habitSlot, projectStatus, taskFilter } from './index';
+import { createStepInput, createTaskInput, habitSlot, ideaStatus, isoDate, projectStatus, taskFilter, updateProjectInput, updateStepInput, updateTaskInput } from './index';
 
 const id = (que: string) => z.uuid().describe(`id de ${que}`);
 const hecho = z.boolean().describe('true = marcar como hecho; false = desmarcar');
 
-/** Nivel 0 = solo lectura; 1 = capturar y marcar (aditivo y reversible). */
-export type NivelHerramienta = 0 | 1;
+/** Nivel 0 = solo lectura; 1 = capturar y marcar (aditivo y reversible); 2 = editar datos existentes (nada se borra). */
+export type NivelHerramienta = 0 | 1 | 2;
 
 export interface DefHerramienta<S extends z.ZodType = z.ZodType> {
   name: string;
   description: string;
   input: S;
   nivel: NivelHerramienta;
+  /** Solo en el navegador (WebMCP): actúa sobre la interfaz, no sobre los datos */
+  interfaz?: boolean;
 }
 
-const def = <S extends z.ZodType>(name: string, nivel: NivelHerramienta, description: string, input: S): DefHerramienta<S> => ({ name, nivel, description, input });
+const def = <S extends z.ZodType>(name: string, nivel: NivelHerramienta, description: string, input: S, interfaz = false): DefHerramienta<S> => ({
+  name,
+  nivel,
+  description,
+  input,
+  interfaz,
+});
+const PROGRAMAR =
+  'Programar un paso: startDate (YYYY-MM-DD) + duracionDias (rango de días), o startDate + duracionMin (tiempo estimado en minutos, un solo día; los de un mismo día se encadenan en orden en una jornada de 8 h).';
 const vacio = z.object({});
 
 const COMUN = 'Second Brain (app personal de Cesar). Las fechas son YYYY-MM-DD en su zona horaria; toda respuesta incluye `hoy` y `tz`.';
@@ -51,10 +61,10 @@ export const HERRAMIENTAS = {
   create_task: def(
     'create_task',
     1,
-    `${COMUN} Crea una tarea. Opcional: inicio y deadline, proyecto (id de list_projects), pasos con inicio y días, y hábitos vinculados (ids de list_habits; completar la tarea o un paso los marca ese día).`,
+    `${COMUN} Crea una tarea. Opcional: inicio y deadline, proyecto (id de list_projects), pasos (${PROGRAMAR}) y hábitos vinculados (ids de list_habits; completar la tarea o un paso los marca ese día).`,
     createTaskInput,
   ),
-  add_step: def('add_step', 1, `${COMUN} Añade un paso a una tarea; opcionalmente programado (inicio + días).`, z.object({ taskId: id('la tarea'), paso: createStepInput })),
+  add_step: def('add_step', 1, `${COMUN} Añade un paso al final de una tarea, opcionalmente programado. ${PROGRAMAR}`, z.object({ taskId: id('la tarea'), paso: createStepInput })),
   set_task_done: def(
     'set_task_done',
     1,
@@ -68,6 +78,55 @@ export const HERRAMIENTAS = {
     `${COMUN} Marca o desmarca hoy un hábito (id de get_today). Diario: se marca una vez por turno; sin franja usa la franja actual o el primer turno pendiente. Semanal: una vez al día. Idempotente.`,
     z.object({ habitId: id('el hábito'), hecho, franja: habitSlot.optional().describe('manana | tarde | noche') }),
   ),
+
+  // Nivel 2: editar (nada se borra)
+  update_task: def(
+    'update_task',
+    2,
+    `${COMUN} Cambia campos de una tarea: título, descripción, notas, prioridad, tipo, proyecto, startDate/deadline (null para quitar), estado y hábitos vinculados (habitIds reemplaza la lista). Para marcarla hecha usa set_task_done.`,
+    z.object({ id: id('la tarea'), cambios: updateTaskInput }),
+  ),
+  update_step: def(
+    'update_step',
+    2,
+    `${COMUN} Cambia el título o la programación de un paso. ${PROGRAMAR} startDate: null lo deja sin programar.`,
+    z.object({ id: id('el paso'), cambios: updateStepInput }),
+  ),
+  reorder_steps: def(
+    'reorder_steps',
+    2,
+    `${COMUN} Reordena los pasos de una tarea: stepIds con todos sus pasos en el orden deseado (ids de get_task). Solo cambia el orden, no las fechas.`,
+    z.object({ taskId: id('la tarea'), stepIds: z.array(z.uuid()).min(1) }),
+  ),
+  chain_steps: def(
+    'chain_steps',
+    2,
+    `${COMUN} Encadena los pasos pendientes de una tarea en el orden de la lista, desde \`desde\` (por defecto, el inicio de la tarea u hoy): los de días uno tras otro y los de tiempo en el mismo día mientras quepan en 8 h. Se guarda todo junto o nada.`,
+    z.object({ taskId: id('la tarea'), desde: isoDate.optional(), incluirHechos: z.boolean().optional() }),
+  ),
+  update_project: def(
+    'update_project',
+    2,
+    `${COMUN} Cambia un proyecto: nombre, estado, prioridad, próxima acción (nextAction), días de trabajo (scheduleDays, 0 = domingo), avance (totalProgress 0–100) o color.`,
+    z.object({ id: id('el proyecto'), cambios: updateProjectInput }),
+  ),
+  process_idea: def(
+    'process_idea',
+    2,
+    `${COMUN} Cambia el estado de una idea: procesada o archivada la sacan de la bandeja (inbox).`,
+    z.object({ id: id('la idea'), estado: ideaStatus }),
+  ),
+
+  // Interfaz (solo en el navegador): abren pantallas, no escriben datos
+  open_task: def('open_task', 0, `${COMUN} Abre una tarea en su modal para que Cesar la vea o la edite.`, z.object({ id: id('la tarea') }), true),
+  open_new_task: def(
+    'open_new_task',
+    0,
+    `${COMUN} Abre el modal de nueva tarea con inicio y fin ya puestos, sin guardar: Cesar completa y confirma.`,
+    z.object({ startDate: isoDate.optional(), deadline: isoDate.optional() }),
+    true,
+  ),
+  go_to: def('go_to', 0, `${COMUN} Cambia de vista: hoy, calendario o gantt (si hay cambios sin guardar, se le pregunta a Cesar).`, z.object({ vista: z.enum(['hoy', 'calendario', 'gantt']) }), true),
 } as const;
 
 export type NombreHerramienta = keyof typeof HERRAMIENTAS;

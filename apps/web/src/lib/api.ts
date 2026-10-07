@@ -254,6 +254,12 @@ export const api = {
     const { error } = await sb.rpc('aplicar_plan', { cambios: plan });
     if (error) throw new Error(error.message);
   },
+  /** Programación de varios pasos a la vez, todo o nada (misma RPC que el Gantt). */
+  programarPasos: async (pasos: { id: string; startDate: string | null; duracionDias: number | null; duracionMin: number | null }[]) => {
+    const steps = pasos.map((p) => ({ id: p.id, start_date: p.startDate, duracion_dias: p.duracionDias, duracion_min: p.duracionMin }));
+    const { error } = await sb.rpc('aplicar_plan', { cambios: { tasks: [], steps } });
+    if (error) throw new Error(error.message);
+  },
   today: async (): Promise<TodayPayload> => buildToday(await loadDashboard()),
 
   /** Mes del calendario: tareas que vencen, cruzan o empiezan en la rejilla (o tienen pasos en ella), hábitos y sus registros. */
@@ -473,6 +479,9 @@ export const api = {
     })),
   createIdea: async (texto: string) => {
     must(await sb.from('ideas').insert({ texto }));
+  },
+  updateIdea: async (id: string, estado: Idea['estado']) => {
+    must(await sb.from('ideas').update({ estado }).eq('id', id));
   },
 
   // Revisión semanal: reporte calculado; archivar congela una foto (upsert por semana)

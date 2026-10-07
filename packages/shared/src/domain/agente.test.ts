@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { HabitChip, HabitSlot, Task, TodayPayload } from '../index';
 import { esquemaJson, HERRAMIENTAS, validarEntrada } from '../herramientas';
-import { detallarTarea, resolverMarcaHabito, resumirHoy, resumirTarea } from './agente';
+import { detallarTarea, encadenarTarea, programarPaso, reordenarPasos, resolverMarcaHabito, resumirHoy, resumirTarea } from './agente';
 
 const ficha = (id: string, slot: HabitSlot, turno: HabitSlot[], doneIn: HabitSlot | null = null): HabitChip => ({
   id,
@@ -111,10 +111,11 @@ describe('resúmenes', () => {
 });
 
 describe('catálogo de herramientas', () => {
-  it('15 herramientas con JSON Schema de objeto y nombres únicos', () => {
+  it('24 herramientas con JSON Schema de objeto y nombres únicos', () => {
     const defs = Object.values(HERRAMIENTAS);
-    expect(defs).toHaveLength(15);
-    expect(new Set(defs.map((d) => d.name)).size).toBe(15);
+    expect(defs).toHaveLength(24);
+    expect(new Set(defs.map((d) => d.name)).size).toBe(24);
+    expect(defs.filter((d) => d.interfaz).map((d) => d.name)).toEqual(['open_task', 'open_new_task', 'go_to']);
     for (const d of defs) expect(esquemaJson(d)).toMatchObject({ type: 'object' });
   });
   it('create_task: los defaults no son obligatorios en la entrada', () => {
@@ -126,5 +127,69 @@ describe('catálogo de herramientas', () => {
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error).toMatch(/Entrada no válida/);
     expect(validarEntrada('create_task', { title: 'Hola' })).toMatchObject({ ok: true, datos: { title: 'Hola', priority: 'media', steps: [], habitIds: [] } });
+  });
+});
+
+describe('programarPaso', () => {
+  const nada = { startDate: null, duracionDias: null, duracionMin: null };
+  const porDias = { startDate: '2026-10-07', duracionDias: 3, duracionMin: null };
+  const porTiempo = { startDate: '2026-10-07', duracionDias: 1, duracionMin: 90 };
+  it('solo inicio → 1 día; con minutos → por tiempo en un día', () => {
+    expect(programarPaso(nada, { startDate: '2026-10-07' })).toEqual({ startDate: '2026-10-07', duracionDias: 1, duracionMin: null });
+    expect(programarPaso(nada, { startDate: '2026-10-07', duracionDias: 4, duracionMin: 30 })).toEqual({ startDate: '2026-10-07', duracionDias: 1, duracionMin: 30 });
+  });
+  it('duración sin inicio → error; sin nada → sin programar', () => {
+    expect(programarPaso(nada, { duracionMin: 30 })).toHaveProperty('error');
+    expect(programarPaso(nada, {})).toEqual(nada);
+  });
+  it('cambiar solo la fecha conserva el tipo; días ↔ minutos cambia de tipo; startDate null lo desprograma', () => {
+    expect(programarPaso(porTiempo, { startDate: '2026-10-09' })).toEqual({ ...porTiempo, startDate: '2026-10-09' });
+    expect(programarPaso(porDias, { startDate: '2026-10-09' })).toEqual({ ...porDias, startDate: '2026-10-09' });
+    expect(programarPaso(porTiempo, { duracionDias: 2 })).toEqual({ startDate: '2026-10-07', duracionDias: 2, duracionMin: null });
+    expect(programarPaso(porDias, { duracionMin: 45 })).toEqual({ startDate: '2026-10-07', duracionDias: 1, duracionMin: 45 });
+    expect(programarPaso(porDias, { startDate: null })).toEqual(nada);
+  });
+});
+
+describe('reordenarPasos', () => {
+  const pasos = [
+    { id: 'a', position: 1000 },
+    { id: 'b', position: 2000 },
+    { id: 'c', position: 3000 },
+  ];
+  it('mueve solo los que quedan desordenados', () => {
+    expect(reordenarPasos(pasos, ['a', 'b', 'c'])).toEqual([]);
+    const r = reordenarPasos(pasos, ['b', 'c', 'a']);
+    expect(r).toEqual([{ id: 'a', position: 4000 }]);
+  });
+  it('el orden resultante es el pedido', () => {
+    const r = reordenarPasos(pasos, ['c', 'a', 'b']) as { id: string; position: number }[];
+    const pos = new Map(pasos.map((p) => [p.id, p.position]));
+    for (const c of r) pos.set(c.id, c.position);
+    expect([...pos.entries()].sort((x, y) => x[1] - y[1]).map(([id]) => id)).toEqual(['c', 'a', 'b']);
+  });
+  it('exige exactamente los pasos de la tarea', () => {
+    expect(reordenarPasos(pasos, ['a', 'b'])).toHaveProperty('error');
+    expect(reordenarPasos(pasos, ['a', 'b', 'b'])).toHaveProperty('error');
+    expect(reordenarPasos(pasos, ['a', 'b', 'x'])).toHaveProperty('error');
+  });
+});
+
+describe('encadenarTarea', () => {
+  it('encadena los pendientes desde la fecha; por tiempo en el mismo día', () => {
+    const t = {
+      ...tarea,
+      steps: [
+        { ...tarea.steps[0], done: true },
+        { ...tarea.steps[1], duracionDias: 2, duracionMin: null },
+        { id: 's3', taskId: 't1', title: 'Revisar', done: false, startDate: null, duracionDias: null, duracionMin: 60, position: 3 },
+        { id: 's4', taskId: 't1', title: 'Enviar', done: false, startDate: null, duracionDias: null, duracionMin: 30, position: 4 },
+      ],
+    };
+    expect(encadenarTarea(t, '2026-10-12').map((s) => [s.id, s.startDate, s.duracionDias, s.duracionMin])).toEqual([
+      ['s2', '2026-10-12', 2, null],
+      ['s3', '2026-10-14', 1, 60],
+      ['s4', '2026-10-14', 1, 30],
+    ]);
   });
 });

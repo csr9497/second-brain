@@ -29,7 +29,6 @@ export function App() {
 function Home() {
   const qc = useQueryClient();
   const vista = useVista();
-  useWebMcp();
   const [modal, setModal] = useState<ModalState>(null);
   const close = useCallback(() => setModal(null), []);
   // Crear/editar un hábito cierra "Gestionar hábitos" y vuelve a él al terminar (sin modales apilados)
@@ -38,6 +37,17 @@ function Home() {
   // el deadline queda vacío (uno vencido mandaría la tarea a incumplimiento)
   const nuevaTarea = (rango?: { inicio: string; fin: string }) =>
     setModal({ kind: 'tarea', inicial: rango ? { startDate: rango.inicio, deadline: rango.fin < todayISO() ? '' : rango.fin } : undefined });
+
+  // Herramientas de interfaz de WebMCP: no pisan un modal abierto; cambiar de vista respeta la guardia
+  useWebMcp({
+    abrirTarea: (task) => (modal ? false : (setModal({ kind: 'tarea', task }), true)),
+    nuevaTarea: (inicial) => (modal ? false : (setModal({ kind: 'tarea', inicial }), true)),
+    irA: async (v) => {
+      if (!(await puedeSalir())) return false;
+      window.location.hash = hrefVista(v);
+      return true;
+    },
+  });
 
   return (
     <div className={`mx-auto ${VISTAS[vista].ancho} px-4 pt-[26px] pb-[72px]`}>
