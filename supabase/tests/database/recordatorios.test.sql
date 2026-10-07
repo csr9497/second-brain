@@ -2,7 +2,7 @@
 -- Avisos (Fase 5): RLS de las tablas de avisos y recordatorios_por_enviar().
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(15);
+select plan(17);
 
 insert into auth.users (instance_id, id, aud, role, email) values
   ('00000000-0000-0000-0000-000000000000', '11111111-1111-4111-8111-111111111111', 'authenticated', 'authenticated', 'a@test'),
@@ -47,6 +47,13 @@ reset role;
 update public.habit_periods set desde = '2026-10-01 12:00+00' where habit_id::text like 'bbbbbbbb-%';
 -- «Archivado» dejó de estar vigente el 5
 update public.habit_periods set hasta = '2026-10-05 12:00+00' where habit_id = 'bbbbbbbb-0000-4000-8000-000000000004';
+
+-- B con una zona que Postgres no conoce: no debe tumbar la ronda de A
+insert into public.recordatorios_config (user_id, zona, hora_manana) values ('22222222-2222-4222-8222-222222222222', 'Nope/Zone', '00:00');
+select is((select count(*)::int from public.recordatorios_por_enviar('2026-10-08 02:00+00') where user_id = '22222222-2222-4222-8222-222222222222'), 0,
+  'una zona inválida se descarta sin romper la ronda de los demás');
+select throws_ok($$ update public.recordatorios_config set hora_noche = '23:50' where user_id = '11111111-1111-4111-8111-111111111111' $$,
+  '23514', null, 'una hora después de las 23:45 no se acepta (el cron no la alcanzaría)');
 
 -- 2026-10-08 02:00 UTC = 7 oct, 21:00 en Lima
 select results_eq(

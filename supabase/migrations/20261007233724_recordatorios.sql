@@ -20,7 +20,9 @@ create table public.recordatorios_config (
   hora_manana time,
   hora_tarde  time,
   hora_noche  time,
-  updated_at  timestamptz not null default now()
+  updated_at  timestamptz not null default now(),
+  -- el cron pasa cada 15 min y solo mira el día local en curso: una hora después de las 23:45 nunca se avisaría
+  check (hora_manana <= '23:45' and hora_tarde <= '23:45' and hora_noche <= '23:45')
 );
 
 -- Evita repetir un aviso: una fila por (usuario, día local, franja)
@@ -58,17 +60,26 @@ grant select, insert, update, delete on public.recordatorios_enviados to authent
 create function public.recordatorios_por_enviar(p_ahora timestamptz default now())
 returns table (user_id uuid, fecha date, franja text, habitos text[])
 language sql stable security definer set search_path = '' as $$
-  with vencidas as (
-    select c.user_id, c.zona, (p_ahora at time zone c.zona)::date as fecha, f.franja
-    from public.recordatorios_config c
-    join pg_catalog.pg_timezone_names tz on tz.name = c.zona   -- una zona inválida no rompe la ronda
+  with
+  -- Una zona inválida no debe romper la ronda de todos: se descarta antes de evaluar `at time zone`
+  -- (materialized impide que el planificador lo evalúe antes del filtro)
+  configs as materialized (
+    select c.user_id, c.zona, (p_ahora at time zone c.zona) as local, c.hora_manana, c.hora_tarde, c.hora_noche
+    from (
+      select * from public.recordatorios_config c
+      where c.activo and exists (select 1 from pg_catalog.pg_timezone_names tz where tz.name = c.zona)
+      offset 0
+    ) c
+  ),
+  vencidas as (
+    select c.user_id, c.zona, c.local::date as fecha, f.franja
+    from configs c
     cross join lateral (values ('manana', c.hora_manana), ('tarde', c.hora_tarde), ('noche', c.hora_noche)) f(franja, hora)
-    where c.activo
-      and f.hora is not null
-      and f.hora <= (p_ahora at time zone c.zona)::time
+    where f.hora is not null
+      and f.hora <= c.local::time
       and not exists (
         select 1 from public.recordatorios_enviados e
-        where e.user_id = c.user_id and e.fecha = (p_ahora at time zone c.zona)::date and e.franja = f.franja)
+        where e.user_id = c.user_id and e.fecha = c.local::date and e.franja = f.franja)
   ),
   periodos as (
     select distinct on (p.habit_id, v.franja) v.user_id, v.fecha, v.franja, p.habit_id, p.turnos, p.veces_semana
@@ -110,5 +121,5 @@ select cron.schedule('recordatorios', '*/15 * * * *', $cron$
       'Content-Type', 'application/json',
       'x-cron-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret')),
     body := '{}'::jsonb)
-  where exists (select 1 from vault.decrypted_secrets where name = 'recordatorios_url');
+  where (select count(*) from vault.decrypted_secrets where name in ('recordatorios_url', 'cron_secret')) = 2;
 $cron$);
