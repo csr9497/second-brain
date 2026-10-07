@@ -312,5 +312,6 @@ export * from './domain/dashboard';
 export * from './domain/calendar';
 export * from './domain/pasos';
 export * from './domain/gantt';
+export * from './domain/agente';
 export * from './colors';
 export * from './turnos';

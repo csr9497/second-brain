@@ -17,6 +17,7 @@ import { ConfirmHost } from './components/ui/Confirmar';
 import { useVista, hrefVista, listaVistas, puedeSalir, VISTAS } from './lib/useVista';
 import type { ModalState } from './lib/modal';
 import { todayISO } from '@sb/shared';
+import { useWebMcp } from './lib/webmcp/registrar';
 
 export function App() {
   const session = useSession();
@@ -36,6 +37,17 @@ function Home() {
   // el deadline queda vacío (uno vencido mandaría la tarea a incumplimiento)
   const nuevaTarea = (rango?: { inicio: string; fin: string }) =>
     setModal({ kind: 'tarea', inicial: rango ? { startDate: rango.inicio, deadline: rango.fin < todayISO() ? '' : rango.fin } : undefined });
+
+  // Herramientas de interfaz de WebMCP: no pisan un modal abierto; cambiar de vista respeta la guardia
+  useWebMcp({
+    abrirTarea: (task) => (modal ? false : (setModal({ kind: 'tarea', task }), true)),
+    nuevaTarea: (inicial) => (modal ? false : (setModal({ kind: 'tarea', inicial }), true)),
+    irA: async (v) => {
+      if (!(await puedeSalir())) return false;
+      window.location.hash = hrefVista(v);
+      return true;
+    },
+  });
 
   return (
     <div className={`mx-auto ${VISTAS[vista].ancho} px-4 pt-[26px] pb-[72px]`}>
