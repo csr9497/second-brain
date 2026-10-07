@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { duracionHoras, duracionPaso, encadenar, finPaso, fueraDePlazo, rangoSeleccion, tramosDelDia } from './pasos';
+import { duracionHoras, duracionPaso, encadenar, finPaso, fueraDePlazo, pasoEnRango, pasosDelPeriodo, rangoSeleccion, tramosDelDia } from './pasos';
 
 const p = (startDate: string | null, duracionDias: number | null) => ({ startDate, duracionDias });
 
@@ -82,4 +82,21 @@ describe('tiempo', () => {
 describe('rangoSeleccion', () => {
   it('ordena e incluye ambos extremos', () => expect(rangoSeleccion('2026-10-09', '2026-10-06')).toEqual({ inicio: '2026-10-06', fin: '2026-10-09', dias: 4 }));
   it('un mismo día dura 1', () => expect(rangoSeleccion('2026-10-06', '2026-10-06')).toEqual({ inicio: '2026-10-06', fin: '2026-10-06', dias: 1 }));
+});
+
+describe('pasosDelPeriodo', () => {
+  const pasos = [
+    { id: 'hoy', ...p('2026-10-07', 1) },
+    { id: 'cruza', ...p('2026-10-05', 3) },
+    { id: 'manana', ...p('2026-10-08', 1) },
+    { id: 'sin', ...p(null, null) },
+  ];
+  it('solo los que tocan el día', () => {
+    const r = pasosDelPeriodo(pasos, '2026-10-07', '2026-10-07');
+    expect(r.visibles.map((x) => x.id)).toEqual(['hoy', 'cruza']);
+    expect(r.ocultos).toBe(2);
+  });
+  it('en la semana entran todos los programados que la tocan', () =>
+    expect(pasosDelPeriodo(pasos, '2026-10-05', '2026-10-11').visibles.map((x) => x.id)).toEqual(['hoy', 'cruza', 'manana']));
+  it('un paso sin programar nunca está en el rango', () => expect(pasoEnRango(p(null, null), '2026-01-01', '2026-12-31')).toBe(false));
 });

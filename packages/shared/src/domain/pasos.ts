@@ -46,6 +46,18 @@ export function tramosDelDia<T extends Programable>(pasos: T[]): { paso: T; desd
 /** Último día del paso (inicio + días − 1), o null si no está programado. */
 export const finPaso = (p: Programable) => (p.startDate && p.duracionDias ? addDays(p.startDate, p.duracionDias - 1) : null);
 
+/** El paso está programado y su rango toca [desde, hasta] (días inclusivos). */
+export function pasoEnRango(p: Programable, desde: string, hasta: string) {
+  const fin = finPaso(p);
+  return p.startDate != null && fin != null && p.startDate <= hasta && fin >= desde;
+}
+
+/** Pasos de una tarea que caen en el periodo (los de hoy, los de la semana…), y cuántos quedan fuera. */
+export function pasosDelPeriodo<T extends Programable>(pasos: T[], desde: string, hasta: string) {
+  const visibles = pasos.filter((p) => pasoEnRango(p, desde, hasta));
+  return { visibles, ocultos: pasos.length - visibles.length };
+}
+
 /** El paso empieza antes del inicio de la tarea o termina después de su deadline (lados sin fecha no cuentan). */
 export function fueraDePlazo(p: Programable, tarea: { startDate: string | null; deadline: string | null }) {
   const fin = finPaso(p);
