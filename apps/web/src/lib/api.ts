@@ -106,6 +106,7 @@ const toTask = (r: Row): Task => ({
       position: Number(s.position),
       startDate: s.start_date,
       duracionDias: s.duracion_dias,
+      duracionMin: s.duracion_min,
     }))
     .sort((a: { position: number }, b: { position: number }) => a.position - b.position),
   habitIds: (r.task_habits ?? []).map((th: Row) => th.habit_id),
@@ -244,7 +245,11 @@ export const api = {
   aplicarPlan: async (cambios: Cambio[]) => {
     const plan = {
       tasks: cambios.flatMap((c) => (c.tipo === 'tarea' ? [{ id: c.id, start_date: c.despues.startDate, deadline: c.despues.deadline }] : [])),
-      steps: cambios.flatMap((c) => (c.tipo === 'paso' ? [{ id: c.id, start_date: c.despues.startDate, duracion_dias: c.despues.duracionDias }] : [])),
+      steps: cambios.flatMap((c) =>
+        c.tipo === 'paso'
+          ? [{ id: c.id, start_date: c.despues.startDate, duracion_dias: c.despues.duracionDias, duracion_min: c.despues.duracionMin }]
+          : [],
+      ),
     };
     const { error } = await sb.rpc('aplicar_plan', { cambios: plan });
     if (error) throw new Error(error.message);
@@ -310,6 +315,7 @@ export const api = {
             title: s.title,
             start_date: s.startDate ?? null,
             duracion_dias: s.duracionDias ?? null,
+            duracion_min: s.duracionMin ?? null,
             position: (i + 1) * 1000,
           })),
         ),
@@ -354,22 +360,36 @@ export const api = {
     const { done } = must(await sb.from('steps').select('done').eq('id', id).single());
     must(await sb.from('steps').update({ done: !done }).eq('id', id));
   },
-  addStep: async (taskId: string, input: CreateStepInput) => {
+  /** Sin `position`, el paso va al final. */
+  addStep: async (taskId: string, input: CreateStepInput, position?: number) => {
     const step = createStepInput.parse(input);
-    const position = positionBetween(await maxPosition('steps', taskId), null);
+    position ??= positionBetween(await maxPosition('steps', taskId), null);
     must(
       await sb
         .from('steps')
-        .insert({ task_id: taskId, title: step.title, start_date: step.startDate ?? null, duracion_dias: step.duracionDias ?? null, position }),
+        .insert({
+          task_id: taskId,
+          title: step.title,
+          start_date: step.startDate ?? null,
+          duracion_dias: step.duracionDias ?? null,
+          duracion_min: step.duracionMin ?? null,
+          position,
+        }),
     );
   },
   /** Título y/o programación del paso; solo escribe los campos definidos. */
   updateStep: async (id: string, patch: UpdateStepInput) => {
-    const { title, startDate, duracionDias } = updateStepInput.parse(patch);
+    const { title, startDate, duracionDias, duracionMin } = updateStepInput.parse(patch);
     const cols = Object.fromEntries(
-      Object.entries({ title, start_date: startDate, duracion_dias: duracionDias }).filter(([, v]) => v !== undefined),
+      Object.entries({ title, start_date: startDate, duracion_dias: duracionDias, duracion_min: duracionMin }).filter(
+        ([, v]) => v !== undefined,
+      ),
     );
     must(await sb.from('steps').update(cols).eq('id', id));
+  },
+  /** Solo cambia el orden en que se muestra el paso. */
+  moverPaso: async (id: string, position: number) => {
+    must(await sb.from('steps').update({ position }).eq('id', id));
   },
   deleteStep: async (id: string) => {
     must(await sb.from('steps').delete().eq('id', id));

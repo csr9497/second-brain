@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import { addDays, daysBetween } from '@sb/shared';
-import { COL } from './constantes';
+import { COL, fondo } from './constantes';
 
 /** Fondo de una fila: con ratón, arrastrar marca un rango; un clic o un toque, dos toques (inicio y fin). */
 export function Pista({
@@ -9,10 +9,18 @@ export function Pista({
   activa,
   onToque,
   onRango,
+  col = COL,
+  alto = 34,
+  sinFondo = false,
   children,
 }: {
   ancho: number;
   inicio: string;
+  /** Ancho de un día en px (cambia con el zoom) */
+  col?: number;
+  alto?: number;
+  /** Sin la cuadrícula de días (p. ej. la cabecera, que dibuja la suya) */
+  sinFondo?: boolean;
   /** Si la fila deja de ser la activa, se descarta su primer toque */
   activa: boolean;
   onToque: () => void;
@@ -30,7 +38,7 @@ export function Pista({
   }, [activa]);
   // Día bajo el puntero, limitado a la ventana (con captura, el puntero puede salir de la fila)
   const diaEn = (clientX: number) =>
-    Math.min(ancho / COL - 1, Math.max(0, Math.floor((clientX - ref.current!.getBoundingClientRect().left) / COL)));
+    Math.min(Math.round(ancho / col) - 1, Math.max(0, Math.floor((clientX - ref.current!.getBoundingClientRect().left) / col)));
   const fecha = (n: number) => addDays(inicio, n);
 
   const down = (e: PointerEvent<HTMLDivElement>) => {
@@ -88,7 +96,7 @@ export function Pista({
     }
   };
   const ip = pendiente != null ? daysBetween(inicio, pendiente) : null;
-  const marca = vista ?? (ip != null && ip >= 0 && ip < ancho / COL ? { a: ip, b: ip } : null);
+  const marca = vista ?? (ip != null && ip >= 0 && ip < ancho / col ? { a: ip, b: ip } : null);
 
   return (
     <div
@@ -97,8 +105,8 @@ export function Pista({
       className="relative cursor-crosshair outline-none"
       style={{
         width: ancho,
-        height: 34,
-        backgroundImage: `repeating-linear-gradient(to right, transparent 0 ${COL - 1}px, color-mix(in srgb, var(--line) 45%, transparent) ${COL - 1}px ${COL}px)`,
+        height: alto,
+        backgroundImage: sinFondo ? undefined : fondo(col),
       }}
       onPointerDown={down}
       onPointerMove={move}
@@ -111,7 +119,7 @@ export function Pista({
         <span
           aria-hidden
           className="pointer-events-none absolute top-1 bottom-1 rounded-md border border-dashed border-accent bg-accent/15"
-          style={{ left: Math.min(marca.a, marca.b) * COL, width: (Math.abs(marca.b - marca.a) + 1) * COL }}
+          style={{ left: Math.min(marca.a, marca.b) * col, width: (Math.abs(marca.b - marca.a) + 1) * col }}
         />
       )}
       {children}

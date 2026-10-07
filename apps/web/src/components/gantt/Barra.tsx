@@ -7,7 +7,8 @@ export type Fase = 'inicio' | 'mover' | 'fin';
 
 /**
  * Barra del Gantt. En modo edición: arrastrar = mover, borde derecho = estirar,
- * ← → = mover un día, Shift + ← → = estirar. Los deltas van en días.
+ * ← → = mover una unidad, Shift + ← → = estirar. Los deltas van en unidades de `unidad` px al mover
+ * y de `unidadEstirar` al estirar (un día, o 15 min en un paso por tiempo con zoom).
  */
 export function Barra({
   tipo,
@@ -22,8 +23,16 @@ export function Barra({
   onArrastre,
   onTecla,
   onAbrir,
+  col = COL,
+  unidad = col,
+  unidadEstirar = unidad,
 }: {
   tipo: 'tarea' | 'paso';
+  /** Ancho de un día en px */
+  col?: number;
+  /** Px por unidad de arrastre al mover, y al estirar (p. ej. 15 min en un paso por tiempo) */
+  unidad?: number;
+  unidadEstirar?: number;
   left: number;
   width: number;
   color: PaletteColor;
@@ -50,7 +59,7 @@ export function Barra({
   const mover = (e: PointerEvent<HTMLElement>) => {
     const d = drag.current;
     if (!d) return;
-    const delta = Math.round((e.clientX - d.x) / COL);
+    const delta = Math.round((e.clientX - d.x) / (d.op === 'estirar' ? unidadEstirar : unidad));
     if (delta !== d.delta) {
       d.delta = delta;
       onArrastre(d.op, delta, 'mover');
@@ -91,10 +100,10 @@ export function Barra({
       className={`absolute rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text ${
         tipo === 'tarea' ? 'top-[7px] h-5' : 'top-[11px] h-3'
       } ${editable ? 'cursor-grab touch-none select-none active:cursor-grabbing' : onAbrir ? 'cursor-pointer' : ''} ${alerta ? 'ring-2 ring-hot' : ''}`}
-      style={{ left, width: Math.max(width, COL / 2), background: `var(--c-${color})`, opacity: tipo === 'paso' ? 0.7 : 0.95 }}
+      style={{ left, width: Math.max(width, Math.min(COL / 2, col / 2)), background: `var(--c-${color})`, opacity: tipo === 'paso' ? 0.7 : 0.95 }}
     >
       {modificada && <span aria-hidden className="pointer-events-none absolute -inset-[3px] rounded-lg border-2 border-dashed border-accent" />}
-      {deadline != null && <span aria-hidden className="absolute -top-[3px] -bottom-[3px] w-[3px] rounded bg-text" style={{ left: deadline + COL - 3 }} />}
+      {deadline != null && <span aria-hidden className="absolute -top-[3px] -bottom-[3px] w-[3px] rounded bg-text" style={{ left: deadline + col - 3 }} />}
       {editable && (
         <span aria-hidden onPointerDown={empezar('estirar')} className="absolute top-0 right-0 h-full w-2.5 cursor-ew-resize rounded-r-md bg-black/25 before:absolute before:-inset-y-1.5 before:-right-1.5 before:left-0 before:content-['']" />
       )}

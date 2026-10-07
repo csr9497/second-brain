@@ -62,6 +62,7 @@ erDiagram
     bool done
     date start_date
     int duracion_dias "fin = inicio + días - 1"
+    int duracion_min "tiempo estimado (alternativa al rango): un solo día"
     numeric position
   }
   habits {
@@ -139,4 +140,4 @@ erDiagram
 
 Ver `supabase/migrations/` para el DDL ejecutable (con `user_id` y RLS por tabla).
 
-- **`aplicar_plan(cambios jsonb)`** (RPC, `security invoker`): aplica en una transacción los cambios del Gantt — `{"tasks":[{id,start_date,deadline}],"steps":[{id,start_date,duracion_dias}]}` —; una fila ajena o inexistente (`P0002`) o un CHECK violado aborta todo.
+- **`aplicar_plan(cambios jsonb)`** (RPC, `security invoker`): aplica en una transacción los cambios del Gantt — `{"tasks":[{id,start_date,deadline}],"steps":[{id,start_date,duracion_dias,duracion_min?}]}` (sin `duracion_min`, no se toca) —; una fila ajena o inexistente (`P0002`) o un CHECK violado aborta todo.

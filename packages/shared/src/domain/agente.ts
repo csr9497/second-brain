@@ -89,6 +89,7 @@ export function detallarTarea(t: Task, hoy: string, habitos: { id: string; nombr
       inicio: s.startDate,
       dias: s.duracionDias,
       fin: finPaso(s),
+      minutos: s.duracionMin,
       fueraDePlazo: fueraDePlazo(s, plazo),
     })),
   };

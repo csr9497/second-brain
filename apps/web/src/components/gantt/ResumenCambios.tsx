@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { daysBetween, type Cambio } from '@sb/shared';
+import { daysBetween, duracionHoras, type Cambio } from '@sb/shared';
 import { api } from '../../lib/api';
 import { rangoCompacto, shortDate } from '../../lib/format';
 import { TODAY_KEY } from '../../lib/useToday';
@@ -65,6 +65,8 @@ export function ResumenCambios({ cambios, onVolver, onGuardado }: { cambios: Cam
                   {rangoCompacto(c.antes) ?? 'sin programar'} ⇒ {rangoCompacto(c.despues) ?? 'sin programar'}
                   {diferencia(c.antes.startDate, c.despues.startDate)}
                   {c.antes.duracionDias !== c.despues.duracionDias && ` · ${c.antes.duracionDias} ⇒ ${c.despues.duracionDias} días`}
+                  {c.antes.duracionMin != null && c.despues.duracionMin != null && c.antes.duracionMin !== c.despues.duracionMin &&
+                    ` · ${duracionHoras(c.antes.duracionMin)} ⇒ ${duracionHoras(c.despues.duracionMin)}`}
                 </span>
                 {c.fueraDePlazo && <span className="mt-1 inline-block rounded-full bg-hot/15 px-2 py-0.5 text-[11px] font-semibold text-hot">fuera de plazo</span>}
               </>

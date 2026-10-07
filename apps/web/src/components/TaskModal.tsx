@@ -1,13 +1,17 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
+import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { daysBetween, encadenar, formatFrecuencia, fueraDePlazo, todayISO, type CreateTaskInput, type Task, type TaskStatus } from '@sb/shared';
+import { daysBetween, duracionPaso, encadenar, formatFrecuencia, fueraDePlazo, todayISO, type CreateTaskInput, type Task, type TaskStatus } from '@sb/shared';
 import { api } from '../lib/api';
 import { rangoPaso } from '../lib/format';
-import { diasDe, nombrePaso, programacion, type Seleccion, type StepDraft } from '../lib/pasosBorrador';
-import { PRIORITY_OPTIONS, TASK_STATUS_OPTIONS, TASK_TYPE_OPTIONS } from '../lib/options';
+import { aBorrador, claveDe, diasDe, finBorrador, minutosDe, nombrePaso, pasoVacio, porTiempo, programacion, type Seleccion, type StepDraft } from '../lib/pasosBorrador';
+import { PRIORITY_OPTIONS, TASK_STATUS_OPTIONS, TASK_TYPE_OPTIONS, UNIDADES_TIEMPO } from '../lib/options';
 import { useHabits } from '../lib/useHabits';
 import { TODAY_KEY } from '../lib/useToday';
 import { ConfirmDelete, Field, Modal, ModalActions } from './Modal';
+import { RangoFecha } from './ui/RangoFecha';
 import { PlanificadorTarea } from './planner/PlanificadorTarea';
 import { Select, type SelectOption } from './ui/Select';
 import { confirmar } from './ui/Confirmar';
@@ -48,8 +52,8 @@ export function TaskModal({
   const [habitIds, setHabitIds] = useState<string[]>(task?.habitIds ?? []);
   const [steps, setSteps] = useState<StepDraft[]>(
     task
-      ? task.steps.map((s) => ({ id: s.id, title: s.title, startDate: s.startDate ?? '', dias: s.duracionDias ? String(s.duracionDias) : '', done: s.done }))
-      : [{ title: '', startDate: '', dias: '' }],
+      ? task.steps.map((s) => ({ id: s.id, title: s.title, ...aBorrador(s), done: s.done }))
+      : [pasoVacio()],
   );
   // Días seleccionados en el planificador para agregar un paso
   const [sel, setSel] = useState<Seleccion | null>(null);
@@ -64,13 +68,22 @@ export function TaskModal({
       return;
     onClose();
   };
+  const sensores = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const ordenarPasos = ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) return;
+    setSteps((xs) => arrayMove(xs, xs.findIndex((x) => claveDe(x) === active.id), xs.findIndex((x) => claveDe(x) === over.id)));
+  };
   const setStep = (i: number, patch: Partial<StepDraft>) => setSteps((xs) => xs.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const setValue = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
   const quitarPaso = (i: number) => setSteps((xs) => xs.filter((_, j) => j !== i));
   /** Paso nuevo con el rango seleccionado; reemplaza el paso vacío inicial si no se usó. */
-  const agregarPaso = (nombre: string, inicio: string, fin: string) => {
-    const nuevo: StepDraft = { title: nombre, startDate: inicio, dias: String(daysBetween(inicio, fin) + 1) };
+  const agregarPaso = (nombre: string, inicio: string, fin: string, tiempo?: Pick<StepDraft, 'tiempo' | 'unidad'>) => {
+    const nuevo: StepDraft = { uid: crypto.randomUUID(), title: nombre, startDate: inicio, dias: String(daysBetween(inicio, fin) + 1), ...(inicio === fin ? tiempo : {}) };
     const vacio = steps.length === 1 && !steps[0].id && !steps[0].title.trim() && !steps[0].startDate;
     setSteps(vacio ? [nuevo] : [...steps, nuevo]);
     setVerPasos(true);
@@ -145,11 +158,25 @@ export function TaskModal({
         }
         const { draft, title } = k;
         const prog = programacion(draft);
-        if (title !== s.title || prog.startDate !== (s.startDate ?? null) || prog.duracionDias !== (s.duracionDias ?? null)) {
+        if (
+          title !== s.title ||
+          prog.startDate !== (s.startDate ?? null) ||
+          prog.duracionDias !== (s.duracionDias ?? null) ||
+          prog.duracionMin !== s.duracionMin
+        ) {
           await api.updateStep(s.id, { title, ...prog });
         }
       }
-      for (const [i, s] of steps.entries()) if (!s.id && titulos[i]) await api.addStep(task.id, { title: titulos[i], ...programacion(s) });
+      // Orden: si se reordenó (o un paso nuevo quedó entre los guardados) se renumera la lista de esta tarea;
+      // si no, los guardados conservan su position y los nuevos van al final
+      const guardados = steps.filter((s, i) => titulos[i]);
+      const esperado = [...task.steps.filter((s) => kept.has(s.id)).map((s) => s.id), ...guardados.filter((s) => !s.id).map(() => null)];
+      const reordenado = guardados.some((s, k) => (s.id ?? null) !== esperado[k]);
+      for (const [k, s] of guardados.entries()) {
+        const position = reordenado ? (k + 1) * 1000 : undefined;
+        if (!s.id) await api.addStep(task.id, { title: titulos[steps.indexOf(s)], ...programacion(s) }, position);
+        else if (position !== undefined && position !== task.steps.find((x) => x.id === s.id)!.position) await api.moverPaso(s.id, position);
+      }
     },
     onSuccess: () => {
       toast(editing ? '✅ Tarea actualizada' : '✅ Tarea creada');
@@ -285,12 +312,16 @@ export function TaskModal({
           </summary>
           <div className="px-3 pt-1 pb-3">
             {/* Una fila por paso: nombre y, al costado, inicio, días y el rango calculado */}
+            {/* Arrastrar ⠿ cambia solo el orden en que se muestran los pasos (no sus fechas) */}
+            <DndContext sensors={sensores} collisionDetection={closestCenter} onDragEnd={ordenarPasos}>
+            <SortableContext items={steps.map(claveDe)} strategy={verticalListSortingStrategy}>
             <div role="group" aria-label="Pasos" className="mb-2 flex flex-col divide-y divide-line/60">
               {steps.map((s, i) => {
                 const p = programacion(s);
-                const rango = rangoPaso(p);
+                const varios = (diasDe(s) ?? 1) > 1;
+                const fuera = !s.done && fueraDePlazo(p, { startDate: form.startDate || null, deadline: form.deadline || null });
                 return (
-                  <div key={s.id ?? `new-${i}`} className="flex flex-wrap items-center gap-x-2 gap-y-1.5 py-1.5">
+                  <FilaOrdenable key={claveDe(s)} id={claveDe(s)} etiqueta={`Mover paso ${i + 1}`} alerta={fuera}>
                     <input
                       className="input min-w-44 flex-1 py-1 text-[13px]"
                       aria-label={`Nombre del paso ${i + 1}`}
@@ -299,43 +330,63 @@ export function TaskModal({
                       onChange={(e) => setStep(i, { title: e.target.value })}
                     />
                     <div className="flex flex-wrap items-center gap-2">
-                      <input
-                        type="date"
-                        aria-label={`Inicio del paso ${i + 1}`}
-                        className="input w-auto py-1 text-[13px]"
-                        value={s.startDate}
-                        onChange={(e) => setStep(i, { startDate: e.target.value })}
+                      {/* Duración: un rango de fechas, o un día con tiempo estimado (excluyentes) */}
+                      <RangoFecha
+                        etiqueta={`Fecha del paso ${i + 1}`}
+                        inicio={s.startDate}
+                        fin={finBorrador(s)}
+                        alerta={fuera ? 'Fuera del plazo de la tarea' : null}
+                        onChange={(inicio, fin) =>
+                          setStep(i, {
+                            startDate: inicio,
+                            dias: inicio ? String(daysBetween(inicio, fin) + 1) : '',
+                            // un rango de varios días no admite tiempo estimado
+                            ...(inicio && fin > inicio ? { tiempo: '' } : {}),
+                          })
+                        }
                       />
-                      <label className="flex items-center gap-1 text-xs text-muted">
+                      <div className="flex items-center gap-1" title={varios ? 'El tiempo estimado es para pasos de un solo día' : 'Tiempo estimado (opcional)'}>
                         <input
                           type="number"
                           min={1}
-                          step={1}
-                          inputMode="numeric"
-                          aria-label={`Días del paso ${i + 1}`}
+                          step="any"
+                          inputMode="decimal"
+                          aria-label={`Tiempo estimado del paso ${i + 1}`}
                           placeholder="—"
-                          className="input w-16 py-1 text-[13px]"
-                          value={s.dias}
-                          onChange={(e) => setStep(i, { dias: e.target.value })}
+                          disabled={varios}
+                          className="input w-16 py-1 text-[13px] disabled:opacity-40"
+                          value={varios ? '' : (s.tiempo ?? '')}
+                          onChange={(e) => setStep(i, { tiempo: e.target.value })}
                         />
-                        días
-                      </label>
-                      <span className="w-32 text-xs text-muted">{rango ? `${rango} · ${p.duracionDias} ${p.duracionDias === 1 ? 'día' : 'días'}` : 'Sin programar'}</span>
-                      {!s.done && fueraDePlazo(p, { startDate: form.startDate || null, deadline: form.deadline || null }) && (
-                        <span className="rounded-full bg-hot/15 px-2 py-0.5 text-[11px] font-semibold text-hot">fuera de plazo</span>
-                      )}
+                        <div className={`w-[74px] ${varios ? 'pointer-events-none opacity-40' : ''}`}>
+                          <Select
+                            aria-label={`Unidad del tiempo del paso ${i + 1}`}
+                            className="py-1 text-[13px]"
+                            value={s.unidad ?? 'h'}
+                            onChange={(v) => setStep(i, { unidad: v })}
+                            options={UNIDADES_TIEMPO}
+                          />
+                        </div>
+                      </div>
+                      {/* Solo la duración calculada; ancho fijo para que el aviso no mueva la fila */}
+                      <span className="w-32 truncate text-xs text-muted" aria-live="polite">
+                        {s.startDate ? duracionPaso(p) : porTiempo(s) ? <span className="text-hot">elige un día</span> : 'Sin fecha'}
+                        {fuera && <span className="text-[10.5px] text-hot"> · fuera de plazo</span>}
+                      </span>
                       <button type="button" title="Quitar paso" aria-label={`Quitar paso ${i + 1}`} className="text-base text-faint hover:text-text" onClick={() => quitarPaso(i)}>
                         ✕
                       </button>
                     </div>
-                  </div>
+                  </FilaOrdenable>
                 );
               })}
             </div>
+            </SortableContext>
+            </DndContext>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => setSteps((xs) => [...xs, { title: '', startDate: '', dias: '' }])}
+                onClick={() => setSteps((xs) => [...xs, pasoVacio()])}
                 className="rounded-lg border border-dashed border-line px-2.5 py-[5px] text-xs font-semibold text-muted"
               >
                 + Añadir paso
@@ -347,11 +398,20 @@ export function TaskModal({
                   // Se calcula fuera del updater de setSteps: React puede ejecutarlo dos veces (StrictMode)
                   const desde = form.startDate || todayISO();
                   const nombrados = steps.filter((s) => s.title.trim());
-                  const encadenados = encadenar(nombrados.map((s) => ({ startDate: null, duracionDias: diasDe(s) })), desde);
+                  // Los de tiempo estimado se encadenan en el mismo día (jornada de 8 h); los de días, día tras día
+                  const encadenados = encadenar(
+                    nombrados.map((s) =>
+                      minutosDe(s) != null && (diasDe(s) ?? 1) === 1
+                        ? { startDate: null, duracionDias: 1, duracionMin: minutosDe(s) }
+                        : { startDate: null, duracionDias: diasDe(s), duracionMin: null },
+                    ),
+                    desde,
+                  );
                   const nuevo = new Map(nombrados.map((s, i) => [s, encadenados[i]]));
                   setSteps(
                     steps.map((x) => {
                       const e = nuevo.get(x);
+                      // solo cambian las fechas: el tiempo y su unidad quedan como se escribieron
                       return e ? { ...x, startDate: e.startDate ?? '', dias: String(e.duracionDias) } : x;
                     }),
                   );
@@ -383,5 +443,31 @@ export function TaskModal({
         </ModalActions>
       </form>
     </Modal>
+  );
+}
+
+/** Fila de paso reordenable con su asa ⠿ (ratón, táctil o teclado: espacio + flechas). */
+function FilaOrdenable({ id, etiqueta, alerta = false, children }: { id: string; etiqueta: string; alerta?: boolean; children: ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Translate.toString(transform), transition }}
+      // Fuera de plazo: solo color (borde y fondo tenues), sin cambiar el tamaño de la fila
+      className={`-ml-2 flex flex-wrap items-center gap-x-2 gap-y-1.5 border-l-2 py-1.5 pl-1.5 ${alerta ? 'border-hot bg-hot/5' : 'border-transparent'} ${
+        isDragging ? 'relative z-10 rounded-md bg-surface opacity-80 shadow-md' : ''
+      }`}
+    >
+      <span
+        {...attributes}
+        {...listeners}
+        aria-label={etiqueta}
+        title="Arrastra para reordenar"
+        className="flex-none cursor-grab touch-none text-[15px] text-faint select-none hover:text-text active:cursor-grabbing"
+      >
+        ⠿
+      </span>
+      {children}
+    </div>
   );
 }

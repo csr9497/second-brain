@@ -1,4 +1,6 @@
-import { finPaso } from '@sb/shared';
+import { duracionHoras, finPaso } from '@sb/shared';
+
+type Programable = { startDate: string | null; duracionDias: number | null; duracionMin?: number | null };
 
 const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 const DIAS_LARGO = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -47,10 +49,11 @@ export function greeting(hour = new Date().getHours()) {
   return 'Buenas noches. Cierra el día aquí.';
 }
 
-/** "6 oct → 8 oct" (o "6 oct" si dura un día); null si el paso no está programado. */
-export function rangoPaso(p: { startDate: string | null; duracionDias: number | null }) {
+/** "6 oct → 8 oct", "6 oct" si dura un día o "6 oct · 1 h 30 min" si es por tiempo; null si no está programado. */
+export function rangoPaso(p: Programable) {
   const fin = finPaso(p);
   if (!p.startDate || !fin) return null;
+  if (p.duracionMin != null) return `${shortDate(p.startDate)} · ${duracionHoras(p.duracionMin)}`;
   return fin === p.startDate ? shortDate(p.startDate) : `${shortDate(p.startDate)} → ${shortDate(fin)}`;
 }
 
@@ -63,9 +66,10 @@ export function mesLabel(mes: string) {
 }
 
 /** "7–8 oct", "30 sep–2 oct" o "9 oct" (para listas de antes ⇒ después); null si no está programado. */
-export function rangoCompacto(p: { startDate: string | null; duracionDias: number | null }) {
+export function rangoCompacto(p: Programable) {
   const fin = finPaso(p);
   if (!p.startDate || !fin) return null;
+  if (p.duracionMin != null) return `${shortDate(fin)} · ${duracionHoras(p.duracionMin)}`;
   if (fin === p.startDate) return shortDate(fin);
   const [d1, m1] = shortDate(p.startDate).split(' ');
   return p.startDate.slice(0, 7) === fin.slice(0, 7) ? `${d1}–${shortDate(fin)}` : `${d1} ${m1}–${shortDate(fin)}`;

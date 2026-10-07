@@ -22,7 +22,7 @@ const task = (id: string, o: Partial<Task> = {}): Task => ({
   habitIds: [],
   ...o,
 });
-const step = (id: string, startDate: string, duracionDias: number) => ({ id, taskId: 't', title: id, done: false, position: 1, startDate, duracionDias });
+const step = (id: string, startDate: string, duracionDias: number) => ({ id, taskId: 't', title: id, done: false, position: 1, startDate, duracionDias, duracionMin: null });
 const at = (y: number, m: number, d: number) => new Date(y, m - 1, d, 10).toISOString();
 const habit = (id: string, turnos: HabitSlot[][], desde = at(2026, 10, 1)): HabitRow => ({
   id,

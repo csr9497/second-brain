@@ -87,8 +87,8 @@ const tarea: Task = {
   notes: null,
   completedAt: null,
   steps: [
-    { id: 's1', taskId: 't1', title: 'Leer', done: true, startDate: '2026-10-05', duracionDias: 1, position: 1 },
-    { id: 's2', taskId: 't1', title: 'Escribir', done: false, startDate: '2026-10-06', duracionDias: 3, position: 2 },
+    { id: 's1', taskId: 't1', title: 'Leer', done: true, startDate: '2026-10-05', duracionDias: 1, duracionMin: null, position: 1 },
+    { id: 's2', taskId: 't1', title: 'Escribir', done: false, startDate: '2026-10-06', duracionDias: 3, duracionMin: null, position: 2 },
   ],
   habitIds: ['leer'],
 };

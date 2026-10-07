@@ -108,7 +108,7 @@ describe('buildWeeklyReport', () => {
     expect(r.perProject.find((p) => p.id === 'p2')).toMatchObject({ total: 0, touched: true });
   });
   it('tareas en seguimiento con el progreso de sus pasos', () => {
-    const step = (id: string, o: Partial<Task['steps'][number]> = {}) => ({ id, taskId: 't', title: id, done: false, startDate: null, duracionDias: null, position: 1, ...o });
+    const step = (id: string, o: Partial<Task['steps'][number]> = {}) => ({ id, taskId: 't', title: id, done: false, startDate: null, duracionDias: null, duracionMin: null, position: 1, ...o });
     const tareas = [
       task('vieja', { projectId: 'p', status: 'hecha', deadline: '2026-09-20', completedAt: at(2026, 9, 20) }),
       task('hecha', { projectId: 'p', status: 'hecha', completedAt: at(2026, 9, 29) }),
