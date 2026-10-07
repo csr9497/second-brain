@@ -17,6 +17,7 @@ import { ConfirmHost } from './components/ui/Confirmar';
 import { useVista, hrefVista, listaVistas, puedeSalir, VISTAS } from './lib/useVista';
 import type { ModalState } from './lib/modal';
 import { todayISO } from '@sb/shared';
+import { useWebMcp } from './lib/webmcp/registrar';
 
 export function App() {
   const session = useSession();
@@ -28,6 +29,7 @@ export function App() {
 function Home() {
   const qc = useQueryClient();
   const vista = useVista();
+  useWebMcp();
   const [modal, setModal] = useState<ModalState>(null);
   const close = useCallback(() => setModal(null), []);
   // Crear/editar un hábito cierra "Gestionar hábitos" y vuelve a él al terminar (sin modales apilados)

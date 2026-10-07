@@ -291,6 +291,12 @@ export const api = {
   },
 
   // Tareas
+  task: getTask,
+  /** Por título (sin distinguir mayúsculas), las más recientes primero; máx. 20 */
+  searchTasks: async (texto: string): Promise<Task[]> => {
+    const patron = `%${texto.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    return must(await sb.from('tasks').select(TASK_SELECT).ilike('title', patron).order('created_at', { ascending: false }).limit(20)).map(toTask);
+  },
   createTask: async (input: CreateTaskInput): Promise<Task> => {
     const { steps, habitIds, ...fields } = createTaskInput.parse(input);
     const position = positionBetween(await maxPosition('tasks'), null);
@@ -337,6 +343,13 @@ export const api = {
   },
 
   // Pasos (el trigger steps_sync_task ajusta el estado de la tarea)
+  step: async (id: string): Promise<{ id: string; taskId: string; title: string; done: boolean }> => {
+    const s = must(await sb.from('steps').select('id, task_id, title, done').eq('id', id).single());
+    return { id: s.id, taskId: s.task_id, title: s.title, done: s.done };
+  },
+  setStepDone: async (id: string, done: boolean) => {
+    must(await sb.from('steps').update({ done }).eq('id', id));
+  },
   toggleStep: async (id: string) => {
     const { done } = must(await sb.from('steps').select('done').eq('id', id).single());
     must(await sb.from('steps').update({ done: !done }).eq('id', id));

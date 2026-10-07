@@ -5,7 +5,37 @@ y operar** Second Brain conversando ("¿qué tengo hoy?", "anota esta idea", "mu
 vencidas al viernes"). Y que el alcance de lo que Claude puede hacer **crezca solo
 cuando Cesar lo confirma**.
 
-Estado: análisis. Nada de esto está implementado todavía.
+Estado: la **Fase W (WebMCP)** está implementada, con lectura más capturar/marcar. El servidor MCP (variantes B y C) sigue en análisis.
+
+---
+
+## 0. Fase W · WebMCP (implementada)
+
+La página registra herramientas en `document.modelContext`, la API imperativa de WebMCP en Chrome. El antiguo `navigator.modelContext` está obsoleto desde julio de 2026. Un agente del navegador las usa **con la sesión de Cesar**, sin servidor ni migraciones, y lo que escribe aparece en la pantalla al momento.
+
+- **Catálogo:** `packages/shared/src/herramientas.ts` (`@sb/shared/herramientas`) contiene nombre, descripción, entrada Zod (que se convierte a JSON Schema con `z.toJSONSchema`) y nivel. Es el mismo catálogo que reutilizarán las variantes B y C. Es una subruta aparte porque importa valores de `index.ts`.
+- **Lógica pura con tests:** `packages/shared/src/domain/agente.ts`:
+  - `resolverMarcaHabito` decide qué turno y qué franja marcar, y es idempotente;
+  - los `resumir*`/`detallarTarea` producen salidas compactas con ids.
+- **Web:** `apps/web/src/lib/webmcp/`. `ejecutar.ts` asigna cada herramienta a la llamada de `api.ts` correspondiente. `registrar.ts` hace el resto:
+  - valida la entrada y devuelve `{ hoy, tz, ... }`; los errores salen legibles con `isError`;
+  - tras escribir, `invalidateQueries()`;
+  - el `AbortController` desregistra todo al cerrar sesión;
+  - inyecta el token del origin trial.
+- **Habilitar:** en local, con el flag de WebMCP de Chrome. En producción, con el origin trial (Chrome 149–156): el token para `https://csr9497.github.io` va en la variable del repo `VITE_WEBMCP_OT_TOKEN`. Sin WebMCP, la app no registra nada.
+- **Anotaciones:** las de nivel 0 llevan `readOnlyHint`. Todas llevan `untrustedContentHint`, porque devuelven texto escrito por el usuario. Ninguna es `consequentialHint`, porque esta fase no tiene nada destructivo.
+
+| Nivel | Herramientas |
+|---|---|
+| 0 · Lectura | `get_today`, `list_tasks(filtro)`, `get_task(id)`, `search_tasks(texto)`, `get_calendar(mes)`, `list_projects(estado?)`, `list_habits`, `list_ideas`, `get_weekly_review` |
+| 1 · Capturar y marcar | `capture_idea`, `create_task` (con pasos y `habitIds`), `add_step`, `set_task_done(id, hecho)`, `set_step_done(id, hecho)`, `set_habit_done(habitId, hecho, franja?)` |
+
+Las herramientas de marcar reciben `hecho` en vez de alternar el estado: un agente que reintenta no deshace lo que ya hizo. Marcar una tarea o un paso también marca hoy sus **hábitos vinculados** (trigger). Desmarcarlos borra solo los registros que ellos crearon. Los **hábitos semanales** se marcan una vez al día.
+
+Pendiente para fases siguientes de W:
+- edición (nivel 2);
+- herramientas de interfaz: `open_task`, `propose_steps` sobre el borrador del planificador, `go_to(vista)`;
+- confirmar qué agentes consumen WebMCP (Gemini en Chrome, extensiones, Claude en Chrome).
 
 ---
 
@@ -16,7 +46,8 @@ Estado: análisis. Nada de esto está implementado todavía.
 | No hay servidor propio; el navegador habla con Supabase y **RLS es la única barrera** (anon key pública). | El MCP debe operar **como Cesar** (JWT de usuario + RLS), nunca con `service_role`. Así hereda la misma seguridad que la web. |
 | Tres reglas viven en **triggers** (`completed_at`, `steps_sync_task`, `last_activity_at`). | Si el MCP escribe por PostgREST igual que la web, esas reglas se cumplen solas. |
 | `apps/web/src/lib/api.ts` es la única capa de datos, pero está **acoplada** al singleton `sb` y a `todayISO()` con la hora local. | Hay que extraerla a una fábrica `createApi(sb, clock)` reutilizable desde web, MCP local y MCP remoto. Si no, la lógica se duplica y diverge. |
-| "Hoy", la semana y la franja salen de la **hora del navegador**. Un servidor (Node o Edge Function) corre en UTC. | El MCP necesita una **zona horaria explícita** (`America/Lima`). `todayISO`/`slotForHour` deben aceptar `tz`. Sin esto, de 19:00 a 24:00 en Lima "hoy" sería mañana. |
+| "Hoy", la semana y la franja salen de la **hora del navegador**. Un servidor (Node o Edge Function) corre en UTC. | El MCP necesita una **zona horaria explícita** (`America/Lima`). `todayISO`/`slotForHour` deben aceptar `tz`. Sin esto, de 19:00 a 24:00 en Lima "hoy" sería mañana. Los triggers de la base ya lo resuelven: usan `public.hora_local()`, que lee la cabecera `x-timezone`, así que el servidor solo tiene que enviarla. |
+| Las tareas tienen **hábitos vinculados** (`task_habits`, `habitIds`) y hay **hábitos semanales** (`veces_semana`). | `create_task` acepta `habitIds`. Las lecturas muestran los semanales aparte, y estos no cuentan en el % del día ni en la racha. |
 | `api.ts` no expone CRUD de hábitos, áreas ni metas, ni "procesar idea". Los esquemas Zod (`createHabitInput`, `updateIdeaInput`…) sí existen. | El MCP puede cubrir esas operaciones a la vez que la web, con los mismos esquemas. |
 | `supabase/config.toml` ya trae `[auth.oauth_server]` (desactivado) y `[edge_runtime]`. | Supabase Auth puede actuar como **servidor OAuth 2.1**, que es lo que exige un conector remoto de claude.ai. Una Edge Function puede alojar el MCP sin crear infraestructura nueva. |
 
@@ -214,6 +245,7 @@ Hay tres capas independientes. Ninguna basta sola.
 
 | Fase | Entrega | Validación |
 |---|---|---|
+| **W · WebMCP** ✅ | Catálogo compartido + registro en la página (niveles 0–1). | Tests de `agente`/catálogo; e2e con un `modelContext` simulado (15 herramientas, idempotencia, hábitos vinculados, desregistro al salir). |
 | **M0 · Base** | Zona horaria en fechas + `createApi`; la web sigue igual. | `pnpm test`, `pnpm typecheck`, prueba manual de Hoy. |
 | **M1 · MCP local** | `apps/mcp` stdio con niveles 0–1 y permisos de Claude Code. | "¿Qué tengo hoy?", "anota idea X" y "marca hábito Y" desde Claude Code contra la DB local. |
 | **M2 · Confianza** | Migración `mcp_*`, filtrado por nivel, niveles 2–3, `confirm_action`, auditoría, `undo` y selector en la web. | pgTAP + tests de herramientas; intentar `delete_task` con nivel 1 → rechazo. |
@@ -234,7 +266,7 @@ justo después o junto con la Fase 5.
 - **Prompt injection**: el texto de ideas, notas y títulos llega a Claude como dato.
   Lo mitigan la capa 2 (nivel solo desde la web), la capa 3 (destructivo = dos
   pasos + humano) y la ausencia de herramientas de SQL libre.
-- **Caché de la web**: los cambios hechos por Claude no aparecen en una pestaña
+- **Caché de la web** (solo variantes B y C; en WebMCP se invalida al escribir): los cambios hechos por Claude no aparecen en una pestaña
   abierta hasta el siguiente refetch. TanStack Query ya refresca al enfocar la
   ventana. Si no alcanza, se puede usar Supabase Realtime sobre `tasks`,
   `habit_logs` e `ideas` para invalidar `['today']`.

@@ -21,6 +21,8 @@ jobs:
       # Variables del repo (Settings → Secrets and variables → Actions → Variables)
       VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
       VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+      # Opcional: token del origin trial de WebMCP para csr9497.github.io
+      VITE_WEBMCP_OT_TOKEN: ${{ vars.VITE_WEBMCP_OT_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

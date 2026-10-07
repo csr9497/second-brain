@@ -43,6 +43,10 @@ la app funcional. Estimaciones en jornadas de dev enfocadas (ajústalas a tu rit
 - Deadlines y "nudge" de proyectos sin avanzar.
 - Métricas históricas (tendencia de hábitos, cumplimiento por mes).
 
+## Fase W — Agentes vía WebMCP
+- ✅ Herramientas de lectura y de capturar/marcar registradas en la página (`document.modelContext`), con su catálogo en `@sb/shared/herramientas`. Ver `docs/MCP.md` §0.
+- Siguiente: edición (nivel 2), herramientas de interfaz (abrir tarea, proponer pasos en el planificador) y el servidor MCP (variantes B y C).
+
 ## Orden recomendado de valor
 1 → 2 → 3 → 5 (alertas) → 4 → 6. Es decir: consíguete el núcleo diario y las alertas
 antes que la revisión, porque el hábito de uso se sostiene con lo diario + los avisos.
