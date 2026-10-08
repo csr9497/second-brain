@@ -11,6 +11,8 @@ const FRANJAS: HabitSlot[] = ['manana', 'tarde', 'noche'];
 const POR_DEFECTO: AvisosConfig = { activo: true, horas: { manana: '11:00', tarde: '17:00', noche: '21:30' } };
 
 const MENSAJE: Record<Exclude<EstadoPush, 'activo' | 'inactivo'>, string> = {
+  nativo:
+    'En la app, los avisos llegan por la PWA instalada (Safari → Agregar a inicio). La card en vivo de la pantalla de bloqueo se activa al abrir la app.',
   'sin-soporte': 'Este navegador no admite notificaciones push.',
   instalar: 'En iPhone, instala la app para recibir avisos: Compartir → «Agregar a inicio», y ábrela desde ahí.',
   bloqueado: 'Bloqueaste las notificaciones de este sitio. Actívalas en los ajustes del navegador.',

@@ -20,6 +20,7 @@ import { useVista, hrefVista, listaVistas, puedeSalir, VISTAS } from './lib/useV
 import type { ModalState } from './lib/modal';
 import { todayISO } from '@sb/shared';
 import { useWebMcp } from './lib/webmcp/registrar';
+import { useLiveActivity } from './lib/nativo/useLiveActivity';
 
 export function App() {
   const session = useSession();
@@ -39,6 +40,9 @@ function Home() {
   // el deadline queda vacío (uno vencido mandaría la tarea a incumplimiento)
   const nuevaTarea = (rango?: { inicio: string; fin: string }) =>
     setModal({ kind: 'tarea', inicial: rango ? { startDate: rango.inicio, deadline: rango.fin < todayISO() ? '' : rango.fin } : undefined });
+
+  // App nativa: la Live Activity sigue a Hoy
+  useLiveActivity();
 
   // Herramientas de interfaz de WebMCP: no pisan un modal abierto; cambiar de vista respeta la guardia
   useWebMcp({

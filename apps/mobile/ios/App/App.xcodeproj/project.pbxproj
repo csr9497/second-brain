@@ -7,14 +7,18 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		03B86BECA19AA2AF0ED26BC5 /* Atributos.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBD50B9E303BDF6917B3A007 /* Atributos.swift */; };
 		1CA998C627766237F2232BEB /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = FD127B870EFB46EFAC91834E /* CapApp-SPM */; };
 		26E51AC20D9FE4119F144870 /* public in Resources */ = {isa = PBXBuildFile; fileRef = 7E5BBB12596EE01767A6151A /* public */; };
 		2700A5422E45C887BEAE5B76 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 9CC6C49B810BBC284BCED483 /* Main.storyboard */; };
 		3FB3C8C0634A765EE81D042E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 76989E05CECAD7B8B3C424A7 /* Assets.xcassets */; };
+		4256AF3DDDB7CEA7131A90DB /* BridgeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBAD08F2F68C98A276C21BAD /* BridgeViewController.swift */; };
 		4FB34C264C0E482A4F3BA9EA /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 23F8D68E28D07D16EB72E4AA /* LaunchScreen.storyboard */; };
 		5E04533C01261A377D816DB8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 8776CD2CC1249496A6F18C86 /* config.xml */; };
 		67740B5377F807ABF1532F55 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED2016878D44EAA9692D059F /* SceneDelegate.swift */; };
 		81138B00431411BE1EF97D97 /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 68ED4E8FE0185474B6E8E85B /* capacitor.config.json */; };
+		9101D4FCC7E35D4A64425C4A /* Sesion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E26B346DDCD3840AD099692 /* Sesion.swift */; };
+		C7F7669C4295218B6825AFAD /* LiveActivityPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C654DAB3A8A1AFD16E0DA9C /* LiveActivityPlugin.swift */; };
 		E8E03F4FB1BE61A377693A7C /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9420949282AB92AA28A975D3 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
@@ -22,6 +26,8 @@
 		00974E067C806B76249CC31E /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		1613B4CACB108E77F6BBEFAA /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		49D88A349FD70A9153DD2C03 /* App.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5C654DAB3A8A1AFD16E0DA9C /* LiveActivityPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityPlugin.swift; sourceTree = "<group>"; };
+		5E26B346DDCD3840AD099692 /* Sesion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sesion.swift; sourceTree = "<group>"; };
 		68ED4E8FE0185474B6E8E85B /* capacitor.config.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		6B04ADF7B81E144C4949AE51 /* CapApp-SPM */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "CapApp-SPM"; path = "CapApp-SPM"; sourceTree = SOURCE_ROOT; };
 		70FBD15B60B003AAE2FE5530 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -30,7 +36,9 @@
 		7E5BBB12596EE01767A6151A /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; name = public; path = App/public; sourceTree = SOURCE_ROOT; };
 		8776CD2CC1249496A6F18C86 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		9420949282AB92AA28A975D3 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		CBD50B9E303BDF6917B3A007 /* Atributos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Atributos.swift; sourceTree = "<group>"; };
 		ED2016878D44EAA9692D059F /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		FBAD08F2F68C98A276C21BAD /* BridgeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -66,6 +74,7 @@
 				7E5BBB12596EE01767A6151A /* public */,
 				ED2016878D44EAA9692D059F /* SceneDelegate.swift */,
 				23F8D68E28D07D16EB72E4AA /* LaunchScreen.storyboard */,
+				A04E1DB3589AF2332D437A35 /* LiveActivity */,
 				9CC6C49B810BBC284BCED483 /* Main.storyboard */,
 			);
 			path = App;
@@ -78,6 +87,17 @@
 			);
 			name = ios;
 			path = ..;
+			sourceTree = "<group>";
+		};
+		A04E1DB3589AF2332D437A35 /* LiveActivity */ = {
+			isa = PBXGroup;
+			children = (
+				CBD50B9E303BDF6917B3A007 /* Atributos.swift */,
+				FBAD08F2F68C98A276C21BAD /* BridgeViewController.swift */,
+				5C654DAB3A8A1AFD16E0DA9C /* LiveActivityPlugin.swift */,
+				5E26B346DDCD3840AD099692 /* Sesion.swift */,
+			);
+			path = LiveActivity;
 			sourceTree = "<group>";
 		};
 		A09E2501204CB86B4B2B6562 /* Packages */ = {
@@ -177,7 +197,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				E8E03F4FB1BE61A377693A7C /* AppDelegate.swift in Sources */,
+				03B86BECA19AA2AF0ED26BC5 /* Atributos.swift in Sources */,
+				4256AF3DDDB7CEA7131A90DB /* BridgeViewController.swift in Sources */,
+				C7F7669C4295218B6825AFAD /* LiveActivityPlugin.swift in Sources */,
 				67740B5377F807ABF1532F55 /* SceneDelegate.swift in Sources */,
+				9101D4FCC7E35D4A64425C4A /* Sesion.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

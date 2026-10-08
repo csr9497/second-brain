@@ -29,6 +29,12 @@ importers:
 
   apps/web:
     dependencies:
+      '@capacitor/app':
+        specifier: ^8.1.2
+        version: 8.1.2(@capacitor/core@8.5.3)
+      '@capacitor/core':
+        specifier: ^8.5.3
+        version: 8.5.3
       '@dnd-kit/core':
         specifier: ^6.3.1
         version: 6.3.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)

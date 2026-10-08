@@ -47,6 +47,9 @@
 
 @layer base {
   body { @apply bg-bg text-text font-sans antialiased; line-height: 1.5; }
+  /* viewport-fit=cover (app nativa y PWA en iPhone): el contenido no se mete bajo el notch ni los bordes.
+     En escritorio env() vale 0. Abajo cada pantalla deja su margen (el FAB ya suma safe-area-inset-bottom). */
+  body { padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left); }
   button { cursor: pointer; }
 }
 
