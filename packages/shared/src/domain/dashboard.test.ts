@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { HabitSlot, Task } from '../index';
-import { buildToday, buildWeeklyReport, doneByDate, habitsOn, projectViews, type DashboardInput, type HabitRow, type ProjectRow } from './dashboard';
+import { weekRange } from './dates';
+import { buildMonthlyReport, buildReport, buildToday, buildWeeklyReport, doneByDate, habitsOn, projectViews, type DashboardInput, type HabitRow, type ProjectRow } from './dashboard';
 
 // Jueves 2026-10-01, 15:00 hora local → franja "tarde"; semana 28 sep – 4 oct
 const now = new Date(2026, 9, 1, 15, 0);
@@ -358,5 +359,77 @@ describe('hábitos semanales', () => {
     expect(t.habits.semanales[0]).toMatchObject({ meta: 4, hechas: 0 });
     const r = buildWeeklyReport({ ...base, habits: [x], doneLogs: [{ habitId: 'x', fecha: '2026-09-29', slot: 'manana' }] }, false);
     expect(r.perHabit[0]).toMatchObject({ meta: 4, hechos: 0 });
+  });
+});
+
+describe('buildReport / buildMonthlyReport', () => {
+  it('buildReport con el rango de la semana equivale a buildWeeklyReport', () => {
+    expect(buildReport(input, weekRange(today), false)).toEqual(buildWeeklyReport(input, false));
+    expect(buildReport(input, weekRange(today), true)).toEqual(buildWeeklyReport(input, true));
+  });
+
+  // Jueves 2026-10-15; mes 1–31 oct; transcurridos: 1–15
+  const mitad = new Date(2026, 9, 15, 15, 0);
+  const diario = habit('d');
+  const semanal = habit('w', { position: 2, periods: [per(at(2026, 9, 1), null, [['manana']], 3)] });
+  const dl = (id: string, fechas: string[]) => fechas.map((fecha) => ({ habitId: id, fecha, slot: 'manana' as HabitSlot }));
+  const mes = { tasks: [], projects: [], now: mitad };
+
+  it('límites del mes de now', () => {
+    const r = buildMonthlyReport({ ...mes, habits: [diario], doneLogs: [] });
+    expect([r.monthStart, r.monthEnd]).toEqual(['2026-10-01', '2026-10-31']);
+    expect(r).not.toHaveProperty('weekStart');
+    expect(r).not.toHaveProperty('archived');
+  });
+
+  it('habitsPct cuenta solo los días transcurridos', () => {
+    const r = buildMonthlyReport({ ...mes, habits: [diario], doneLogs: dl('d', ['2026-10-01', '2026-10-02', '2026-10-03']) });
+    expect(r.habitsPct).toBe(20); // 3 de 15
+    expect(r.perHabit[0]).toMatchObject({ hechos: 3, turnos: 15 });
+  });
+
+  it('dias: uno por día del mes, pct null sin hábitos vigentes o en el futuro', () => {
+    const nuevo = habit('n', { periods: [per(at(2026, 10, 10))] });
+    const r = buildMonthlyReport({ ...mes, habits: [nuevo], doneLogs: dl('n', ['2026-10-10']) });
+    expect(r.dias).toHaveLength(31);
+    expect(r.dias[0]).toEqual({ fecha: '2026-10-01', pct: null, futuro: false }); // aún sin hábitos
+    expect(r.dias[9]).toEqual({ fecha: '2026-10-10', pct: 100, futuro: false });
+    expect(r.dias[10]).toEqual({ fecha: '2026-10-11', pct: 0, futuro: false });
+    expect(r.dias[14]).toMatchObject({ fecha: '2026-10-15', futuro: false });
+    expect(r.dias[15]).toEqual({ fecha: '2026-10-16', pct: null, futuro: true });
+  });
+
+  it('dias: pct redondeado sobre turnos de los diarios (semanales fuera)', () => {
+    const dos = habit('t', { periods: [per(at(2026, 9, 1), null, [['manana'], ['tarde'], ['noche']])] });
+    const r = buildMonthlyReport({ ...mes, habits: [dos, semanal], doneLogs: [...dl('t', ['2026-10-02']), ...dl('w', ['2026-10-02'])] });
+    expect(r.dias[1].pct).toBe(33); // 1 de 3
+  });
+
+  it('semanal: suma la meta de cada semana del mes (tope en la meta y en los días de la ventana)', () => {
+    // Semanas: 28 sep–4 oct (ventana 1–4 oct), 5–11, 12–18 (hasta el 15). Hechos: 2 + 1 + 0
+    const r = buildMonthlyReport({ ...mes, habits: [semanal], doneLogs: dl('w', ['2026-10-01', '2026-10-02', '2026-10-06', '2026-09-30']) });
+    expect(r.perHabit[0]).toMatchObject({ meta: 3, hechos: 3, turnos: 9 });
+    expect(r.habitsPct).toBe(33);
+  });
+
+  it('perProject y perHabit cubren el mes', () => {
+    const r = buildMonthlyReport({
+      habits: [diario],
+      doneLogs: [],
+      projects: [project('p1')],
+      tasks: [
+        task('a', { projectId: 'p1', deadline: '2026-10-03', status: 'hecha' }),
+        task('b', { projectId: 'p1', deadline: '2026-10-28' }),
+        task('c', { projectId: 'p1', deadline: '2026-10-05' }), // vencida
+        task('fuera', { projectId: 'p1', deadline: '2026-11-02' }),
+      ],
+      now: mitad,
+    });
+    expect(r.tasksTotal).toBe(3);
+    expect(r.tasksDone).toBe(1);
+    expect(r.overdue).toBe(1);
+    expect(r.perProject[0]).toMatchObject({ total: 3, done: 1, overdue: 1, pct: 33 });
+    expect(r.perHabit[0].dias).toHaveLength(31);
+    expect(r.perHabit[0].dias[30].futuro).toBe(true);
   });
 });

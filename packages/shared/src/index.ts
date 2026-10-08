@@ -240,6 +240,14 @@ export interface WeeklyReport {
   archived: boolean;
 }
 
+/** Reporte del mes: lo mismo que el semanal más el % de hábitos diarios por día (mapa de calor). */
+export type MonthlyReport = Omit<WeeklyReport, 'weekStart' | 'weekEnd' | 'archived'> & {
+  monthStart: string;
+  monthEnd: string;
+  /** Un elemento por día del mes; `pct` null sin hábitos diarios vigentes o en un día futuro */
+  dias: { fecha: string; pct: number | null; futuro: boolean }[];
+};
+
 /** Seguimiento de un proyecto en curso durante la semana (tareas con deadline en la semana). */
 export interface WeeklyProject {
   id: string;
