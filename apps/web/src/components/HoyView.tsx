@@ -4,9 +4,8 @@ import { Habits } from './Habits';
 import { Tasks } from './Tasks';
 import { Projects } from './Projects';
 
-const ACTIONS: { id: 'tarea' | 'revision' | 'idea'; icon: string; label: string; primary?: boolean }[] = [
+const ACTIONS: { id: 'tarea' | 'idea'; icon: string; label: string; primary?: boolean }[] = [
   { id: 'tarea', icon: '➕', label: 'Tarea rápida', primary: true },
-  { id: 'revision', icon: '📝', label: 'Revisión semanal' },
   { id: 'idea', icon: '⚡', label: 'Captura rápida' },
 ];
 

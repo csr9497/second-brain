@@ -1,84 +1,40 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { pct, TASK_STATUS_COLOR, todayISO, type WeeklyHabit, type WeeklyProject, type WeeklyReport, type WeeklyTask } from '@sb/shared';
-import { api } from '../lib/api';
-import { dueLabel, shortDate } from '../lib/format';
-import { Modal, ModalActions } from './Modal';
-import { Dot } from './ui/Dot';
-import { useToast } from './Toast';
+import { pct, TASK_STATUS_COLOR, todayISO, type MonthlyReport, type WeeklyHabit, type WeeklyProject, type WeeklyReport, type WeeklyTask } from '@sb/shared';
+import { dueLabel, shortDate } from '../../lib/format';
+import { Dot } from '../ui/Dot';
+
+/** Lo que comparten el reporte semanal y el mensual. */
+type Reporte = WeeklyReport | MonthlyReport;
 
 const Sec = ({ children }: { children: React.ReactNode }) => (
   <div className="mt-4 mb-2 text-xs font-semibold tracking-wide text-faint uppercase">{children}</div>
 );
 
-/** La revisión es un reporte calculado por el server; solo la nota es editable. */
-export function ReviewModal({ onClose }: { onClose: () => void }) {
-  const toast = useToast();
-  const qc = useQueryClient();
-  const [nota, setNota] = useState('');
+/** Pestañas Proyectos / Hábitos de un reporte (semana o mes). */
+export function ReporteTabs({ r, id }: { r: Reporte; id: string }) {
   const [tab, setTab] = useState<'proyectos' | 'habitos'>('proyectos');
-  const { data: r, isLoading } = useQuery({ queryKey: ['review'], queryFn: api.currentReview });
-  const archive = useMutation({
-    mutationFn: () => api.archiveReview(nota),
-    onSuccess: () => {
-      toast('📝 Semana archivada');
-      qc.invalidateQueries({ queryKey: ['review'] });
-      onClose();
-    },
-    onError: (err) => toast(`⚠ ${err.message}`),
-  });
-
-  const title = r ? `📝 Revisión · ${shortDate(r.weekStart)} – ${shortDate(r.weekEnd)}` : '📝 Revisión semanal';
-
   return (
-    <Modal title={title} hint="Tu cumplimiento de la semana, de un vistazo." onClose={onClose} ancho="max-w-[880px]">
-      {isLoading || !r ? (
-        <p className="text-sm text-muted">Calculando…</p>
-      ) : (
-        <>
-          <div role="tablist" aria-label="Secciones de la revisión" className="mb-4 flex gap-1 rounded-lg bg-surface2 p-0.5">
-            {(['proyectos', 'habitos'] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                role="tab"
-                id={`review-tab-${v}`}
-                aria-controls={tab === v ? `review-panel-${v}` : undefined}
-                aria-selected={tab === v}
-                onClick={() => setTab(v)}
-                className="flex-1 rounded-md px-3 py-1.5 text-xs font-semibold text-muted aria-selected:bg-surface aria-selected:text-text aria-selected:shadow-sm"
-              >
-                {v === 'proyectos' ? '📁 Proyectos' : '🔁 Hábitos'}
-              </button>
-            ))}
-          </div>
-
-          <div role="tabpanel" id={`review-panel-${tab}`} aria-labelledby={`review-tab-${tab}`}>
-            {tab === 'proyectos' ? <ProyectosTab r={r} /> : <HabitosTab r={r} />}
-          </div>
-
-          {r.archived && <div className="py-[5px] text-[13px] text-muted">✓ Esta semana ya está archivada (archivar de nuevo la actualiza).</div>}
-
-          <label className="mt-4 block">
-            <span className="field-label">Nota de cierre (opcional)</span>
-            <textarea
-              className="input min-h-14 resize-y"
-              value={nota}
-              onChange={(e) => setNota(e.target.value)}
-              placeholder="Un aprendizaje o ajuste para la próxima semana…"
-            />
-          </label>
-        </>
-      )}
-      <ModalActions>
-        <button className="btn" onClick={onClose}>
-          Cerrar
-        </button>
-        <button className="btn btn-primary" disabled={!r || archive.isPending} onClick={() => archive.mutate()}>
-          Archivar semana
-        </button>
-      </ModalActions>
-    </Modal>
+    <>
+      <div role="tablist" aria-label="Secciones del reporte" className="mb-4 flex gap-1 rounded-lg bg-surface2 p-0.5">
+        {(['proyectos', 'habitos'] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            role="tab"
+            id={`${id}-tab-${v}`}
+            aria-controls={tab === v ? `${id}-panel-${v}` : undefined}
+            aria-selected={tab === v}
+            onClick={() => setTab(v)}
+            className="flex-1 rounded-md px-3 py-1.5 text-xs font-semibold text-muted aria-selected:bg-surface aria-selected:text-text aria-selected:shadow-sm"
+          >
+            {v === 'proyectos' ? '📁 Proyectos' : '🔁 Hábitos'}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel" id={`${id}-panel-${tab}`} aria-labelledby={`${id}-tab-${tab}`}>
+        {tab === 'proyectos' ? <ProyectosTab r={r} /> : <HabitosTab r={r} />}
+      </div>
+    </>
   );
 }
 
@@ -94,7 +50,7 @@ function Kpi({ value, label, className = '' }: { value: string; label: string; c
 const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 
 /** Seguimiento de los proyectos en curso: tareas de la semana y el progreso de sus pasos. */
-function ProyectosTab({ r }: { r: WeeklyReport }) {
+function ProyectosTab({ r }: { r: Reporte }) {
   return (
     <>
       <div className="mb-4 flex gap-3">
@@ -223,7 +179,7 @@ function TareaFila({ t, today }: { t: WeeklyTask; today: string }) {
 const DIAS_SEMANA = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 
 /** Cumplimiento de los hábitos vigentes en la semana, por turnos y por día. */
-function HabitosTab({ r }: { r: WeeklyReport }) {
+function HabitosTab({ r }: { r: Reporte }) {
   return (
     <>
       <div className="mb-4 flex gap-3">

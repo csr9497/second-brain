@@ -4,7 +4,6 @@ import { greeting, headerDate } from './lib/format';
 import { TaskModal } from './components/TaskModal';
 import { AvisosModal } from './components/AvisosModal';
 import { IdeaModal } from './components/IdeaModal';
-import { ReviewModal } from './components/ReviewModal';
 import { ProjectModal } from './components/ProjectModal';
 import { Login } from './components/Login';
 import { useSession } from './lib/useSession';
@@ -13,6 +12,7 @@ import { HabitModal } from './components/HabitModal';
 import { HabitsManager } from './components/HabitsManager';
 import { CalendarView } from './components/CalendarView';
 import { HoyView } from './components/HoyView';
+import { ResumenView } from './components/resumen/ResumenView';
 import { GanttView } from './components/gantt/GanttView';
 import { ConfirmHost } from './components/ui/Confirmar';
 import { useVista, hrefVista, listaVistas, puedeSalir, VISTAS } from './lib/useVista';
@@ -106,10 +106,10 @@ function Home() {
         />
       )}
       {vista === 'gantt' && <GanttView onEditTask={(task) => setModal({ kind: 'tarea', task })} onNewTask={nuevaTarea} />}
+      {vista === 'resumen' && <ResumenView />}
 
       {modal?.kind === 'tarea' && <TaskModal task={modal.task} inicial={modal.inicial} onClose={close} />}
       {modal?.kind === 'proyecto' && <ProjectModal project={modal.project} onClose={close} />}
-      {modal?.kind === 'revision' && <ReviewModal onClose={close} />}
       {modal?.kind === 'idea' && <IdeaModal onClose={close} />}
       {modal?.kind === 'avisos' && <AvisosModal onClose={close} />}
       {modal?.kind === 'habitos' && (

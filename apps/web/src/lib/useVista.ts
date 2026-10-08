@@ -6,6 +6,7 @@ export const VISTAS = {
   hoy: { hash: '#/', label: '☀️ Hoy', ancho: 'max-w-[780px]' },
   calendario: { hash: '#/calendario', label: '📅 Calendario', ancho: 'max-w-[1040px]' },
   gantt: { hash: '#/gantt', label: '📊 Gantt', ancho: 'max-w-[1240px]' },
+  resumen: { hash: '#/resumen', label: '📈 Resumen', ancho: 'max-w-[880px]' },
 } as const;
 export type Vista = keyof typeof VISTAS;
 export const listaVistas = Object.keys(VISTAS) as Vista[];

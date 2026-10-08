@@ -126,7 +126,7 @@ export const HERRAMIENTAS = {
     z.object({ startDate: isoDate.optional(), deadline: isoDate.optional() }),
     true,
   ),
-  go_to: def('go_to', 0, `${COMUN} Cambia de vista: hoy, calendario o gantt (si hay cambios sin guardar, se le pregunta a Cesar).`, z.object({ vista: z.enum(['hoy', 'calendario', 'gantt']) }), true),
+  go_to: def('go_to', 0, `${COMUN} Cambia de vista: hoy, calendario, gantt o resumen (revisión semanal y mensual) (si hay cambios sin guardar, se le pregunta a Cesar).`, z.object({ vista: z.enum(['hoy', 'calendario', 'gantt', 'resumen']) }), true),
 } as const;
 
 export type NombreHerramienta = keyof typeof HERRAMIENTAS;
