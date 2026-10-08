@@ -46,6 +46,9 @@ pnpm typecheck          # web + service worker (src/sw/tsconfig.json)
 node scripts/vapid-keys.mjs   # genera VAPID_KEYS (secret) y VITE_VAPID_PUBLIC_KEY
 supabase functions serve recordatorios --env-file supabase/functions/.env.local   # Edge Function local
 pnpm build              # apps/web/dist
+pnpm ios:build          # app iOS: vite build --mode native (apps/web/.env.native.local) + cap sync ios
+pnpm ios:gen            # xcodegen: regenera App.xcodeproj desde apps/mobile/ios/App/project.yml
+pnpm ios:open           # abre el proyecto en Xcode (ver docs/APP-NATIVA.md)
 
 # un solo test
 pnpm --filter @sb/shared exec vitest run src/domain/domain.test.ts -t "computeStreak"
@@ -85,6 +88,11 @@ Studio local: http://127.0.0.1:54323. Deploy: cada push a `main` ejecuta `.githu
   - Sesión: `useSession`. Si no hay sesión, se muestra `<Login>`.
   - Formularios: no hay `<select>` nativos; se usa `components/ui/Select.tsx` (Radix) con las opciones de `lib/options.ts`.
   - `vite.config.ts` usa `base: './'`, para servir igual en `/` (local) y en `/second-brain/` (Pages).
+- **`apps/mobile`** (prototipo iOS; runbook en `docs/APP-NATIVA.md`): Capacitor 8 por SPM que carga el build de `apps/web` hecho con `vite build --mode native` (sin service worker ni PWA; en la web, `esNativo()` de `lib/nativo/`).
+  - El proyecto Xcode sale de XcodeGen: `apps/mobile/ios/App/project.yml` y el `App.xcodeproj` commiteado. Tras tocar `project.yml`, `pnpm ios:gen`.
+  - Plugin Swift local `LiveActivity` (`App/LiveActivity/`): `sincronizar`, `guardarSesion`, `leerSesion` y `cerrarSesion`. La web lo usa desde `lib/nativo/`: `useLiveActivity` sincroniza la card con `['today']` vía `estadoLiveActivity` (`@sb/shared`), y `useSession` copia la sesión al Keychain.
+  - Extensión `SecondBrainLiveActivity` (SwiftUI): pinta la card. Sus botones son App Intents que corren en el proceso de la app y escriben por PostgREST (`SupabaseREST.swift`) con la sesión del Keychain.
+  - Supabase rota el refresh token: si un botón lo renueva, el almacenamiento de supabase-js en nativo (`almacenNativo`) toma los tokens del Keychain al cargar la sesión.
 
 ## Reglas de dominio no obvias
 

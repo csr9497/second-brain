@@ -45,6 +45,10 @@ la app funcional. Estimaciones en jornadas de dev enfocadas (ajústalas a tu rit
 - ✅ Métricas históricas (parcial): Resumen mensual con mapa de calor de hábitos.
 - Pendiente: navegar a meses anteriores y tendencia de hábitos.
 
+## App nativa (prototipo): Capacitor + Live Activity
+- ✅ App iOS con Capacitor (`apps/mobile`) que carga la web; Live Activity (Variante A) en la pantalla de bloqueo y la Dynamic Island con botones para marcar hábitos y pasos. Instalable con la cuenta gratuita de Apple. Ver `docs/APP-NATIVA.md`.
+- Pendiente (fase 2, cuenta de Apple Developer): APNs push-to-start desde `recordatorios` en cada franja, actualizaciones desde el servidor y TestFlight.
+
 ## Fase W — Agentes vía WebMCP
 - ✅ 24 herramientas registradas en la página (`document.modelContext`): lectura, capturar/marcar, edición sin borrados (tareas, pasos por días o por tiempo, reordenar, encadenar, proyectos, ideas) e interfaz (abrir tarea, nueva tarea, cambiar de vista). Catálogo en `@sb/shared/herramientas`. Ver `docs/MCP.md` §0.
 - Siguiente: borrados con confirmación (nivel 3), proponer pasos en el planificador y el servidor MCP (variantes B y C).
