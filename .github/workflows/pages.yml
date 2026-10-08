@@ -23,6 +23,8 @@ jobs:
       VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
       # Opcional: token del origin trial de WebMCP para csr9497.github.io
       VITE_WEBMCP_OT_TOKEN: ${{ vars.VITE_WEBMCP_OT_TOKEN }}
+      # Avisos Web Push: clave pública VAPID (la privada vive en los secrets de Supabase)
+      VITE_VAPID_PUBLIC_KEY: ${{ vars.VITE_VAPID_PUBLIC_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
