@@ -1,7 +1,7 @@
 import ActivityKit
 import Foundation
 
-/// Atributos de la Live Activity. Se compila en la app y en la extensión (Task 4): sin dependencias.
+/// Atributos de la Live Activity. Se compila en la app y en la extensión: sin dependencias.
 /// `ContentState` es un espejo exacto de `EstadoLiveActivity` (packages/shared/src/domain/liveActivity.ts).
 struct SecondBrainAttributes: ActivityAttributes {
     struct ContentState: Codable, Hashable {
@@ -32,3 +32,5 @@ struct SecondBrainAttributes: ActivityAttributes {
         var actualizado: String
     }
 }
+
+typealias EstadoCard = SecondBrainAttributes.ContentState

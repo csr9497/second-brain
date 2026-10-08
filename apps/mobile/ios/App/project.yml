@@ -36,8 +36,12 @@ targets:
         type: folder
         buildPhase: resources
         optional: true
+      # Los intents de la card corren en el proceso de la app: compilados en los dos targets
+      - path: SecondBrainLiveActivity/Intents.swift
     dependencies:
       - package: CapApp-SPM
+      - target: SecondBrainLiveActivity
+        embed: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.csr9497.secondbrain
@@ -52,6 +56,26 @@ targets:
       configs:
         Debug:
           OTHER_SWIFT_FLAGS: $(inherited) -D COCOAPODS -DDEBUG
+  # Extensión WidgetKit: dibuja la Live Activity (bloqueo e isla). Comparte Atributos.swift e Intents.swift con la app.
+  SecondBrainLiveActivity:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: SecondBrainLiveActivity
+      - path: App/LiveActivity/Atributos.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.csr9497.secondbrain.LiveActivity
+        PRODUCT_NAME: $(TARGET_NAME)
+        INFOPLIST_FILE: SecondBrainLiveActivity/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_STYLE: Automatic
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SKIP_INSTALL: YES
+        # En la extensión, perform() de los intents no escribe (lo hace la app; ver Intents.swift)
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) WIDGET_EXTENSION
+        LD_RUNPATH_SEARCH_PATHS: ["$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks"]
 schemes:
   App:
     build:
