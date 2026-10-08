@@ -42,7 +42,7 @@ export function HoyView({ onOpen }: { onOpen: (m: Exclude<ModalState, null>) => 
         <>
           <section className="mt-6">
             <div className="mb-3 flex items-baseline justify-between gap-2.5">
-              <h2 className="m-0 font-display text-lg font-semibold">Hábitos de hoy</h2>
+              <h2 className="m-0 font-display text-lg font-semibold">Hábitos</h2>
               <button
                 onClick={() => onOpen({ kind: 'habitos' })}
                 className="rounded-full border border-line px-3 py-1 text-xs font-semibold text-muted hover:text-text"
