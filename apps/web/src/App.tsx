@@ -52,7 +52,7 @@ function Home() {
   });
 
   return (
-    <div className={`mx-auto ${VISTAS[vista].ancho} px-4 pt-[26px] pb-28 sm:pb-[72px]`}>
+    <div className="mx-auto max-w-[1040px] px-4 pt-[26px] pb-28 sm:pb-[72px]">
       <header>
         <div className="text-xs font-semibold tracking-[.08em] text-faint uppercase">{headerDate(todayISO())}</div>
         <div className="flex items-start justify-between gap-3">
