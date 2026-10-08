@@ -3,12 +3,14 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     tailwindcss(),
     // PWA instalable; el service worker propio (src/sw/sw.ts) precachea el shell y muestra los avisos
+    // En la app nativa (`--mode native`, Capacitor) no hay PWA: WKWebView no admite Web Push
     VitePWA({
+      disable: mode === 'native',
       strategies: 'injectManifest',
       srcDir: 'src/sw',
       filename: 'sw.ts',
@@ -33,4 +35,4 @@ export default defineConfig({
   // Rutas relativas: sirve igual en / (local) y en /second-brain/ (GitHub Pages)
   base: './',
   server: { port: 5173 },
-});
+}));
