@@ -33,13 +33,14 @@ la app funcional. Estimaciones en jornadas de dev enfocadas (ajústalas a tu rit
 - **Revisión semanal** como reporte calculado (`/reviews/current`) + archivar.
 
 ## Fase 5 — Alertas + deploy (1–2 días)
-- Web Push (VAPID) + suscripción por dispositivo.
-- Job BullMQ de recordatorio de hábitos a hora configurable.
-- Dockerizar; desplegar (Vercel front + Fly/Render back, o todo en tu cloud).
+- ✅ Web Push (VAPID) + suscripción por dispositivo.
+- ✅ Recordatorios por franja a hora configurable: `pg_cron` + Edge Function `recordatorios` (reemplaza BullMQ). Ver `docs/ALERTAS.md`.
+- ~~Dockerizar; desplegar (Vercel + Fly/Render)~~ Reemplazado: GitHub Pages + Supabase.
 - ✅ Hito: te llegan avisos al celular y PC; app en producción.
 
 ## Fase 6 — Pulido / PWA (continuo)
-- PWA instalable, offline básico para marcar hábitos y sincronizar.
+- ✅ PWA instalable.
+- Pendiente: offline básico para marcar hábitos y sincronizar.
 - Deadlines y "nudge" de proyectos sin avanzar.
 - Métricas históricas (tendencia de hábitos, cumplimiento por mes).
 

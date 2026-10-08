@@ -128,15 +128,14 @@ Vista:
 
 ## 7. Alertas / notificaciones
 
-- **Recordatorio de hábitos**: a una hora configurable (p. ej. 21:00), si quedan
-  hábitos del día sin marcar → notificación push (y/o email).
-- Implementado con un job programado (BullMQ) que corre a esa hora, evalúa el día y
-  dispara la notificación. Ver `docs/API.md` y ROADMAP fase 5.
+- **Recordatorio de hábitos**: un recordatorio por franja a la hora configurada, solo si
+  quedan turnos de hábitos diarios sin marcar; `pg_cron` + Edge Function + Web Push.
+  Runbook en `docs/ALERTAS.md`.
 - Futuro: recordatorio de deadlines y de "proyecto que hoy toca y no avanzaste".
 
 ## 8. Requisitos no funcionales
 
-- **Responsive / móvil primero** para el marcado diario; PWA instalable (fase 6).
+- **Responsive / móvil primero** para el marcado diario; PWA instalable (✅ hecha).
 - Tema oscuro por defecto (tokens en el mockup), con claro opcional.
 - Un solo usuario; auth simple. Datos privados.
 - Offline-friendly deseable a futuro (marcar hábitos sin red y sincronizar).

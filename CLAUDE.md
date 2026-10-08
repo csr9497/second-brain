@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `docs/API.md`: diseño REST original; ya no hay API propia
 - `design/mockup.html`: referencia visual; sus tokens CSS están en `apps/web/src/index.css`
 
-Estado: Fases 0–4 sobre la pantalla Hoy. Faltan las alertas (Fase 5: `pg_cron` + Edge Function con Web Push) y la PWA (Fase 6).
+Estado: Fases 0–5 sobre la pantalla Hoy (incluye los avisos Web Push) y PWA instalable. Faltan lo offline, los avisos de proyectos y deadlines y las métricas (Fase 6).
 
 Producción:
 - Frontend estático en **GitHub Pages**: https://csr9497.github.io/second-brain/ (repo `csr9497/second-brain`).
@@ -42,7 +42,9 @@ pnpm db:push:dev        # aplica migraciones pendientes al proyecto dev
 pnpm db:reset:dev       # recrea la DB dev desde migraciones + seed
 pnpm test               # vitest de packages/shared
 supabase test db        # tests pgTAP de RLS y triggers (supabase/tests/database)
-pnpm typecheck
+pnpm typecheck          # web + service worker (src/sw/tsconfig.json)
+node scripts/vapid-keys.mjs   # genera VAPID_KEYS (secret) y VITE_VAPID_PUBLIC_KEY
+supabase functions serve recordatorios --env-file supabase/functions/.env.local   # Edge Function local
 pnpm build              # apps/web/dist
 
 # un solo test
@@ -57,6 +59,12 @@ Studio local: http://127.0.0.1:54323. Deploy: cada push a `main` ejecuta `.githu
   - Hay cinco reglas en **triggers** (no en el cliente): `completed_at` solo cuando `status = 'hecha'`; los pasos sincronizan el estado de su tarea (`steps_sync_task`); tocar una tarea actualiza `projects.last_activity_at`; archivar, reactivar o cambiar los turnos o la meta semanal de un hábito cierra o abre su periodo en `habit_periods` (`habits_sync_periods`), que guarda la programación vigente; y completar una tarea o un paso marca hoy sus hábitos vinculados (`task_habits`; `tasks_sync_habitos`/`steps_sync_habitos`), y deshacerlo borra solo esos registros (`habit_logs.task_id`/`step_id`).
   - Esos triggers calculan el día y la franja **locales** con `public.hora_local()`, que lee la cabecera `x-timezone` (zona IANA) que `supabase.ts` manda en cada petición; sin ella usan UTC.
   - Cambios de esquema: `supabase migration new <nombre>`. Prueba con `pnpm db:reset` y `supabase test db`, luego aplica en dev con `pnpm db:push:dev` y en producción con `supabase db push`. Hay que añadir un pgTAP si tocas RLS o triggers.
+- **Avisos** (Fase 5; runbook en `docs/ALERTAS.md`):
+  - `pg_cron` (job `recordatorios`, cada 15 min) llama a la Edge Function `recordatorios` (`verify_jwt = false` en `config.toml`) con `x-cron-secret`. La URL y el secreto están en Vault (`recordatorios_url`, `cron_secret`); el job solo corre si existen ambos.
+  - `recordatorios_por_enviar(p_ahora)` (solo `service_role`) calcula en SQL con `recordatorios_config.zona`, porque la función corre en UTC (refleja `periodoEn`/`turnosEn`; los semanales no cuentan). Las horas son ≤ 23:45 (CHECK). Con varias franjas vencidas a la vez se anotan todas y se envía solo la más reciente; una `zona` inválida se omite sin romper la ronda.
+  - La función anota en `recordatorios_enviados` **antes** de enviar y borra la suscripción si el push da 404/410. Con `{ prueba: true }` y el JWT del usuario manda un aviso de prueba.
+  - Secrets de la función: `VAPID_KEYS` (JSON con `publicKey`/`privateKey` JWK), `VAPID_SUBJECT` (`mailto:`) y `CRON_SECRET`; en local, `supabase/functions/.env.local`. En el navegador, `VITE_VAPID_PUBLIC_KEY`.
+  - Web: service worker en `apps/web/src/sw/sw.ts` (`injectManifest`, tsconfig propio; también se registra en dev), íconos generados al compilar desde `public/icon.svg`. `lib/push.ts` se resuscribe si cambia la clave VAPID; la UI es `AvisosModal` (🔔) con la query `['avisos']` y métodos en `lib/api.ts`. El clic en el aviso solo enfoca ventanas dentro del scope de la app (el origin `github.io` es compartido). En iPhone hace falta la PWA instalada (iOS 16.4+).
 - **`packages/shared`** (sin build: exporta `src/index.ts`):
   - Esquemas Zod y tipos de salida (`Task`, `TodayPayload`, `WeeklyReport`…).
   - En `src/domain/`, la lógica pura con tests: fechas, `positionBetween`, `computeStreak`, `bucketTasks`, y `buildToday`/`buildWeeklyReport`, que agregan filas ya cargadas.

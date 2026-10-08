@@ -7,4 +7,5 @@ export type ModalState =
   | { kind: 'idea' }
   | { kind: 'habitos' }
   | { kind: 'habito'; habit?: HabitAdmin }
+  | { kind: 'avisos' }
   | null;

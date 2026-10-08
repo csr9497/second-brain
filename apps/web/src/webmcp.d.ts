@@ -21,4 +21,6 @@ interface Document {
 interface ImportMetaEnv {
   /** Token del origin trial de WebMCP para el origen de producción (opcional) */
   readonly VITE_WEBMCP_OT_TOKEN?: string;
+  /** Clave pública VAPID (base64url) para suscribir este dispositivo a los avisos */
+  readonly VITE_VAPID_PUBLIC_KEY?: string;
 }
