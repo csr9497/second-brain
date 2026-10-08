@@ -11,6 +11,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "sincronizar", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "guardarSesion", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "leerSesion", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "cerrarSesion", returnType: CAPPluginReturnPromise),
     ]
 
@@ -74,6 +75,16 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         } catch {
             call.reject("No se pudo guardar la sesión: \(error.localizedDescription)", "KEYCHAIN", error)
         }
+    }
+
+    /// Keychain → `{ url, accessToken, refreshToken }`, o `{}` si no hay sesión. La web lo usa para tomar los tokens
+    /// que rotó un botón de la card (`SupabaseREST.refrescar`); ver `almacenNativo` en apps/web/src/lib/nativo/sesion.ts.
+    @objc func leerSesion(_ call: CAPPluginCall) {
+        guard let s = Sesion.leer() else {
+            call.resolve([:])
+            return
+        }
+        call.resolve(["url": s.url, "accessToken": s.accessToken, "refreshToken": s.refreshToken])
     }
 
     /// Borra la sesión del Keychain y termina la actividad.

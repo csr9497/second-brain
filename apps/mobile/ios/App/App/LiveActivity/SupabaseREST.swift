@@ -82,6 +82,12 @@ enum SupabaseREST {
     }
 
     /// `POST /auth/v1/token?grant_type=refresh_token` y guarda los tokens nuevos en el Keychain.
+    ///
+    /// Supabase rota el refresh token: tras esto el de la web (supabase-js) queda usado. La web no se entera por un
+    /// evento: su almacenamiento (`almacenNativo`, apps/web/src/lib/nativo/sesion.ts) lee el Keychain cada vez que
+    /// supabase-js carga la sesión y toma estos tokens si difieren. Si la web y un botón refrescan a la vez con el
+    /// mismo token, el intervalo de reutilización de Supabase (10 s) les da a los dos un token válido y gana la última
+    /// escritura en el Keychain; solo se refresca cuando hace falta (`caduca` o un 401) para que eso sea raro.
     private static func refrescar(_ sesion: Sesion) async throws -> Sesion {
         guard let url = URL(string: "\(sesion.url)/auth/v1/token?grant_type=refresh_token") else { throw URLError(.badURL) }
         var req = URLRequest(url: url)

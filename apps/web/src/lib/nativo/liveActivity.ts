@@ -15,6 +15,8 @@ export interface LiveActivityPlugin {
   sincronizar(opts: { estado: EstadoLiveActivity | null }): Promise<{ activa: boolean; id: string | null }>;
   /** Guarda la sesión en el Keychain para los botones de la card. */
   guardarSesion(sesion: SesionNativa): Promise<void>;
+  /** Lee la sesión del Keychain (puede haberla renovado un botón de la card); `{}` si no hay. */
+  leerSesion(): Promise<Partial<Pick<SesionNativa, 'url' | 'accessToken' | 'refreshToken'>>>;
   /** Borra la sesión del Keychain y termina la actividad. */
   cerrarSesion(): Promise<void>;
 }
