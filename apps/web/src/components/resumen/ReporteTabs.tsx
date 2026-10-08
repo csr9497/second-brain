@@ -5,13 +5,14 @@ import { Dot } from '../ui/Dot';
 
 /** Lo que comparten el reporte semanal y el mensual. */
 type Reporte = WeeklyReport | MonthlyReport;
+type Periodo = 'semana' | 'mes';
 
 const Sec = ({ children }: { children: React.ReactNode }) => (
   <div className="mt-4 mb-2 text-xs font-semibold tracking-wide text-faint uppercase">{children}</div>
 );
 
 /** Pestañas Proyectos / Hábitos de un reporte (semana o mes). */
-export function ReporteTabs({ r, id }: { r: Reporte; id: string }) {
+export function ReporteTabs({ r, id, periodo = 'semana' }: { r: Reporte; id: string; periodo?: Periodo }) {
   const [tab, setTab] = useState<'proyectos' | 'habitos'>('proyectos');
   return (
     <>
@@ -32,7 +33,7 @@ export function ReporteTabs({ r, id }: { r: Reporte; id: string }) {
         ))}
       </div>
       <div role="tabpanel" id={`${id}-panel-${tab}`} aria-labelledby={`${id}-tab-${tab}`}>
-        {tab === 'proyectos' ? <ProyectosTab r={r} /> : <HabitosTab r={r} />}
+        {tab === 'proyectos' ? <ProyectosTab r={r} periodo={periodo} /> : <HabitosTab r={r} periodo={periodo} />}
       </div>
     </>
   );
@@ -50,7 +51,7 @@ function Kpi({ value, label, className = '' }: { value: string; label: string; c
 const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 
 /** Seguimiento de los proyectos en curso: tareas de la semana y el progreso de sus pasos. */
-function ProyectosTab({ r }: { r: Reporte }) {
+function ProyectosTab({ r, periodo }: { r: Reporte; periodo: Periodo }) {
   return (
     <>
       <div className="mb-4 flex gap-3">
@@ -63,7 +64,7 @@ function ProyectosTab({ r }: { r: Reporte }) {
       {r.perProject.length === 0 && <p className="text-[13px] text-faint">Sin proyectos en curso.</p>}
       <div className="flex flex-col gap-3">
         {r.perProject.map((p) => (
-          <ProyectoCard key={p.id} p={p} />
+          <ProyectoCard key={p.id} p={p} periodo={periodo} />
         ))}
       </div>
     </>
@@ -78,19 +79,20 @@ function Barra({ pct, label }: { pct: number; label: string }) {
   );
 }
 
-function ProyectoCard({ p }: { p: WeeklyProject }) {
+function ProyectoCard({ p, periodo }: { p: WeeklyProject; periodo: Periodo }) {
   const today = todayISO();
+  const etiqueta = periodo === 'mes' ? 'Mes' : 'Semana';
   return (
     <section aria-label={p.nombre} className="rounded-xl border border-line p-3">
       <div className="flex items-center gap-[9px] text-[14px]">
         <Dot color={p.color} size={10} />
         <h4 className="m-0 min-w-0 flex-1 truncate font-semibold">{p.nombre}</h4>
-        {!p.touched && <span className="rounded-full border border-warn/60 px-2 py-0.5 text-[11px] text-warn">Sin tocar esta semana</span>}
+        {!p.touched && <span className="rounded-full border border-warn/60 px-2 py-0.5 text-[11px] text-warn">Sin tocar {periodo === 'mes' ? 'este mes' : 'esta semana'}</span>}
       </div>
 
       <div className="mt-2.5 grid gap-x-6 gap-y-1.5 text-[11.5px] text-muted sm:grid-cols-3">
-        <Medida label="Semana" valor={`${p.pct}%`} detalle={p.total ? `${p.done}/${plural(p.total, 'tarea', 'tareas')}` : 'sin deadlines'}>
-          <Barra pct={p.pct} label={`${p.nombre}: semana`} />
+        <Medida label={etiqueta} valor={`${p.pct}%`} detalle={p.total ? `${p.done}/${plural(p.total, 'tarea', 'tareas')}` : 'sin deadlines'}>
+          <Barra pct={p.pct} label={`${p.nombre}: ${etiqueta.toLowerCase()}`} />
         </Medida>
         <Medida label="Pasos" valor={`${pct(p.pasosHechos, p.pasosTotal)}%`} detalle={p.pasosTotal ? `${p.pasosHechos}/${p.pasosTotal}` : 'sin pasos'}>
           <Barra pct={pct(p.pasosHechos, p.pasosTotal)} label={`${p.nombre}: pasos`} />
@@ -179,7 +181,8 @@ function TareaFila({ t, today }: { t: WeeklyTask; today: string }) {
 const DIAS_SEMANA = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 
 /** Cumplimiento de los hábitos vigentes en la semana, por turnos y por día. */
-function HabitosTab({ r }: { r: Reporte }) {
+function HabitosTab({ r, periodo }: { r: Reporte; periodo: Periodo }) {
+  const mes = periodo === 'mes';
   return (
     <>
       <div className="mb-4 flex gap-3">
@@ -189,7 +192,7 @@ function HabitosTab({ r }: { r: Reporte }) {
 
       <Sec>Cumplimiento por hábito</Sec>
       {r.perHabit.length === 0 ? (
-        <p className="text-[13px] text-faint">Sin hábitos vigentes esta semana.</p>
+        <p className="text-[13px] text-faint">Sin hábitos vigentes {mes ? 'este mes' : 'esta semana'}.</p>
       ) : (
         <table className="w-full border-collapse text-[13px]">
           <thead>
@@ -197,12 +200,12 @@ function HabitosTab({ r }: { r: Reporte }) {
               <th className="pb-1 text-left font-normal">
                 <span className="sr-only">Hábito</span>
               </th>
-              {DIAS_SEMANA.map((d) => (
+              {!mes && DIAS_SEMANA.map((d) => (
                 <th key={d} className="w-7 pb-1 text-center font-normal">
                   {d}
                 </th>
               ))}
-              <th className="w-[52px] pb-1 text-right font-normal">Semana</th>
+              <th className="w-[52px] pb-1 text-right font-normal">{mes ? 'Mes' : 'Semana'}</th>
             </tr>
           </thead>
           <tbody>
@@ -212,7 +215,7 @@ function HabitosTab({ r }: { r: Reporte }) {
                   {h.nombre}
                   {h.meta != null && <span className="ml-1.5 text-[11px] text-faint">📅 {h.meta}/sem</span>}
                 </td>
-                {h.dias.map((d) => (
+                {!mes && h.dias.map((d) => (
                   <td key={d.fecha} className="py-[5px] text-center">
                     <Celda d={d} semanal={h.meta != null} />
                   </td>

@@ -88,7 +88,7 @@ function Mes() {
       </h2>
       <MapaCalor dias={r.dias} />
       <div className="mt-5">
-        <ReporteTabs r={r} id="mes" />
+        <ReporteTabs r={r} id="mes" periodo="mes" />
       </div>
     </>
   );

@@ -5,6 +5,7 @@ export type ModalState =
   | { kind: 'proyecto'; project?: Project }
   | { kind: 'idea' }
   | { kind: 'habitos' }
-  | { kind: 'habito'; habit?: HabitAdmin }
+  | { kind: 'habito'; habit?: HabitAdmin; volver?: boolean }
   | { kind: 'avisos' }
+  | { kind: 'crear' }
   | null;
