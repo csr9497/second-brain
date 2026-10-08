@@ -108,7 +108,7 @@ function ProyectoCard({ p, periodo }: { p: WeeklyProject; periodo: Periodo }) {
       ) : (
         <ul className="m-0 mt-2.5 list-none border-t border-line p-0">
           {p.tasks.map((t) => (
-            <TareaFila key={t.id} t={t} today={today} />
+            <TareaFila key={t.id} t={t} today={today} periodo={periodo} />
           ))}
         </ul>
       )}
@@ -129,7 +129,7 @@ function Medida({ label, valor, detalle, children }: { label: string; valor: str
   );
 }
 
-function TareaFila({ t, today }: { t: WeeklyTask; today: string }) {
+function TareaFila({ t, today, periodo }: { t: WeeklyTask; today: string; periodo: Periodo }) {
   const due = t.status === 'hecha' ? null : dueLabel(t.deadline, today);
   const pasosPct = pct(t.pasosHechos, t.pasosTotal);
   const cabecera = (
@@ -166,7 +166,7 @@ function TareaFila({ t, today }: { t: WeeklyTask; today: string }) {
               </span>
               <span className={`min-w-0 flex-1 truncate ${s.done ? 'text-muted line-through' : ''}`}>{s.title}</span>
               {s.fueraDePlazo && <span className="text-[11px] text-warn">fuera de plazo</span>}
-              {s.enSemana && !s.done && <span className="rounded-full bg-accent/15 px-1.5 text-[11px] text-accent">esta semana</span>}
+              {s.enSemana && !s.done && <span className="rounded-full bg-accent/15 px-1.5 text-[11px] text-accent">{periodo === 'mes' ? 'este mes' : 'esta semana'}</span>}
               <span className="w-[104px] text-right text-[11.5px] text-faint tabular-nums">
                 {s.inicio && s.fin ? (s.inicio === s.fin ? shortDate(s.inicio) : `${shortDate(s.inicio)} → ${shortDate(s.fin)}`) : 'sin programar'}
               </span>
@@ -221,10 +221,11 @@ function HabitosTab({ r, periodo }: { r: Reporte; periodo: Periodo }) {
                   </td>
                 ))}
                 <td
-                  className={`py-[5px] text-right text-[11.5px] tabular-nums ${h.meta != null && h.hechos >= h.meta ? 'text-good' : 'text-muted'}`}
-                  title={h.meta != null ? `${h.hechos} de ${h.meta} días` : `${h.hechos}/${h.turnos} turnos`}
+                  className={`py-[5px] text-right text-[11.5px] tabular-nums ${h.meta != null && h.hechos >= (mes ? h.turnos : h.meta) ? 'text-good' : 'text-muted'}`}
+                  title={h.meta != null ? `${h.hechos} de ${mes ? h.turnos : h.meta} días` : `${h.hechos}/${h.turnos} turnos`}
                 >
-                  {h.meta != null ? `${h.hechos}/${h.meta}` : `${h.pct}%`}
+                  {/* en el mes, turnos = suma de las metas de cada semana; meta sigue siendo la semanal */}
+                  {h.meta != null ? `${h.hechos}/${mes ? h.turnos : h.meta}` : `${h.pct}%`}
                 </td>
               </tr>
             ))}

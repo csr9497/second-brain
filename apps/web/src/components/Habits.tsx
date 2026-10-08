@@ -46,7 +46,7 @@ function Burbuja({ nombre, done, marca, progreso }: { nombre: string; done: bool
           </svg>
         ) : (
           <span aria-hidden className="font-display text-lg font-semibold uppercase">
-            {nombre.charAt(0)}
+            {Array.from(nombre)[0]}
           </span>
         )}
       </span>
