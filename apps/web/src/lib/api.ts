@@ -5,7 +5,9 @@ import {
   addDays,
   buildCalendar,
   buildToday,
+  buildMonthlyReport,
   buildWeeklyReport,
+  type MonthlyReport,
   calendarGrid,
   createHabitInput,
   createProjectInput,
@@ -506,6 +508,7 @@ export const api = {
     const archived = must(await sb.from('reviews').select('id').eq('week_start', start).not('archived_at', 'is', null));
     return buildWeeklyReport(input, archived.length > 0);
   },
+  monthlyReport: async (): Promise<MonthlyReport> => buildMonthlyReport(await loadDashboard()),
   archiveReview: async (nota: string) => {
     const { weekStart, weekEnd, archived: _, ...metrics } = buildWeeklyReport(await loadDashboard(), true);
     must(

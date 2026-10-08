@@ -1,84 +1,41 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { pct, TASK_STATUS_COLOR, todayISO, type WeeklyHabit, type WeeklyProject, type WeeklyReport, type WeeklyTask } from '@sb/shared';
-import { api } from '../lib/api';
-import { dueLabel, shortDate } from '../lib/format';
-import { Modal, ModalActions } from './Modal';
-import { Dot } from './ui/Dot';
-import { useToast } from './Toast';
+import { pct, TASK_STATUS_COLOR, todayISO, type MonthlyReport, type WeeklyHabit, type WeeklyProject, type WeeklyReport, type WeeklyTask } from '@sb/shared';
+import { dueLabel, shortDate } from '../../lib/format';
+import { Dot } from '../ui/Dot';
+
+/** Lo que comparten el reporte semanal y el mensual. */
+type Reporte = WeeklyReport | MonthlyReport;
+type Periodo = 'semana' | 'mes';
 
 const Sec = ({ children }: { children: React.ReactNode }) => (
   <div className="mt-4 mb-2 text-xs font-semibold tracking-wide text-faint uppercase">{children}</div>
 );
 
-/** La revisión es un reporte calculado por el server; solo la nota es editable. */
-export function ReviewModal({ onClose }: { onClose: () => void }) {
-  const toast = useToast();
-  const qc = useQueryClient();
-  const [nota, setNota] = useState('');
+/** Pestañas Proyectos / Hábitos de un reporte (semana o mes). */
+export function ReporteTabs({ r, id, periodo = 'semana' }: { r: Reporte; id: string; periodo?: Periodo }) {
   const [tab, setTab] = useState<'proyectos' | 'habitos'>('proyectos');
-  const { data: r, isLoading } = useQuery({ queryKey: ['review'], queryFn: api.currentReview });
-  const archive = useMutation({
-    mutationFn: () => api.archiveReview(nota),
-    onSuccess: () => {
-      toast('📝 Semana archivada');
-      qc.invalidateQueries({ queryKey: ['review'] });
-      onClose();
-    },
-    onError: (err) => toast(`⚠ ${err.message}`),
-  });
-
-  const title = r ? `📝 Revisión · ${shortDate(r.weekStart)} – ${shortDate(r.weekEnd)}` : '📝 Revisión semanal';
-
   return (
-    <Modal title={title} hint="Tu cumplimiento de la semana, de un vistazo." onClose={onClose} ancho="max-w-[880px]">
-      {isLoading || !r ? (
-        <p className="text-sm text-muted">Calculando…</p>
-      ) : (
-        <>
-          <div role="tablist" aria-label="Secciones de la revisión" className="mb-4 flex gap-1 rounded-lg bg-surface2 p-0.5">
-            {(['proyectos', 'habitos'] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                role="tab"
-                id={`review-tab-${v}`}
-                aria-controls={tab === v ? `review-panel-${v}` : undefined}
-                aria-selected={tab === v}
-                onClick={() => setTab(v)}
-                className="flex-1 rounded-md px-3 py-1.5 text-xs font-semibold text-muted aria-selected:bg-surface aria-selected:text-text aria-selected:shadow-sm"
-              >
-                {v === 'proyectos' ? '📁 Proyectos' : '🔁 Hábitos'}
-              </button>
-            ))}
-          </div>
-
-          <div role="tabpanel" id={`review-panel-${tab}`} aria-labelledby={`review-tab-${tab}`}>
-            {tab === 'proyectos' ? <ProyectosTab r={r} /> : <HabitosTab r={r} />}
-          </div>
-
-          {r.archived && <div className="py-[5px] text-[13px] text-muted">✓ Esta semana ya está archivada (archivar de nuevo la actualiza).</div>}
-
-          <label className="mt-4 block">
-            <span className="field-label">Nota de cierre (opcional)</span>
-            <textarea
-              className="input min-h-14 resize-y"
-              value={nota}
-              onChange={(e) => setNota(e.target.value)}
-              placeholder="Un aprendizaje o ajuste para la próxima semana…"
-            />
-          </label>
-        </>
-      )}
-      <ModalActions>
-        <button className="btn" onClick={onClose}>
-          Cerrar
-        </button>
-        <button className="btn btn-primary" disabled={!r || archive.isPending} onClick={() => archive.mutate()}>
-          Archivar semana
-        </button>
-      </ModalActions>
-    </Modal>
+    <>
+      <div role="tablist" aria-label="Secciones del reporte" className="mb-4 flex gap-1 rounded-lg bg-surface2 p-0.5">
+        {(['proyectos', 'habitos'] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            role="tab"
+            id={`${id}-tab-${v}`}
+            aria-controls={tab === v ? `${id}-panel-${v}` : undefined}
+            aria-selected={tab === v}
+            onClick={() => setTab(v)}
+            className="flex-1 rounded-md px-3 py-1.5 text-xs font-semibold text-muted aria-selected:bg-surface aria-selected:text-text aria-selected:shadow-sm"
+          >
+            {v === 'proyectos' ? '📁 Proyectos' : '🔁 Hábitos'}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel" id={`${id}-panel-${tab}`} aria-labelledby={`${id}-tab-${tab}`}>
+        {tab === 'proyectos' ? <ProyectosTab r={r} periodo={periodo} /> : <HabitosTab r={r} periodo={periodo} />}
+      </div>
+    </>
   );
 }
 
@@ -94,7 +51,7 @@ function Kpi({ value, label, className = '' }: { value: string; label: string; c
 const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 
 /** Seguimiento de los proyectos en curso: tareas de la semana y el progreso de sus pasos. */
-function ProyectosTab({ r }: { r: WeeklyReport }) {
+function ProyectosTab({ r, periodo }: { r: Reporte; periodo: Periodo }) {
   return (
     <>
       <div className="mb-4 flex gap-3">
@@ -107,7 +64,7 @@ function ProyectosTab({ r }: { r: WeeklyReport }) {
       {r.perProject.length === 0 && <p className="text-[13px] text-faint">Sin proyectos en curso.</p>}
       <div className="flex flex-col gap-3">
         {r.perProject.map((p) => (
-          <ProyectoCard key={p.id} p={p} />
+          <ProyectoCard key={p.id} p={p} periodo={periodo} />
         ))}
       </div>
     </>
@@ -122,19 +79,20 @@ function Barra({ pct, label }: { pct: number; label: string }) {
   );
 }
 
-function ProyectoCard({ p }: { p: WeeklyProject }) {
+function ProyectoCard({ p, periodo }: { p: WeeklyProject; periodo: Periodo }) {
   const today = todayISO();
+  const etiqueta = periodo === 'mes' ? 'Mes' : 'Semana';
   return (
     <section aria-label={p.nombre} className="rounded-xl border border-line p-3">
       <div className="flex items-center gap-[9px] text-[14px]">
         <Dot color={p.color} size={10} />
         <h4 className="m-0 min-w-0 flex-1 truncate font-semibold">{p.nombre}</h4>
-        {!p.touched && <span className="rounded-full border border-warn/60 px-2 py-0.5 text-[11px] text-warn">Sin tocar esta semana</span>}
+        {!p.touched && <span className="rounded-full border border-warn/60 px-2 py-0.5 text-[11px] text-warn">Sin tocar {periodo === 'mes' ? 'este mes' : 'esta semana'}</span>}
       </div>
 
       <div className="mt-2.5 grid gap-x-6 gap-y-1.5 text-[11.5px] text-muted sm:grid-cols-3">
-        <Medida label="Semana" valor={`${p.pct}%`} detalle={p.total ? `${p.done}/${plural(p.total, 'tarea', 'tareas')}` : 'sin deadlines'}>
-          <Barra pct={p.pct} label={`${p.nombre}: semana`} />
+        <Medida label={etiqueta} valor={`${p.pct}%`} detalle={p.total ? `${p.done}/${plural(p.total, 'tarea', 'tareas')}` : 'sin deadlines'}>
+          <Barra pct={p.pct} label={`${p.nombre}: ${etiqueta.toLowerCase()}`} />
         </Medida>
         <Medida label="Pasos" valor={`${pct(p.pasosHechos, p.pasosTotal)}%`} detalle={p.pasosTotal ? `${p.pasosHechos}/${p.pasosTotal}` : 'sin pasos'}>
           <Barra pct={pct(p.pasosHechos, p.pasosTotal)} label={`${p.nombre}: pasos`} />
@@ -150,7 +108,7 @@ function ProyectoCard({ p }: { p: WeeklyProject }) {
       ) : (
         <ul className="m-0 mt-2.5 list-none border-t border-line p-0">
           {p.tasks.map((t) => (
-            <TareaFila key={t.id} t={t} today={today} />
+            <TareaFila key={t.id} t={t} today={today} periodo={periodo} />
           ))}
         </ul>
       )}
@@ -171,7 +129,7 @@ function Medida({ label, valor, detalle, children }: { label: string; valor: str
   );
 }
 
-function TareaFila({ t, today }: { t: WeeklyTask; today: string }) {
+function TareaFila({ t, today, periodo }: { t: WeeklyTask; today: string; periodo: Periodo }) {
   const due = t.status === 'hecha' ? null : dueLabel(t.deadline, today);
   const pasosPct = pct(t.pasosHechos, t.pasosTotal);
   const cabecera = (
@@ -208,7 +166,7 @@ function TareaFila({ t, today }: { t: WeeklyTask; today: string }) {
               </span>
               <span className={`min-w-0 flex-1 truncate ${s.done ? 'text-muted line-through' : ''}`}>{s.title}</span>
               {s.fueraDePlazo && <span className="text-[11px] text-warn">fuera de plazo</span>}
-              {s.enSemana && !s.done && <span className="rounded-full bg-accent/15 px-1.5 text-[11px] text-accent">esta semana</span>}
+              {s.enSemana && !s.done && <span className="rounded-full bg-accent/15 px-1.5 text-[11px] text-accent">{periodo === 'mes' ? 'este mes' : 'esta semana'}</span>}
               <span className="w-[104px] text-right text-[11.5px] text-faint tabular-nums">
                 {s.inicio && s.fin ? (s.inicio === s.fin ? shortDate(s.inicio) : `${shortDate(s.inicio)} → ${shortDate(s.fin)}`) : 'sin programar'}
               </span>
@@ -223,7 +181,8 @@ function TareaFila({ t, today }: { t: WeeklyTask; today: string }) {
 const DIAS_SEMANA = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 
 /** Cumplimiento de los hábitos vigentes en la semana, por turnos y por día. */
-function HabitosTab({ r }: { r: WeeklyReport }) {
+function HabitosTab({ r, periodo }: { r: Reporte; periodo: Periodo }) {
+  const mes = periodo === 'mes';
   return (
     <>
       <div className="mb-4 flex gap-3">
@@ -233,7 +192,7 @@ function HabitosTab({ r }: { r: WeeklyReport }) {
 
       <Sec>Cumplimiento por hábito</Sec>
       {r.perHabit.length === 0 ? (
-        <p className="text-[13px] text-faint">Sin hábitos vigentes esta semana.</p>
+        <p className="text-[13px] text-faint">Sin hábitos vigentes {mes ? 'este mes' : 'esta semana'}.</p>
       ) : (
         <table className="w-full border-collapse text-[13px]">
           <thead>
@@ -241,12 +200,12 @@ function HabitosTab({ r }: { r: WeeklyReport }) {
               <th className="pb-1 text-left font-normal">
                 <span className="sr-only">Hábito</span>
               </th>
-              {DIAS_SEMANA.map((d) => (
+              {!mes && DIAS_SEMANA.map((d) => (
                 <th key={d} className="w-7 pb-1 text-center font-normal">
                   {d}
                 </th>
               ))}
-              <th className="w-[52px] pb-1 text-right font-normal">Semana</th>
+              <th className="w-[52px] pb-1 text-right font-normal">{mes ? 'Mes' : 'Semana'}</th>
             </tr>
           </thead>
           <tbody>
@@ -256,16 +215,17 @@ function HabitosTab({ r }: { r: WeeklyReport }) {
                   {h.nombre}
                   {h.meta != null && <span className="ml-1.5 text-[11px] text-faint">📅 {h.meta}/sem</span>}
                 </td>
-                {h.dias.map((d) => (
+                {!mes && h.dias.map((d) => (
                   <td key={d.fecha} className="py-[5px] text-center">
                     <Celda d={d} semanal={h.meta != null} />
                   </td>
                 ))}
                 <td
-                  className={`py-[5px] text-right text-[11.5px] tabular-nums ${h.meta != null && h.hechos >= h.meta ? 'text-good' : 'text-muted'}`}
-                  title={h.meta != null ? `${h.hechos} de ${h.meta} días` : `${h.hechos}/${h.turnos} turnos`}
+                  className={`py-[5px] text-right text-[11.5px] tabular-nums ${h.meta != null && h.hechos >= (mes ? h.turnos : h.meta) ? 'text-good' : 'text-muted'}`}
+                  title={h.meta != null ? `${h.hechos} de ${mes ? h.turnos : h.meta} días` : `${h.hechos}/${h.turnos} turnos`}
                 >
-                  {h.meta != null ? `${h.hechos}/${h.meta}` : `${h.pct}%`}
+                  {/* en el mes, turnos = suma de las metas de cada semana; meta sigue siendo la semanal */}
+                  {h.meta != null ? `${h.hechos}/${mes ? h.turnos : h.meta}` : `${h.pct}%`}
                 </td>
               </tr>
             ))}

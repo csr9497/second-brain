@@ -28,6 +28,7 @@ import { rangoPaso, shortDate } from '../../lib/format';
 import { Dot } from '../ui/Dot';
 import { Barra, type Fase, type Op } from './Barra';
 import { ETIQUETA, fondo } from './constantes';
+import { PasoModal } from './PasoModal';
 import { Pista } from './Pista';
 import { ResumenCambios } from './ResumenCambios';
 import { Cabecera, ControlZoom, desplazamientos, geometriaPaso, posicionAhora, useZoom } from './zoom';
@@ -73,6 +74,7 @@ export function GanttView({ onEditTask, onNewTask }: { onEditTask: (t: Task) => 
   const { data, isLoading, error } = useQuery({ queryKey: ['gantt', incluirHechas], queryFn: () => api.gantt(incluirHechas) });
   const [editando, setEditando] = useState(false);
   const [resumen, setResumen] = useState(false);
+  const [detalle, setDetalle] = useState<{ paso: Step; tarea: Task } | null>(null);
   const [draft, setDraft] = useState<GanttDraft>(borradorVacio);
   const [plegados, setPlegados] = useState<Set<string>>(new Set());
   const scroller = useRef<HTMLDivElement>(null);
@@ -315,13 +317,19 @@ export function GanttView({ onEditTask, onNewTask }: { onEditTask: (t: Task) => 
                                 etiqueta={`Paso ${s.title} (${t.title}): ${rangoPaso(s)}`}
                                 onArrastre={(op, d, fase) => onArrastre(obj, op, d, fase)}
                                 onTecla={(op, d) => onTecla(obj, op, d)}
+                                onAbrir={() => setDetalle({ paso: original(t.id).steps.find((x) => x.id === s.id) ?? s, tarea: original(t.id) })}
                               />
                             }
                           >
-                            <span className="block truncate pl-3 text-[12px] text-muted">
+                            <button
+                              type="button"
+                              disabled={editando}
+                              onClick={() => setDetalle({ paso: original(t.id).steps.find((x) => x.id === s.id) ?? s, tarea: original(t.id) })}
+                              className="block w-full truncate pl-3 text-left text-[12px] text-muted hover:underline disabled:no-underline"
+                            >
                               {s.title}
                               {s.duracionMin != null && <span className="ml-1 text-[11px] text-faint tabular-nums">· {duracionHoras(s.duracionMin)}</span>}
-                            </span>
+                            </button>
                           </Fila>
                           );
                         })}
@@ -352,6 +360,7 @@ export function GanttView({ onEditTask, onNewTask }: { onEditTask: (t: Task) => 
           </div>
         </div>
       )}
+      {detalle && <PasoModal paso={detalle.paso} tarea={detalle.tarea} onClose={() => setDetalle(null)} onEditTask={onEditTask} />}
       {resumen && (
         <ResumenCambios
           cambios={cambios}

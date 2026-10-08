@@ -15,8 +15,8 @@ Usuario: una sola persona (Cesar). No hay multi-tenant al inicio.
 
 Orden vertical:
 1. Encabezado: fecha, título, saludo.
-2. **Acciones rápidas** (fila de 3 botones): Tarea rápida · Revisión semanal · Captura rápida.
-3. **Hábitos de hoy**.
+2. **Crear +** (botón en la fila de pestañas; flotante en el teléfono): abre un modal para elegir Tarea · Captura · Hábito · Proyecto.
+3. **Hábitos**: burbujas por franja; las marcadas se quedan rellenas.
 4. **Pendientes** (con filtro Hoy / Semana / Todas) + **En incumplimiento**.
 5. **Proyectos en curso**.
 
@@ -106,13 +106,16 @@ Vista:
 - Muestra `next_action` y los días de aplicación.
 - Regla de foco (WIP): recordar máximo 2–3 en "en_curso" (aviso suave, no bloqueo).
 
-## 6. Acciones rápidas (modales)
+## 6. Crear + y Resumen
 
 - **Tarea rápida** → formulario: título, descripción, pasos (subtareas, añadibles),
   tipo, proyecto relacionado, fecha inicio, deadline, notas. Crea la tarea.
 - **Captura rápida** → modal con input para una idea nueva; se agrega a la lista de
   ideas (Inbox). Se procesan luego en la revisión.
-- **Revisión semanal** → **reporte** (no formulario) del cumplimiento de la semana:
+- **Tarea, Hábito y Proyecto** desde Crear + abren sus formularios de siempre.
+- **Resumen** (vista `#/resumen`, antes modal de revisión semanal) → **reporte** (no formulario) con selector Semana | Mes:
+  - **Mes**: las mismas pestañas sobre el mes en curso (solo días transcurridos) más un **mapa de calor** con el % de hábitos de cada día; no se archiva.
+  - **Semana**, cumplimiento de la semana:
   - Dos pestañas:
     - **Proyectos**: KPIs de tareas hechas/total, nº incumplidas y proyectos sin tocar.
       Por cada proyecto en curso, una tarjeta con % de la semana (tareas con deadline en la

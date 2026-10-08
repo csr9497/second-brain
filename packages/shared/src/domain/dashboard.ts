@@ -1,8 +1,8 @@
 // Agregados de la pantalla Hoy y de la revisión semanal, calculados a partir de
 // filas ya cargadas (sin acceso a datos). Nada de esto se almacena salvo al
 // archivar una semana.
-import type { HabitChip, HabitSemanal, HabitSlot, PaletteColor, Project, Task, TodayPayload, WeeklyHabit, WeeklyProject, WeeklyReport, WeeklyTask } from '../index';
-import { addDays, slotForHour, toISO, todayISO, weekRange, weekday } from './dates';
+import type { HabitChip, HabitSemanal, HabitSlot, PaletteColor, Project, Task, TodayPayload, MonthlyReport, WeeklyHabit, WeeklyProject, WeeklyReport, WeeklyTask } from '../index';
+import { addDays, daysBetween, slotForHour, toISO, todayISO, weekRange, weekday } from './dates';
 import { bucketTasks, computeStreak, isOverdue, pct } from './metrics';
 import { finPaso, fueraDePlazo } from './pasos';
 
@@ -187,10 +187,43 @@ export function habitosSemanales(habits: HabitRow[], doneLogs: DashboardInput['d
   });
 }
 
-export function buildWeeklyReport({ habits, doneLogs, tasks, projects, now }: DashboardInput, archived: boolean): WeeklyReport {
+/**
+ * Semanas (lunes–domingo) que tocan [start, lastDay] con la meta de `h` en cada una y sus días hechos.
+ * `tope` limita la meta a los días de la semana que caen dentro de [start, end] (en una semana
+ * completa no cambia nada; en las semanas partidas de un mes evita metas imposibles de cumplir).
+ * Las semanas en que el hábito fue diario o no estuvo vigente no entran.
+ */
+function semanasDe(h: HabitRow, doneLogs: DashboardInput['doneLogs'], start: string, end: string, lastDay: string) {
+  const semanas: { meta: number; hechos: number }[] = [];
+  for (let ws = weekRange(start).start; ws <= lastDay; ws = addDays(ws, 7)) {
+    const desde = ws < start ? start : ws;
+    const hasta = addDays(ws, 6) < lastDay ? addDays(ws, 6) : lastDay;
+    const meta = metaSemanal(h, desde, hasta);
+    if (meta == null) continue;
+    const finVentana = addDays(ws, 6) < end ? addDays(ws, 6) : end;
+    semanas.push({ meta: Math.min(meta, daysBetween(desde, finVentana) + 1), hechos: diasHechos(h, doneLogs, desde, hasta).size });
+  }
+  return semanas;
+}
+
+export const buildWeeklyReport = (input: DashboardInput, archived: boolean): WeeklyReport =>
+  buildReport(input, weekRange(todayISO(input.now)), archived);
+
+/** Último día del mes de `iso`. */
+function finDeMes(iso: string) {
+  const [y, m] = iso.split('-').map(Number);
+  return addDays(`${y}-${String(m).padStart(2, '0')}-01`, new Date(Date.UTC(y, m, 0)).getUTCDate() - 1);
+}
+
+/**
+ * Reporte de un rango de días [start, end] (semana o mes). Solo cuentan los días ya transcurridos.
+ * Hábitos semanales: suman su meta por cada semana (lun–dom) que toca el rango, con la meta
+ * topada a los días de esa semana dentro del rango; en una semana sola es la regla de siempre.
+ */
+export function buildReport({ habits, doneLogs, tasks, projects, now }: DashboardInput, rango: { start: string; end: string }, archived: boolean): WeeklyReport {
   const today = todayISO(now);
-  const { start, end } = weekRange(today);
-  // Solo cuentan los días ya transcurridos de la semana
+  const { start, end } = rango;
+  // Solo cuentan los días ya transcurridos del rango
   const lastDay = today < end ? today : end;
   const byDate = doneByDate(habits, doneLogs);
   const totalOn = (d: string) => totalTurnos(habits, d);
@@ -200,12 +233,12 @@ export function buildWeeklyReport({ habits, doneLogs, tasks, projects, now }: Da
     habitsDone += byDate.get(d) ?? 0;
     habitsTotal += totalOn(d);
   }
-  // Los semanales suman su meta completa (tope en la meta)
+  // Los semanales suman su meta completa por semana (tope en la meta)
   for (const h of habits) {
-    const meta = metaSemanal(h, start, lastDay);
-    if (meta == null) continue;
-    habitsDone += Math.min(diasHechos(h, doneLogs, start, lastDay).size, meta);
-    habitsTotal += meta;
+    for (const { meta, hechos } of semanasDe(h, doneLogs, start, end, lastDay)) {
+      habitsDone += Math.min(hechos, meta);
+      habitsTotal += meta;
+    }
   }
 
   const weekTasks = tasks.filter((t) => t.deadline != null && t.deadline >= start && t.deadline <= end);
@@ -214,13 +247,14 @@ export function buildWeeklyReport({ habits, doneLogs, tasks, projects, now }: Da
 
   const perProject = inProgress.map((p): WeeklyProject => {
     const own = weekTasks.filter((t) => t.projectId === p.id);
+    const done = own.filter((t) => t.status === 'hecha').length;
     const seguidas = weeklyTasks(tasks.filter((t) => t.projectId === p.id), today, start, end);
     return {
       id: p.id,
       nombre: p.nombre,
       color: p.color,
-      pct: p.pctSemana,
-      done: own.filter((t) => t.status === 'hecha').length,
+      pct: pct(done, own.length), // del rango (no `pctSemana`, que es siempre el de la semana actual)
+      done,
       total: own.length,
       overdue: own.filter((t) => isOverdue(t, today)).length,
       touched: touched.has(p.id),
@@ -242,29 +276,51 @@ export function buildWeeklyReport({ habits, doneLogs, tasks, projects, now }: Da
     streak: computeStreak(byDate, today, totalOn),
     perProject,
     untouched: perProject.filter((p) => !p.touched).map((p) => ({ id: p.id, nombre: p.nombre })),
-    perHabit: weeklyHabits(habits, doneLogs, start, lastDay),
+    perHabit: weeklyHabits(habits, doneLogs, start, lastDay, end),
     archived,
   };
+}
+
+/** Reporte del mes de `now`, con el % de hábitos diarios de cada día para el mapa de calor. */
+export function buildMonthlyReport(input: DashboardInput): MonthlyReport {
+  const hoy = todayISO(input.now);
+  const monthStart = `${hoy.slice(0, 7)}-01`;
+  const monthEnd = finDeMes(hoy);
+  const { weekStart: _s, weekEnd: _e, archived: _ar, ...r } = buildReport(input, { start: monthStart, end: monthEnd }, false);
+  const dias: MonthlyReport['dias'] = [];
+  for (let d = monthStart; d <= monthEnd; d = addDays(d, 1)) {
+    const futuro = d > hoy;
+    // Misma regla que el % del día en Hoy y el calendario; null sin diarios vigentes
+    const { turnos, hechos } = fichasDelDia(input.habits, input.doneLogs, d);
+    dias.push({ fecha: d, pct: futuro || turnos === 0 ? null : pct(hechos, turnos), futuro });
+  }
+  return { ...r, monthStart, monthEnd, dias };
 }
 
 /**
  * Cumplimiento por hábito de lunes a domingo, en turnos (misma regla que `fichasDelDia`).
  * Solo cuentan los días hasta `lastDay`; entran los hábitos vigentes en alguno de ellos.
  */
-export function weeklyHabits(habits: HabitRow[], doneLogs: DashboardInput['doneLogs'], start: string, lastDay: string): WeeklyHabit[] {
-  const fechas = Array.from({ length: 7 }, (_, i) => addDays(start, i));
+export function weeklyHabits(habits: HabitRow[], doneLogs: DashboardInput['doneLogs'], start: string, lastDay: string, end = addDays(start, 6)): WeeklyHabit[] {
+  const fechas = Array.from({ length: daysBetween(start, end) + 1 }, (_, i) => addDays(start, i));
   return [...habits]
     .sort((a, b) => a.position - b.position)
     .map((h): WeeklyHabit => {
       const meta = metaSemanal(h, start, lastDay);
       if (meta != null) {
         const hechosEn = diasHechos(h, doneLogs, start, lastDay);
+        // Semana: hechos = días hechos, turnos = la meta. Mes: se suma por semana, con tope en cada meta
+        const semanas = semanasDe(h, doneLogs, start, end, lastDay);
+        const hechosTot = semanas.reduce((n, w) => n + Math.min(w.hechos, w.meta), 0);
+        const metaTot = semanas.reduce((n, w) => n + w.meta, 0);
         const dias = fechas.map((fecha) => {
           const futuro = fecha > lastDay;
           const vigente = !futuro && periodoEn(h, fecha)?.vecesSemana != null;
           return { fecha, hechos: hechosEn.has(fecha) ? 1 : 0, turnos: vigente ? 1 : 0, futuro };
         });
-        return { id: h.id, nombre: h.nombre, meta, hechos: hechosEn.size, turnos: meta, pct: pct(Math.min(hechosEn.size, meta), meta), dias };
+        return fechas.length === 7
+          ? { id: h.id, nombre: h.nombre, meta, hechos: hechosEn.size, turnos: meta, pct: pct(Math.min(hechosEn.size, meta), meta), dias }
+          : { id: h.id, nombre: h.nombre, meta, hechos: hechosTot, turnos: metaTot, pct: pct(hechosTot, metaTot), dias };
       }
       const dias = fechas.map((fecha) => {
         const futuro = fecha > lastDay;

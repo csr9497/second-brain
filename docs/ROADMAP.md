@@ -42,7 +42,8 @@ la app funcional. Estimaciones en jornadas de dev enfocadas (ajústalas a tu rit
 - ✅ PWA instalable.
 - Pendiente: offline básico para marcar hábitos y sincronizar.
 - Deadlines y "nudge" de proyectos sin avanzar.
-- Métricas históricas (tendencia de hábitos, cumplimiento por mes).
+- ✅ Métricas históricas (parcial): Resumen mensual con mapa de calor de hábitos.
+- Pendiente: navegar a meses anteriores y tendencia de hábitos.
 
 ## Fase W — Agentes vía WebMCP
 - ✅ 24 herramientas registradas en la página (`document.modelContext`): lectura, capturar/marcar, edición sin borrados (tareas, pasos por días o por tiempo, reordenar, encadenar, proyectos, ideas) e interfaz (abrir tarea, nueva tarea, cambiar de vista). Catálogo en `@sb/shared/herramientas`. Ver `docs/MCP.md` §0.

@@ -9,7 +9,7 @@ const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 const MAX_MARCAS = 3;
 const POR: Record<HabitSlot, string> = { manana: 'la mañana', tarde: 'la tarde', noche: 'la noche' };
 const navBtn = 'rounded-full border border-line px-3 py-1 text-xs font-semibold text-muted hover:text-text';
-const itemBtn = 'flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-left text-[13px] hover:bg-surface2';
+const itemBtn = 'flex min-h-11 w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-left text-[13px] hover:bg-surface2';
 
 type Rango = { inicio: string; fin: string };
 
@@ -115,7 +115,7 @@ export function CalendarView({ onEditTask, onNewTask }: { onEditTask: (t: Task) 
       {isLoading && <p className="text-sm text-muted">Cargando…</p>}
       {error && <div className="card text-sm text-hot">No se pudo cargar: {error.message}</div>}
       {data && (
-        <div className="grid gap-4 md:grid-cols-[1fr_270px]">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_270px]">
           <div className="card p-2">
             <p className="m-0 mb-1.5 flex flex-wrap gap-3 px-1 text-[11px] text-faint">
               <span>▬ tarea</span>
@@ -269,7 +269,7 @@ function PanelDia({
   return (
     <aside className="card self-start" aria-label={`Detalle: ${headerDate(dia.fecha)}`}>
       <h3 className="m-0 mb-3 font-display text-base font-semibold">{headerDate(dia.fecha)}</h3>
-      <button type="button" onClick={() => onNewTask({ inicio: dia.fecha, fin: dia.fecha })} className="mb-3 rounded-lg border border-dashed border-line px-2.5 py-[5px] text-xs font-semibold text-muted hover:text-text">
+      <button type="button" onClick={() => onNewTask({ inicio: dia.fecha, fin: dia.fecha })} className="mb-3 min-h-11 rounded-lg border border-dashed border-line px-2.5 py-[5px] text-xs font-semibold text-muted hover:text-text">
         ＋ Tarea este día
       </button>
       <Seccion titulo="Vencen" vacio="Nada vence este día.">
@@ -300,7 +300,7 @@ function PanelDia({
       </Seccion>
       <Seccion titulo={dia.habitos.pct != null ? `Hábitos · ${dia.habitos.pct}%` : 'Hábitos'} vacio="Sin hábitos este día.">
         {fichas.map((c) => (
-          <li key={`${c.id}-${c.slot}`} className="flex items-center gap-2 px-1.5 py-1 text-[13px]">
+          <li key={`${c.id}-${c.slot}`} className="flex min-h-11 items-center gap-2 px-1.5 py-1 text-[13px]">
             <span aria-hidden className={c.done ? 'text-good' : 'text-faint'}>
               {c.done ? '✓' : dia.esFuturo ? '◦' : '○'}
             </span>

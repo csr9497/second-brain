@@ -4,8 +4,8 @@ import { greeting, headerDate } from './lib/format';
 import { TaskModal } from './components/TaskModal';
 import { AvisosModal } from './components/AvisosModal';
 import { IdeaModal } from './components/IdeaModal';
-import { ReviewModal } from './components/ReviewModal';
 import { ProjectModal } from './components/ProjectModal';
+import { CrearModal } from './components/CrearModal';
 import { Login } from './components/Login';
 import { useSession } from './lib/useSession';
 import { sb } from './lib/supabase';
@@ -13,6 +13,7 @@ import { HabitModal } from './components/HabitModal';
 import { HabitsManager } from './components/HabitsManager';
 import { CalendarView } from './components/CalendarView';
 import { HoyView } from './components/HoyView';
+import { ResumenView } from './components/resumen/ResumenView';
 import { GanttView } from './components/gantt/GanttView';
 import { ConfirmHost } from './components/ui/Confirmar';
 import { useVista, hrefVista, listaVistas, puedeSalir, VISTAS } from './lib/useVista';
@@ -32,7 +33,7 @@ function Home() {
   const vista = useVista();
   const [modal, setModal] = useState<ModalState>(null);
   const close = useCallback(() => setModal(null), []);
-  // Crear/editar un hábito cierra "Gestionar hábitos" y vuelve a él al terminar (sin modales apilados)
+  // Crear/editar un hábito desde "Gestionar hábitos" lo cierra y vuelve a él al terminar (sin modales apilados)
   const backToHabits = useCallback(() => setModal({ kind: 'habitos' }), []);
   // Nueva tarea desde Calendario/Gantt: inicio = primer día y deadline = último. Si el último día ya pasó,
   // el deadline queda vacío (uno vencido mandaría la tarea a incumplimiento)
@@ -51,7 +52,7 @@ function Home() {
   });
 
   return (
-    <div className={`mx-auto ${VISTAS[vista].ancho} px-4 pt-[26px] pb-[72px]`}>
+    <div className="mx-auto max-w-[1040px] px-4 pt-[26px] pb-28 sm:pb-[72px]">
       <header>
         <div className="text-xs font-semibold tracking-[.08em] text-faint uppercase">{headerDate(todayISO())}</div>
         <div className="flex items-start justify-between gap-3">
@@ -79,7 +80,8 @@ function Home() {
         <p className="m-0 text-sm text-muted">{greeting()}</p>
       </header>
 
-      <nav className="mt-5 flex gap-1.5" aria-label="Vistas">
+      <div className="mt-5 flex items-center gap-1.5">
+      <nav className="-mx-4 flex min-w-0 gap-1.5 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden" aria-label="Vistas">
         {listaVistas.map((v) => (
           <a
             key={v}
@@ -91,12 +93,19 @@ function Home() {
               if (await puedeSalir()) window.location.hash = hrefVista(v);
             }}
             aria-current={vista === v ? 'page' : undefined}
-            className="rounded-full border border-line px-3.5 py-1.5 text-[13px] font-semibold text-muted no-underline transition hover:text-text aria-[current=page]:border-accent aria-[current=page]:bg-accent aria-[current=page]:text-white"
+            className="shrink-0 rounded-full border border-line px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-muted no-underline sm:px-3.5 sm:text-[13px] transition hover:text-text aria-[current=page]:border-accent aria-[current=page]:bg-accent aria-[current=page]:text-white"
           >
             {VISTAS[v].label}
           </a>
         ))}
       </nav>
+      <button
+        onClick={() => setModal({ kind: 'crear' })}
+        className="ml-auto hidden shrink-0 rounded-full border border-accent bg-accent px-4 py-1.5 text-[13px] font-semibold whitespace-nowrap text-white sm:block"
+      >
+        ＋ Crear
+      </button>
+      </div>
 
       {vista === 'hoy' && <HoyView onOpen={setModal} />}
       {vista === 'calendario' && (
@@ -106,16 +115,24 @@ function Home() {
         />
       )}
       {vista === 'gantt' && <GanttView onEditTask={(task) => setModal({ kind: 'tarea', task })} onNewTask={nuevaTarea} />}
+      {vista === 'resumen' && <ResumenView />}
 
       {modal?.kind === 'tarea' && <TaskModal task={modal.task} inicial={modal.inicial} onClose={close} />}
       {modal?.kind === 'proyecto' && <ProjectModal project={modal.project} onClose={close} />}
-      {modal?.kind === 'revision' && <ReviewModal onClose={close} />}
       {modal?.kind === 'idea' && <IdeaModal onClose={close} />}
       {modal?.kind === 'avisos' && <AvisosModal onClose={close} />}
       {modal?.kind === 'habitos' && (
-        <HabitsManager onClose={close} onNew={() => setModal({ kind: 'habito' })} onEdit={(habit) => setModal({ kind: 'habito', habit })} />
+        <HabitsManager onClose={close} onNew={() => setModal({ kind: 'habito', volver: true })} onEdit={(habit) => setModal({ kind: 'habito', habit, volver: true })} />
       )}
-      {modal?.kind === 'habito' && <HabitModal habit={modal.habit} onClose={backToHabits} />}
+      {modal?.kind === 'habito' && <HabitModal habit={modal.habit} onClose={modal.volver ? backToHabits : close} />}
+      {modal?.kind === 'crear' && <CrearModal onSelect={setModal} onClose={close} />}
+      <button
+        onClick={() => setModal({ kind: 'crear' })}
+        aria-label="Crear"
+        className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-40 flex size-14 items-center justify-center rounded-full border-0 bg-accent text-3xl leading-none text-white shadow-lg sm:hidden"
+      >
+        ＋
+      </button>
       <ConfirmHost />
     </div>
   );

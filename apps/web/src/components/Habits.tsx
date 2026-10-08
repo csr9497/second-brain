@@ -24,6 +24,37 @@ function contarTurnos(porFranja: PorFranja) {
   return { total, hechos, pct: total ? Math.round((hechos / total) * 100) : 0 };
 }
 
+/** Círculo de 48 px: pendiente = contorno con la inicial; hecho = relleno con ✓. Los semanales llevan un anillo de progreso. */
+function Burbuja({ nombre, done, marca, progreso }: { nombre: string; done: boolean; marca?: boolean; progreso?: { hechas: number; meta: number } }) {
+  const R = 27;
+  const L = 2 * Math.PI * R;
+  const frac = progreso ? Math.min(1, progreso.hechas / Math.max(1, progreso.meta)) : 0;
+  return (
+    <span className="relative grid size-12 flex-none place-items-center">
+      {progreso && (
+        <svg aria-hidden viewBox="0 0 60 60" className="pointer-events-none absolute -inset-1.5 size-[60px] -rotate-90">
+          <circle cx="30" cy="30" r={R} fill="none" stroke="var(--line)" strokeWidth="3" />
+          <circle cx="30" cy="30" r={R} fill="none" stroke="var(--good)" strokeWidth="3" strokeLinecap="round" strokeDasharray={`${L * frac} ${L}`} />
+        </svg>
+      )}
+      <span
+        className={`grid size-12 place-items-center rounded-full transition ${done ? 'bg-good text-good-ink' : 'border-2 border-line bg-transparent text-faint'}`}
+      >
+        {done ? (
+          <svg aria-hidden viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M5 12.5l4.5 4.5L19 7.5" />
+          </svg>
+        ) : (
+          <span aria-hidden className="font-display text-lg font-semibold uppercase">
+            {Array.from(nombre)[0]}
+          </span>
+        )}
+      </span>
+      {marca && <i aria-hidden className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-accent ring-2 ring-surface" />}
+    </span>
+  );
+}
+
 export function Habits({ habits }: { habits: TodayPayload['habits'] }) {
   // La pestaña por defecto es la franja actual (la calcula el server)
   const [tab, setTab] = useState<HabitSlot>(habits.slotActual);
@@ -91,62 +122,54 @@ export function Habits({ habits }: { habits: TodayPayload['habits'] }) {
         ))}
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-3">
         {habits.porFranja[tab].length === 0 && <p className="m-0 text-[13px] text-faint">Sin hábitos en esta franja.</p>}
-        {habits.porFranja[tab].map((c) => (
-          <button
-            key={`${c.id}-${c.slot}`}
-            aria-pressed={c.done}
-            aria-disabled={toggle.isPending}
-            onClick={() => {
-              if (!toggle.isPending) toggle.mutate(c);
-            }}
-            className="group inline-flex items-center gap-2 rounded-full border border-line bg-surface2 py-2 pr-[13px] pl-2.5 text-[13px] font-medium transition aria-pressed:border-good aria-pressed:bg-good-ink aria-pressed:text-good"
-          >
-            <span className="grid size-[18px] place-items-center rounded-md border-[1.5px] border-faint text-xs text-transparent transition group-aria-pressed:border-good group-aria-pressed:bg-good group-aria-pressed:text-white">
-              ✓
-            </span>
-            {c.nombre}
-            {c.done && c.doneIn && c.doneIn !== c.slot && (
-              <small className="text-[11px] font-normal opacity-80">· hecho por {POR[c.doneIn]}</small>
-            )}
-          </button>
-        ))}
+        {habits.porFranja[tab].map((c) => {
+          const otraFranja = c.done && c.doneIn && c.doneIn !== c.slot ? c.doneIn : null;
+          return (
+            <button
+              key={`${c.id}-${c.slot}`}
+              aria-pressed={c.done}
+              aria-disabled={toggle.isPending}
+              aria-label={`${c.nombre}, ${c.done ? 'hecho' : 'pendiente'}${otraFranja ? `, hecho por ${POR[otraFranja]}` : ''}`}
+              onClick={() => {
+                if (!toggle.isPending) toggle.mutate(c);
+              }}
+              className="flex w-16 flex-none flex-col items-center gap-1 text-center"
+            >
+              <Burbuja nombre={c.nombre} done={c.done} marca={!!otraFranja} />
+              <span className="w-full truncate text-xs font-medium" aria-hidden>
+                {c.nombre}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {habits.semanales.length > 0 && (
         <section aria-label="Hábitos de la semana" className="mt-4 border-t border-line pt-3">
           <h4 className="m-0 mb-2 text-xs font-semibold tracking-wide text-faint uppercase">📅 Esta semana</h4>
-          <div className="flex flex-wrap gap-2">
-            {habits.semanales.map((h) => {
-              const cumplido = h.hechas >= h.meta;
-              return (
-                <button
-                  key={h.id}
-                  aria-pressed={h.hoy}
-                  aria-disabled={toggleSemanal.isPending}
-                  aria-label={`${h.nombre}: ${h.hechas} de ${h.meta} esta semana${h.hoy ? ', hecho hoy' : ''}`}
-                  onClick={() => {
-                    if (!toggleSemanal.isPending) toggleSemanal.mutate(h);
-                  }}
-                  className="group inline-flex items-center gap-2 rounded-full border border-line bg-surface2 py-2 pr-[13px] pl-2.5 text-[13px] font-medium transition aria-pressed:border-good aria-pressed:bg-good-ink aria-pressed:text-good"
-                >
-                  <span className="grid size-[18px] place-items-center rounded-md border-[1.5px] border-faint text-xs text-transparent transition group-aria-pressed:border-good group-aria-pressed:bg-good group-aria-pressed:text-white">
-                    ✓
-                  </span>
+          <div className="flex flex-wrap gap-3">
+            {habits.semanales.map((h) => (
+              <button
+                key={h.id}
+                aria-pressed={h.hoy}
+                aria-disabled={toggleSemanal.isPending}
+                aria-label={`${h.nombre}: ${h.hechas} de ${h.meta} esta semana${h.hoy ? ', hecho hoy' : ''}`}
+                onClick={() => {
+                  if (!toggleSemanal.isPending) toggleSemanal.mutate(h);
+                }}
+                className="flex w-16 flex-none flex-col items-center gap-1 text-center"
+              >
+                <Burbuja nombre={h.nombre} done={h.hoy} progreso={{ hechas: h.hechas, meta: h.meta }} />
+                <span className="w-full truncate text-xs font-medium" aria-hidden>
                   {h.nombre}
-                  <span aria-hidden className="flex gap-0.5">
-                    {Array.from({ length: h.meta }, (_, i) => (
-                      <i key={i} className={`size-1.5 rounded-full ${i < h.hechas ? 'bg-good' : 'bg-line'}`} />
-                    ))}
-                  </span>
-                  <small className={`text-[11px] font-normal tabular-nums ${cumplido ? 'text-good' : 'opacity-80'}`}>
-                    {h.hechas}/{h.meta}
-                    {cumplido && ' 🎉'}
-                  </small>
-                </button>
-              );
-            })}
+                </span>
+                <span aria-hidden className={`-mt-0.5 text-[11px] tabular-nums ${h.hechas >= h.meta ? 'text-good' : 'text-faint'}`}>
+                  {h.hechas}/{h.meta}
+                </span>
+              </button>
+            ))}
           </div>
         </section>
       )}

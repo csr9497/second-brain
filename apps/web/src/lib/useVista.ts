@@ -3,9 +3,10 @@ import { confirmar } from '../components/ui/Confirmar';
 
 // Vistas por hash: recargar conserva la vista y sirve igual en GitHub Pages.
 export const VISTAS = {
-  hoy: { hash: '#/', label: '☀️ Hoy', ancho: 'max-w-[780px]' },
-  calendario: { hash: '#/calendario', label: '📅 Calendario', ancho: 'max-w-[1040px]' },
-  gantt: { hash: '#/gantt', label: '📊 Gantt', ancho: 'max-w-[1240px]' },
+  hoy: { hash: '#/', label: '☀️ Hoy' },
+  calendario: { hash: '#/calendario', label: '📅 Calendario' },
+  gantt: { hash: '#/gantt', label: '📊 Gantt' },
+  resumen: { hash: '#/resumen', label: '📈 Resumen' },
 } as const;
 export type Vista = keyof typeof VISTAS;
 export const listaVistas = Object.keys(VISTAS) as Vista[];

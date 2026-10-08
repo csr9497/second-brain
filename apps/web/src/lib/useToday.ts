@@ -29,6 +29,8 @@ export function useTodayMutation<V, R>(fn: (v: V) => Promise<R>, optimistic?: (d
       // lo que se marca en Hoy también se ve en el calendario
       qc.invalidateQueries({ queryKey: ['calendar'] });
       qc.invalidateQueries({ queryKey: ['gantt'] });
+      qc.invalidateQueries({ queryKey: ['review'] });
+      qc.invalidateQueries({ queryKey: ['resumen'] });
     },
   });
 }

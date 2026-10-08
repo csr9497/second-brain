@@ -31,6 +31,8 @@ export function ResumenCambios({ cambios, onVolver, onGuardado }: { cambios: Cam
       qc.invalidateQueries({ queryKey: ['gantt'] });
       qc.invalidateQueries({ queryKey: TODAY_KEY });
       qc.invalidateQueries({ queryKey: ['calendar'] });
+      qc.invalidateQueries({ queryKey: ['review'] });
+      qc.invalidateQueries({ queryKey: ['resumen'] });
     },
   });
   const fuera = cambios.filter((c) => c.tipo === 'paso' && c.fueraDePlazo).length;

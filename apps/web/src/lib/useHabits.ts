@@ -13,5 +13,7 @@ export function useInvalidateHabits() {
     qc.invalidateQueries({ queryKey: TODAY_KEY });
     qc.invalidateQueries({ queryKey: HABITS_KEY });
     qc.invalidateQueries({ queryKey: ['calendar'] });
+    qc.invalidateQueries({ queryKey: ['review'] });
+    qc.invalidateQueries({ queryKey: ['resumen'] });
   };
 }
