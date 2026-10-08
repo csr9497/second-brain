@@ -34,7 +34,9 @@ self.addEventListener('notificationclick', (e) => {
   const url = new URL((e.notification.data as { url?: string } | null)?.url ?? './#/', self.registration.scope).href;
   e.waitUntil(
     (async () => {
-      const [abierta] = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      // El origen (github.io) lo comparten otros sitios: solo vale una ventana dentro del scope de la app
+      const ventanas = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      const abierta = ventanas.find((c) => c.url.startsWith(self.registration.scope));
       if (abierta) await abierta.focus();
       else await self.clients.openWindow(url);
     })(),

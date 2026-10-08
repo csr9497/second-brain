@@ -104,6 +104,7 @@ Deno.serve(async (req) => {
     return json({ error: 'no autorizado' }, 401);
   } catch (e) {
     console.error(e);
-    return json({ error: String(e) }, 500);
+    // el detalle queda en los logs; al cliente (que puede no estar autenticado) no se le da
+    return json({ error: 'error interno' }, 500);
   }
 });

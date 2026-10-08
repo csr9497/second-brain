@@ -26,16 +26,24 @@ function base64UrlABytes(s: string) {
   return Uint8Array.from(b, (c) => c.charCodeAt(0));
 }
 
+function mismaClave(a: ArrayBuffer | null, b: Uint8Array) {
+  if (!a || a.byteLength !== b.length) return false;
+  const x = new Uint8Array(a);
+  return x.every((v, i) => v === b[i]);
+}
+
 /** Pide permiso (debe venir de un clic) y suscribe este dispositivo. */
 export async function suscribir(): Promise<PushSubscriptionJSON> {
   const clave = import.meta.env.VITE_VAPID_PUBLIC_KEY;
   if (!clave) throw new Error('Falta VITE_VAPID_PUBLIC_KEY');
   if ((await Notification.requestPermission()) !== 'granted') throw new Error('No diste permiso para notificaciones');
   const reg = await navigator.serviceWorker.ready;
-  const sub =
-    (await reg.pushManager.getSubscription()) ??
-    (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: base64UrlABytes(clave) }));
-  return sub.toJSON();
+  const key = base64UrlABytes(clave);
+  const previa = await reg.pushManager.getSubscription();
+  // Una suscripción hecha con otra clave VAPID (rotada, o de otro ambiente en el mismo origen) daría 403 en cada envío
+  if (previa && !mismaClave(previa.options.applicationServerKey, key)) await previa.unsubscribe();
+  else if (previa) return previa.toJSON();
+  return (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key })).toJSON();
 }
 
 /** Anula la suscripción de este dispositivo; devuelve su endpoint (para borrar la fila) o null. */

@@ -54,7 +54,8 @@ export function AvisosModal({ onClose }: { onClose: () => void }) {
     mutationFn: async () => {
       await api.suscribir(await suscribir());
       // Sin configuración guardada, activar el primer dispositivo guarda las horas por defecto
-      if (!avisos.data?.config) await api.guardarAvisos(config ?? POR_DEFECTO);
+      // (solo si la consulta respondió: con ella cargando o fallida pisaría las horas guardadas)
+      if (avisos.isSuccess && !avisos.data.config) await api.guardarAvisos(config ?? POR_DEFECTO);
     },
     onSuccess: alTerminar('🔔 Avisos activados en este dispositivo'),
     onError,
@@ -82,26 +83,33 @@ export function AvisosModal({ onClose }: { onClose: () => void }) {
     onError,
   });
 
+  // Suscrito en el navegador pero sin fila (lo quitaron desde otro dispositivo o se recreó la base): el cron
+  // no le enviaría nada, así que se ofrece activar de nuevo (vuelve a guardar la misma suscripción)
+  const registrado = !avisos.isSuccess || avisos.data.dispositivos.some((d) => d.endpoint === actual);
+  const visible = estado === 'activo' && !registrado ? 'inactivo' : estado;
+
   const setHora = (f: HabitSlot, v: string | null) => setConfig((c) => c && { ...c, horas: { ...c.horas, [f]: v } });
 
   return (
     <Modal title="🔔 Avisos" hint="Un recordatorio por franja si te quedan hábitos sin marcar." onClose={onClose}>
       <Field label="Este dispositivo" group>
-        {estado === null ? null : estado === 'activo' ? (
+        {visible === null ? null : visible === 'activo' ? (
           <div className="flex items-center justify-between gap-2 text-sm">
             <span>✓ Recibe avisos</span>
             <button className="btn" onClick={() => desactivar.mutate()} disabled={desactivar.isPending}>
               Desactivar aquí
             </button>
           </div>
-        ) : estado === 'inactivo' ? (
+        ) : visible === 'inactivo' ? (
           <button className="btn btn-primary" onClick={() => activar.mutate()} disabled={activar.isPending}>
             Activar avisos aquí
           </button>
         ) : (
-          <p className="m-0 text-sm text-muted">{MENSAJE[estado]}</p>
+          <p className="m-0 text-sm text-muted">{MENSAJE[visible]}</p>
         )}
       </Field>
+
+      {avisos.isError && <p className="m-0 mb-3 text-sm text-hot">⚠ No se pudieron cargar los avisos: {avisos.error.message}</p>}
 
       {config && (
         <form
