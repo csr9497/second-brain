@@ -325,7 +325,7 @@ export function TaskModal({
                 return (
                   <FilaOrdenable key={claveDe(s)} id={claveDe(s)} etiqueta={`Mover paso ${i + 1}`} alerta={fuera}>
                     <input
-                      className="input min-w-44 flex-1 py-1 text-[13px]"
+                      className="input min-w-44 flex-1 py-1 text-base sm:text-[13px]"
                       aria-label={`Nombre del paso ${i + 1}`}
                       value={s.title}
                       placeholder={i === 0 ? 'Primer paso' : 'Otro paso…'}
@@ -356,7 +356,7 @@ export function TaskModal({
                           aria-label={`Tiempo estimado del paso ${i + 1}`}
                           placeholder="—"
                           disabled={varios}
-                          className="input w-16 py-1 text-[13px] disabled:opacity-40"
+                          className="input w-16 py-1 text-base sm:text-[13px] disabled:opacity-40"
                           value={varios ? '' : (s.tiempo ?? '')}
                           onChange={(e) => setStep(i, { tiempo: e.target.value })}
                         />
