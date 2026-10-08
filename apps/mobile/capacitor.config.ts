@@ -5,7 +5,6 @@ const config: CapacitorConfig = {
   appId: 'com.csr9497.secondbrain',
   appName: 'Second Brain',
   webDir: '../web/dist',
-  ios: { scheme: 'Second Brain' },
 };
 
 export default config;
