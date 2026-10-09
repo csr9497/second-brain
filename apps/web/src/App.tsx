@@ -23,6 +23,7 @@ import { todayISO } from '@sb/shared';
 import { useWebMcp } from './lib/webmcp/registrar';
 import { useLiveActivity } from './lib/nativo/useLiveActivity';
 import { useRefresco } from './lib/nativo/useRefresco';
+import { useTiempoReal } from './lib/useTiempoReal';
 
 export function App() {
   const session = useSession();
@@ -52,6 +53,8 @@ function Home() {
 
   // App nativa: la Live Activity sigue a Hoy
   useLiveActivity();
+  // Cambios desde otro dispositivo o la card: se ven sin recargar
+  useTiempoReal();
   // App nativa: jalar hacia abajo actualiza
   useRefresco();
 
