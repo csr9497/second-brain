@@ -2,7 +2,7 @@
 // filas ya cargadas (sin acceso a datos). Nada de esto se almacena salvo al
 // archivar una semana.
 import type { HabitChip, HabitSemanal, HabitSlot, PaletteColor, Project, Task, TodayPayload, MonthlyReport, WeeklyHabit, WeeklyProject, WeeklyReport, WeeklyTask } from '../index';
-import { addDays, daysBetween, slotForHour, toISO, todayISO, weekRange, weekday } from './dates';
+import { addDays, daysBetween, diaDe, franjaDe, todayISO, weekRange, weekday } from './dates';
 import { bucketTasks, computeStreak, isOverdue, pct } from './metrics';
 import { finPaso, fueraDePlazo } from './pasos';
 
@@ -50,7 +50,7 @@ export interface DashboardInput {
 const PRIORITY_RANK: Record<string, number> = { alta: 0, media: 1, baja: 2 };
 
 const cubre = (p: HabitPeriod, fecha: string) =>
-  toISO(new Date(p.desde)) <= fecha && (p.hasta == null || toISO(new Date(p.hasta)) > fecha);
+  diaDe(new Date(p.desde)) <= fecha && (p.hasta == null || diaDe(new Date(p.hasta)) > fecha);
 
 /**
  * Periodo que cubre `fecha` (día local); si varios lo cubren (desfase de reloj), gana el más reciente.
@@ -160,12 +160,12 @@ export function buildToday({ habits, doneLogs, tasks, projects, now }: Dashboard
   const today = todayISO(now);
   const { porFranja, turnos: turnosHoy, hechos: hechosHoy } = fichasDelDia(habits, doneLogs, today);
 
-  const completedToday = (t: Task) => t.completedAt != null && toISO(new Date(t.completedAt)) === today;
+  const completedToday = (t: Task) => t.completedAt != null && diaDe(new Date(t.completedAt)) === today;
 
   return {
     date: today,
     habits: {
-      slotActual: slotForHour(now.getHours()),
+      slotActual: franjaDe(now),
       porFranja,
       pctDia: pct(hechosHoy, turnosHoy),
       streak: computeStreak(doneByDate(habits, doneLogs), today, (d) => totalTurnos(habits, d)),
@@ -243,7 +243,7 @@ export function buildReport({ habits, doneLogs, tasks, projects, now }: Dashboar
 
   const weekTasks = tasks.filter((t) => t.deadline != null && t.deadline >= start && t.deadline <= end);
   const inProgress = projectViews(projects.filter((p) => p.estado === 'en_curso'), tasks, today);
-  const touched = new Set(projects.filter((p) => toISO(new Date(p.lastActivityAt)) >= start).map((p) => p.id));
+  const touched = new Set(projects.filter((p) => diaDe(new Date(p.lastActivityAt)) >= start).map((p) => p.id));
 
   const perProject = inProgress.map((p): WeeklyProject => {
     const own = weekTasks.filter((t) => t.projectId === p.id);
@@ -345,7 +345,7 @@ const STATUS_RANK: Record<string, number> = { en_curso: 0, por_hacer: 1, hecha: 
 export function weeklyTasks(tasks: Task[], today: string, start: string, end: string): WeeklyTask[] {
   const enSemana = (d: string | null) => d != null && d >= start && d <= end;
   return tasks
-    .filter((t) => t.status !== 'hecha' || enSemana(t.deadline) || (t.completedAt != null && enSemana(toISO(new Date(t.completedAt)))))
+    .filter((t) => t.status !== 'hecha' || enSemana(t.deadline) || (t.completedAt != null && enSemana(diaDe(new Date(t.completedAt)))))
     .map((t): WeeklyTask => {
       const pasos = [...t.steps]
         .sort((a, b) => a.position - b.position)

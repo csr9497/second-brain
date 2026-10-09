@@ -19,11 +19,14 @@ enum SupabaseREST {
         }
     }
 
-    /// Upsert de `habit_logs` (hábito marcado hoy en esa franja).
-    static func marcarHabito(id: String, slot: String) async throws {
+    /// Límite de cada petición (la de refresco y la escritura).
+    static let tiempoMaximo: TimeInterval = 10
+
+    /// Upsert de `habit_logs` (hábito marcado en esa franja el día `fecha`).
+    static func marcarHabito(id: String, slot: String, fecha: String) async throws {
         try await escribir(
             "POST", ruta: "habit_logs?on_conflict=habit_id,fecha,slot",
-            cuerpo: ["habit_id": id, "fecha": fechaLocal(), "slot": slot, "done": true],
+            cuerpo: ["habit_id": id, "fecha": fecha, "slot": slot, "done": true],
             prefer: "resolution=merge-duplicates,return=representation")
     }
 
@@ -34,7 +37,7 @@ enum SupabaseREST {
         try await escribir("PATCH", ruta: "\(tabla)?id=eq.\(id)", cuerpo: cuerpo, prefer: "return=representation")
     }
 
-    /// Día local del dispositivo, `yyyy-MM-dd`.
+    /// Día de calendario del dispositivo, `yyyy-MM-dd` (sin jornada: solo para estados de la card sin `fecha`).
     static func fechaLocal(_ fecha: Date = Date()) -> String {
         let f = DateFormatter()
         f.calendar = Calendar(identifier: .gregorian)
@@ -71,6 +74,8 @@ enum SupabaseREST {
         var req = URLRequest(url: url)
         req.httpMethod = metodo
         req.httpBody = datos
+        // Sin respuesta en este tiempo, el botón muestra el fallo en vez de quedarse «enviando».
+        req.timeoutInterval = tiempoMaximo
         req.setValue(sesion.anonKey, forHTTPHeaderField: "apikey")
         req.setValue("Bearer \(sesion.accessToken)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -92,6 +97,7 @@ enum SupabaseREST {
         guard let url = URL(string: "\(sesion.url)/auth/v1/token?grant_type=refresh_token") else { throw URLError(.badURL) }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
+        req.timeoutInterval = tiempoMaximo
         req.setValue(sesion.anonKey, forHTTPHeaderField: "apikey")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try JSONSerialization.data(withJSONObject: ["refresh_token": sesion.refreshToken])

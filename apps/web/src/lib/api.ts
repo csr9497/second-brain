@@ -29,6 +29,9 @@ import {
   type HabitRow,
   type HabitSlot,
   type Idea,
+  type Jornada,
+  JORNADA_POR_DEFECTO,
+  fijarJornada,
   type Project,
   type PaletteColor,
   type ProjectInput,
@@ -517,6 +520,25 @@ export const api = {
         { onConflict: 'user_id,week_start' },
       ),
     );
+  },
+  /** Jornada (tabla `jornada`; sin fila, la de por defecto). La deja fijada en @sb/shared para todo el cálculo de «hoy». */
+  jornada: async (): Promise<Jornada> => {
+    const { data, error } = await sb.from('jornada').select('fin_dia, hora_tarde, hora_noche').maybeSingle();
+    if (error) throw new Error(error.message);
+    const j = data ? { finDia: hhmm(data.fin_dia)!, horaTarde: hhmm(data.hora_tarde)!, horaNoche: hhmm(data.hora_noche)! } : JORNADA_POR_DEFECTO;
+    fijarJornada(j);
+    return j;
+  },
+  guardarJornada: async (j: Jornada) => {
+    must(
+      await sb
+        .from('jornada')
+        .upsert(
+          { user_id: await userId(), fin_dia: j.finDia, hora_tarde: j.horaTarde, hora_noche: j.horaNoche, updated_at: new Date().toISOString() },
+          { onConflict: 'user_id' },
+        ),
+    );
+    fijarJornada(j);
   },
   // Avisos (Web Push): horas por franja y dispositivos suscritos. La Edge Function `recordatorios` envía.
   avisos: async (): Promise<{ config: AvisosConfig | null; dispositivos: Dispositivo[] }> => {

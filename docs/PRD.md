@@ -29,7 +29,9 @@ Orden vertical:
   cualquiera de sus franjas. Hoy lo muestra en la pestaña de cada una y, al hacerse,
   indica en cuál ("hecho por la tarde").
 - La vista tiene 3 pestañas (una por franja). **La pestaña activa por defecto es la
-  de la franja horaria actual** (mañana <12h, tarde 12–19h, noche ≥19h).
+  de la franja horaria actual** según la jornada (por defecto mañana <12h, tarde 12–19h,
+  noche ≥19h). La jornada es configurable: hora de inicio de la tarde y de la noche, y hora a
+  la que termina el día (≤ 06:00); hasta esa hora todo cuenta para la noche del día anterior.
 - Marcar/desmarcar un turno registra su estado **para el día actual**.
 - **% del día** = turnos hechos / total de turnos de los hábitos vigentes ese día
   (todas las franjas), mostrado como anillo de progreso.

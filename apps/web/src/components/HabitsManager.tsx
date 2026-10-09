@@ -6,6 +6,7 @@ import { useHabits, useInvalidateHabits } from '../lib/useHabits';
 import { ConfirmDelete, Modal, ModalActions } from './Modal';
 import { Dot } from './ui/Dot';
 import { useToast } from './Toast';
+import { JornadaForm } from './JornadaForm';
 
 type Action = 'archive' | 'reactivate' | 'delete';
 const DONE_MSG: Record<Action, string> = { archive: '📦 Hábito archivado', reactivate: '✅ Hábito reactivado', delete: '🗑 Hábito eliminado' };
@@ -72,6 +73,8 @@ export function HabitsManager({ onNew, onEdit, onClose }: { onNew: () => void; o
           ))}
         </ul>
       )}
+
+      <JornadaForm />
 
       {archived.length > 0 && (
         <section className="mt-4 border-t border-line pt-3">

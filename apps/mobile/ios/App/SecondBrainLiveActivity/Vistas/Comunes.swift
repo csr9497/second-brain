@@ -14,6 +14,7 @@ enum Tema {
     static let bueno = Color(hex: 0x7BC86C)
     static let tintaBueno = Color(hex: 0x11240D)
     static let acento = Color(hex: 0x7C9CFF)
+    static let malo = Color(hex: 0xE5675F)
     static let enlaceHoy = URL(string: "secondbrain://hoy")!
 }
 
@@ -47,8 +48,6 @@ extension EstadoCard {
     var pendientes: Int { habitos.filter { !$0.hecho }.count + totalPasos }
 
     var pct: Int { Int(pctDia.rounded()) }
-
-    var diaCompleto: Bool { habitos.isEmpty && pasos.isEmpty && masPasos == 0 }
 }
 
 /// Glifo de la app: caja de 22 pt con el cerebro en el acento.
@@ -101,7 +100,32 @@ struct CheckRelleno: View {
     }
 }
 
-/// Burbuja de un hábito: pendiente (borde con la inicial, botón que lo marca) o hecho (relleno con ✓).
+/// Círculo con borde de un botón de la card según su `marca`: gris (pendiente), verde con relleno tenue
+/// (enviando: el toque se registró y la escritura está en curso) o rojo (la escritura falló).
+struct CirculoMarca<Contenido: View>: View {
+    var marca: EstadoCard.Marca?
+    var tamano: CGFloat
+    @ViewBuilder var contenido: Contenido
+
+    private var color: Color {
+        switch marca {
+        case .enviando: return Tema.bueno
+        case .fallo: return Tema.malo
+        case nil: return Tema.borde
+        }
+    }
+
+    var body: some View {
+        Circle()
+            .fill(color.opacity(marca == nil ? 0 : 0.22))
+            .overlay(Circle().strokeBorder(color, lineWidth: 2))
+            .overlay(contenido)
+            .frame(width: tamano, height: tamano)
+            .contentShape(Circle())
+    }
+}
+
+/// Burbuja de un hábito: pendiente (borde con la inicial, botón que lo marca), enviando, fallo o hecho (relleno con ✓).
 struct Burbuja: View {
     var habito: EstadoCard.Habito
     var tamano: CGFloat
@@ -111,21 +135,29 @@ struct Burbuja: View {
         VStack(spacing: 4) {
             if habito.hecho {
                 CheckRelleno(tamano: tamano)
+            } else if habito.marca == .enviando {
+                // Sin botón mientras se envía: un segundo toque no repite la escritura.
+                CirculoMarca(marca: .enviando, tamano: tamano) {
+                    Text(habito.inicial).font(.system(size: tamano * 0.36, weight: .semibold)).foregroundStyle(Tema.bueno)
+                }
+                .accessibilityLabel("Marcando \(habito.nombre)")
             } else {
                 Button(intent: MarcarHabitoIntent(id: habito.id, slot: habito.slot)) {
-                    Circle()
-                        .strokeBorder(Tema.borde, lineWidth: 2)
-                        .overlay(Text(habito.inicial).font(.system(size: tamano * 0.36, weight: .semibold)).foregroundStyle(Tema.tenue))
-                        .frame(width: tamano, height: tamano)
-                        .contentShape(Circle())
+                    CirculoMarca(marca: habito.marca, tamano: tamano) {
+                        if habito.marca == .fallo {
+                            Image(systemName: "exclamationmark").font(.system(size: tamano * 0.36, weight: .heavy)).foregroundStyle(Tema.malo)
+                        } else {
+                            Text(habito.inicial).font(.system(size: tamano * 0.36, weight: .semibold)).foregroundStyle(Tema.tenue)
+                        }
+                    }
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Marcar \(habito.nombre)")
+                .accessibilityLabel(habito.marca == .fallo ? "No se pudo marcar \(habito.nombre). Reintentar" : "Marcar \(habito.nombre)")
             }
             if conNombre {
-                Text(habito.nombre)
+                Text(habito.marca == .fallo ? "Sin conexión" : habito.nombre)
                     .font(.system(size: 12))
-                    .foregroundStyle(habito.hecho ? Tema.suave : Tema.tenue)
+                    .foregroundStyle(habito.marca == .fallo ? Tema.malo : habito.hecho ? Tema.suave : Tema.tenue)
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .frame(maxWidth: tamano + 6)
@@ -157,9 +189,9 @@ struct FilaPaso: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Text(paso.titulo)
+            Text(paso.marca == .fallo ? "No se pudo marcar" : paso.titulo)
                 .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(Tema.texto)
+                .foregroundStyle(paso.marca == .fallo ? Tema.malo : paso.marca == .enviando ? Tema.tenue : Tema.texto)
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -170,15 +202,22 @@ struct FilaPaso: View {
                         .foregroundStyle(Tema.acento)
                 }
             }
-            Button(intent: MarcarPasoIntent(id: paso.id, tipo: paso.tipo)) {
-                Circle()
-                    .strokeBorder(Tema.borde, lineWidth: 2)
-                    .overlay(Image(systemName: "checkmark").font(.system(size: 13, weight: .bold)).foregroundStyle(Tema.texto))
-                    .frame(width: alto - 4, height: alto - 4)
-                    .contentShape(Circle())
+            if paso.marca == .enviando {
+                CirculoMarca(marca: .enviando, tamano: alto - 4) {
+                    Image(systemName: "checkmark").font(.system(size: 13, weight: .bold)).foregroundStyle(Tema.bueno)
+                }
+                .accessibilityLabel("Marcando \(paso.titulo)")
+            } else {
+                Button(intent: MarcarPasoIntent(id: paso.id, tipo: paso.tipo)) {
+                    CirculoMarca(marca: paso.marca, tamano: alto - 4) {
+                        Image(systemName: paso.marca == .fallo ? "exclamationmark" : "checkmark")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(paso.marca == .fallo ? Tema.malo : Tema.texto)
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(paso.marca == .fallo ? "No se pudo marcar \(paso.titulo). Reintentar" : "Marcar \(paso.titulo) como hecho")
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Marcar \(paso.titulo) como hecho")
         }
         .padding(.leading, 14)
         .padding(.trailing, 2)

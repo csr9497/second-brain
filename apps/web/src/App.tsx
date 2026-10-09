@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { api } from './lib/api';
 import { greeting, headerDate } from './lib/format';
 import { TaskModal } from './components/TaskModal';
 import { AvisosModal } from './components/AvisosModal';
@@ -26,6 +27,13 @@ export function App() {
   const session = useSession();
   if (session === undefined) return null;
   if (session === null) return <Login />;
+  return <ConJornada />;
+}
+
+/** Espera a la jornada antes de pintar: todo «hoy» y toda franja dependen de ella (`fijarJornada`). Si falla, sigue con la de por defecto. */
+function ConJornada() {
+  const jornada = useQuery({ queryKey: ['jornada'], queryFn: api.jornada, staleTime: Infinity, retry: 1 });
+  if (jornada.isPending) return null;
   return <Home />;
 }
 

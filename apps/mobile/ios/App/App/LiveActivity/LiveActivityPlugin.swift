@@ -37,7 +37,8 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         CAPLog.print("[LiveActivity] sincronizar: franja=\(estado.franja) habitos=\(estado.habitos.count) pasos=\(estado.pasos.count) masPasos=\(estado.masPasos)")
 
-        Task {
+        Task { @MainActor in
+            AccionesCard.ultimo = estado
             let contenido = ActivityContent(state: estado, staleDate: nil)
             if let actual = Activity<SecondBrainAttributes>.activities.first {
                 await actual.update(contenido)
@@ -97,7 +98,9 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
+    @MainActor
     private static func terminarTodas() async {
+        AccionesCard.ultimo = nil
         for actividad in Activity<SecondBrainAttributes>.activities {
             await actividad.end(nil, dismissalPolicy: .immediate)
         }

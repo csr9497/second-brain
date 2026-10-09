@@ -2,6 +2,8 @@ import type { HabitSlot, TodayPayload } from '../index';
 import { pasosDelPeriodo } from './pasos';
 
 export interface EstadoLiveActivity {
+  /** Día (de la jornada) al que se refiere la card: los botones marcan los hábitos en esa fecha. */
+  fecha: string;
   franja: HabitSlot;
   franjaCompleta: boolean;
   pctDia: number;
@@ -47,6 +49,7 @@ export function estadoLiveActivity(today: TodayPayload, ahoraISO: string): Estad
 
   if (habitos.length === 0 && pasosTodos.length === 0) return null;
   return {
+    fecha: today.date,
     franja,
     franjaCompleta: fichas.length > 0 && habitos.length === 0,
     pctDia: today.habits.pctDia,
