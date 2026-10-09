@@ -236,9 +236,11 @@
 				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					4BD620BBF6761A9FEA0FF10D = {
+						DevelopmentTeam = 3WL76C24SA;
 						ProvisioningStyle = Automatic;
 					};
 					93E9E330FC2CE7458D9C925F = {
+						DevelopmentTeam = 3WL76C24SA;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -443,6 +445,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 3WL76C24SA;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -522,6 +525,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 3WL76C24SA;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
