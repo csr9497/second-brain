@@ -17,6 +17,8 @@ configFiles:
 settings:
   base:
     SWIFT_VERSION: "5.0"
+    # Personal Team (cuenta gratuita) con el que se firma para el iPhone; cámbialo por el tuyo (docs/APP-NATIVA.md §5)
+    DEVELOPMENT_TEAM: 3WL76C24SA
     TARGETED_DEVICE_FAMILY: "1,2"
 targets:
   App:
