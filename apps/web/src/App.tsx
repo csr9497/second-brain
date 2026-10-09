@@ -22,6 +22,7 @@ import type { ModalState } from './lib/modal';
 import { todayISO } from '@sb/shared';
 import { useWebMcp } from './lib/webmcp/registrar';
 import { useLiveActivity } from './lib/nativo/useLiveActivity';
+import { useRefresco } from './lib/nativo/useRefresco';
 
 export function App() {
   const session = useSession();
@@ -51,6 +52,8 @@ function Home() {
 
   // App nativa: la Live Activity sigue a Hoy
   useLiveActivity();
+  // App nativa: jalar hacia abajo actualiza
+  useRefresco();
 
   // Herramientas de interfaz de WebMCP: no pisan un modal abierto; cambiar de vista respeta la guardia
   useWebMcp({
