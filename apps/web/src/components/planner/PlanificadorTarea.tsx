@@ -65,7 +65,7 @@ export function PlanificadorTarea({
         >
           <input
             autoFocus
-            className="input min-w-40 flex-1 py-1.5 text-[13px]"
+            className="input min-w-40 flex-1 py-1.5 text-base sm:text-[13px]"
             placeholder="Nombre del paso"
             aria-label="Nombre del paso"
             value={nombre}
@@ -80,7 +80,7 @@ export function PlanificadorTarea({
                 inputMode="decimal"
                 aria-label="Tiempo estimado del paso"
                 placeholder="Tiempo"
-                className="input w-20 py-1.5 text-[13px]"
+                className="input w-20 py-1.5 text-base sm:text-[13px]"
                 value={tiempo}
                 onChange={(e) => setTiempo(e.target.value)}
               />

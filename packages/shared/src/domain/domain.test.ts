@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, daysBetween, slotForHour, weekRange, weekday } from './dates';
+import { addDays, daysBetween, diaDe, franjaDe, todayISO, weekRange, weekday } from './dates';
 import { positionBetween } from './ordering';
 import { bucketTasks, computeStreak, pct } from './metrics';
 
@@ -19,12 +19,40 @@ describe('dates', () => {
     expect(daysBetween('2026-09-24', '2026-09-26')).toBe(2);
   });
 
-  it('franja por hora', () => {
-    expect(slotForHour(0)).toBe('manana');
-    expect(slotForHour(11)).toBe('manana');
-    expect(slotForHour(12)).toBe('tarde');
-    expect(slotForHour(18)).toBe('tarde');
-    expect(slotForHour(19)).toBe('noche');
+  const a = (hhmm: string, dia = 9) => new Date(2026, 9, dia, ...hhmm.split(':').map(Number));
+
+  it('franja por hora con la jornada por defecto', () => {
+    expect(franjaDe(a('00:00'))).toBe('manana');
+    expect(franjaDe(a('11:59'))).toBe('manana');
+    expect(franjaDe(a('12:00'))).toBe('tarde');
+    expect(franjaDe(a('18:59'))).toBe('tarde');
+    expect(franjaDe(a('19:00'))).toBe('noche');
+    expect(diaDe(a('00:00'))).toBe('2026-10-09');
+  });
+
+  it('jornada que termina pasada la medianoche', () => {
+    const j = { finDia: '03:00', horaTarde: '13:30', horaNoche: '20:00' };
+    // 01:30 del día 10 sigue siendo la noche del 9
+    expect(diaDe(a('01:30', 10), j)).toBe('2026-10-09');
+    expect(franjaDe(a('01:30', 10), j)).toBe('noche');
+    expect(diaDe(a('03:00', 10), j)).toBe('2026-10-10');
+    expect(franjaDe(a('03:00', 10), j)).toBe('manana');
+    expect(franjaDe(a('13:29'), j)).toBe('manana');
+    expect(franjaDe(a('13:30'), j)).toBe('tarde');
+    expect(franjaDe(a('20:00'), j)).toBe('noche');
+    expect(franjaDe(a('23:59'), j)).toBe('noche');
+    // el 1 de enero a la 1:00 aún es 31 de diciembre
+    expect(diaDe(new Date(2027, 0, 1, 1, 0), j)).toBe('2026-12-31');
+  });
+
+  it('todayISO usa la jornada fijada', async () => {
+    const { fijarJornada, JORNADA_POR_DEFECTO } = await import('./dates');
+    fijarJornada({ finDia: '02:00', horaTarde: '12:00', horaNoche: '19:00' });
+    try {
+      expect(todayISO(a('01:00', 10))).toBe('2026-10-09');
+    } finally {
+      fijarJornada(JORNADA_POR_DEFECTO);
+    }
   });
 });
 

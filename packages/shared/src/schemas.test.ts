@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createHabitInput, createProjectInput, createTaskInput, updateHabitInput, updateProjectInput, updateStepInput, updateTaskInput } from './index';
+import { jornadaSchema, createHabitInput, createProjectInput, createTaskInput, updateHabitInput, updateProjectInput, updateStepInput, updateTaskInput } from './index';
 
 // Un PATCH parcial no debe rellenar defaults (pisaría prioridad, estado, días…)
 describe('esquemas de actualización', () => {
@@ -40,4 +40,15 @@ describe('pasos programados', () => {
   it('updateStepInput vacío falla', () => expect(() => updateStepInput.parse({})).toThrow());
   it('updateStepInput permite desprogramar', () =>
     expect(updateStepInput.parse({ startDate: null, duracionDias: null })).toEqual({ startDate: null, duracionDias: null }));
+});
+
+describe('jornadaSchema', () => {
+  it('acepta horas en orden y en pasos de 15 min', () => {
+    expect(jornadaSchema.safeParse({ finDia: '02:30', horaTarde: '12:00', horaNoche: '19:45' }).success).toBe(true);
+  });
+  it('rechaza desorden, fin del día tardío y minutos sueltos', () => {
+    expect(jornadaSchema.safeParse({ finDia: '00:00', horaTarde: '19:00', horaNoche: '12:00' }).success).toBe(false);
+    expect(jornadaSchema.safeParse({ finDia: '07:00', horaTarde: '12:00', horaNoche: '19:00' }).success).toBe(false);
+    expect(jornadaSchema.safeParse({ finDia: '00:10', horaTarde: '12:00', horaNoche: '19:00' }).success).toBe(false);
+  });
 });

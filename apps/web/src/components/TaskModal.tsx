@@ -81,6 +81,15 @@ export function TaskModal({
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const setValue = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
   const quitarPaso = (i: number) => setSteps((xs) => xs.filter((_, j) => j !== i));
+  // Paso cuyo panel de fecha y tiempo está abierto (uno a la vez) y paso nuevo que hay que enfocar
+  const [programando, setProgramando] = useState<string | null>(null);
+  const [enfocar, setEnfocar] = useState<string | null>(null);
+  /** Paso vacío en la posición `i`, con el foco en su nombre. */
+  const agregarVacio = (i: number) => {
+    const nuevo = pasoVacio();
+    setSteps((xs) => [...xs.slice(0, i), nuevo, ...xs.slice(i)]);
+    setEnfocar(claveDe(nuevo));
+  };
   /** Paso nuevo con el rango seleccionado; reemplaza el paso vacío inicial si no se usó. */
   const agregarPaso = (nombre: string, inicio: string, fin: string, tiempo?: Pick<StepDraft, 'tiempo' | 'unidad'>) => {
     const nuevo: StepDraft = { uid: crypto.randomUUID(), title: nombre, startDate: inicio, dias: String(daysBetween(inicio, fin) + 1), ...(inicio === fin ? tiempo : {}) };
@@ -224,16 +233,16 @@ export function TaskModal({
               className="w-full rounded-md border border-transparent bg-transparent px-1 py-0.5 font-display text-[24px] leading-tight font-bold text-text outline-none placeholder:text-faint hover:border-line focus:border-accent"
             />
           </div>
-          <div role="group" aria-label="Duración de la tarea" className="flex flex-wrap items-end gap-2">
-            <label className="block">
+          <div role="group" aria-label="Duración de la tarea" className="grid w-full grid-cols-2 items-end gap-2 sm:flex sm:w-auto sm:flex-wrap">
+            <label className="block min-w-0">
               <span className="field-label">Inicio</span>
-              <input type="date" className="input w-auto" value={form.startDate} onChange={set('startDate')} />
+              <input type="date" className="input w-full sm:w-auto" value={form.startDate} onChange={set('startDate')} />
             </label>
-            <label className="block">
+            <label className="block min-w-0">
               <span className="field-label">Fin</span>
-              <input type="date" className="input w-auto" value={form.deadline} onChange={set('deadline')} aria-invalid={finAntes} />
+              <input type="date" className="input w-full sm:w-auto" value={form.deadline} onChange={set('deadline')} aria-invalid={finAntes} />
             </label>
-            <div className="pb-2 text-[13px]" aria-live="polite">
+            <div className="col-span-2 text-[13px] sm:col-span-1 sm:pb-2" aria-live="polite">
               {finAntes ? (
                 <span className="font-semibold text-hot">El fin es antes del inicio</span>
               ) : duracion ? (
@@ -313,7 +322,8 @@ export function TaskModal({
             <span className="ml-auto truncate font-normal text-faint">{`${conTitulo} ${conTitulo === 1 ? 'paso' : 'pasos'} · ${programados} programados`}</span>
           </summary>
           <div className="px-3 pt-1 pb-3">
-            {/* Una fila por paso: nombre y, al costado, inicio, días y el rango calculado */}
+            {/* Una fila por paso: asa, nombre, chip de programación y quitar. Un paso sin fecha es solo un pendiente;
+                la fecha (o rango) y el tiempo estimado se editan en un panel que abre el chip, debajo de su fila. */}
             {/* Arrastrar ⠿ cambia solo el orden en que se muestran los pasos (no sus fechas) */}
             <DndContext sensors={sensores} collisionDetection={closestCenter} onDragEnd={ordenarPasos}>
             <SortableContext items={steps.map(claveDe)} strategy={verticalListSortingStrategy}>
@@ -322,63 +332,126 @@ export function TaskModal({
                 const p = programacion(s);
                 const varios = (diasDe(s) ?? 1) > 1;
                 const fuera = !s.done && fueraDePlazo(p, { startDate: form.startDate || null, deadline: form.deadline || null });
+                const clave = claveDe(s);
+                const editando = programando === clave;
+                const sinDia = !s.startDate && porTiempo(s);
                 return (
-                  <FilaOrdenable key={claveDe(s)} id={claveDe(s)} etiqueta={`Mover paso ${i + 1}`} alerta={fuera}>
-                    <input
-                      className="input min-w-44 flex-1 py-1 text-[13px]"
-                      aria-label={`Nombre del paso ${i + 1}`}
-                      value={s.title}
-                      placeholder={i === 0 ? 'Primer paso' : 'Otro paso…'}
-                      onChange={(e) => setStep(i, { title: e.target.value })}
-                    />
-                    <div className="flex flex-wrap items-center gap-2">
-                      {/* Duración: un rango de fechas, o un día con tiempo estimado (excluyentes) */}
-                      <RangoFecha
-                        etiqueta={`Fecha del paso ${i + 1}`}
-                        inicio={s.startDate}
-                        fin={finBorrador(s)}
-                        alerta={fuera ? 'Fuera del plazo de la tarea' : null}
-                        onChange={(inicio, fin) =>
-                          setStep(i, {
-                            startDate: inicio,
-                            dias: inicio ? String(daysBetween(inicio, fin) + 1) : '',
-                            // un rango de varios días no admite tiempo estimado
-                            ...(inicio && fin > inicio ? { tiempo: '' } : {}),
-                          })
-                        }
+                  <FilaOrdenable key={clave} id={clave} etiqueta={`Mover paso ${i + 1}`} alerta={fuera}>
+                    <div className="flex items-center gap-2">
+                      <input
+                        ref={(el) => {
+                          if (el && enfocar === clave) {
+                            el.focus();
+                            setEnfocar(null);
+                          }
+                        }}
+                        className={`input min-w-0 flex-1 py-1 text-base sm:text-[13px] ${s.done ? 'text-muted line-through' : ''}`}
+                        aria-label={`Nombre del paso ${i + 1}`}
+                        value={s.title}
+                        placeholder={i === 0 ? 'Primer paso' : 'Otro paso…'}
+                        enterKeyHint="next"
+                        onChange={(e) => setStep(i, { title: e.target.value })}
+                        onKeyDown={(e) => {
+                          // Enter: otro paso debajo (lista rápida de pendientes), sin enviar el formulario
+                          if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+                          e.preventDefault();
+                          if (s.title.trim()) agregarVacio(i + 1);
+                        }}
                       />
-                      <div className="flex items-center gap-1" title={varios ? 'El tiempo estimado es para pasos de un solo día' : 'Tiempo estimado (opcional)'}>
-                        <input
-                          type="number"
-                          min={1}
-                          step="any"
-                          inputMode="decimal"
-                          aria-label={`Tiempo estimado del paso ${i + 1}`}
-                          placeholder="—"
-                          disabled={varios}
-                          className="input w-16 py-1 text-[13px] disabled:opacity-40"
-                          value={varios ? '' : (s.tiempo ?? '')}
-                          onChange={(e) => setStep(i, { tiempo: e.target.value })}
-                        />
-                        <div className={`w-[74px] ${varios ? 'pointer-events-none opacity-40' : ''}`}>
-                          <Select
-                            aria-label={`Unidad del tiempo del paso ${i + 1}`}
-                            className="py-1 text-[13px]"
-                            value={s.unidad ?? 'h'}
-                            onChange={(v) => setStep(i, { unidad: v })}
-                            options={UNIDADES_TIEMPO}
-                          />
-                        </div>
-                      </div>
-                      {/* Solo la duración calculada; ancho fijo para que el aviso no mueva la fila */}
-                      <span className="w-32 truncate text-xs text-muted" aria-live="polite">
-                        {s.startDate ? duracionPaso(p) : porTiempo(s) ? <span className="text-hot">elige un día</span> : 'Sin fecha'}
-                        {fuera && <span className="text-[10.5px] text-hot"> · fuera de plazo</span>}
-                      </span>
-                      <button type="button" title="Quitar paso" aria-label={`Quitar paso ${i + 1}`} className="text-base text-faint hover:text-text" onClick={() => quitarPaso(i)}>
+                      <button
+                        type="button"
+                        aria-expanded={editando}
+                        aria-label={`Fecha y tiempo del paso ${i + 1}`}
+                        onClick={() => setProgramando(editando ? null : clave)}
+                        className={`max-w-[45%] flex-none truncate rounded-full border px-2 py-1 text-xs font-medium whitespace-nowrap transition sm:max-w-none sm:px-2.5 ${
+                          fuera || sinDia
+                            ? 'border-hot/60 text-hot'
+                            : s.startDate
+                              ? 'border-line bg-surface2 text-text'
+                              : 'border-dashed border-line text-faint hover:text-muted'
+                        } ${editando ? 'ring-2 ring-accent/40' : ''}`}
+                      >
+                        {s.startDate ? (
+                          <>
+                            <span aria-hidden className="hidden sm:inline">📅 </span>
+                            {rangoPaso(p)}
+                          </>
+                        ) : sinDia ? (
+                          'Elige un día'
+                        ) : (
+                          '＋ Fecha'
+                        )}
+                      </button>
+                      <button type="button" title="Quitar paso" aria-label={`Quitar paso ${i + 1}`} className="flex-none px-1 text-base text-faint hover:text-text" onClick={() => quitarPaso(i)}>
                         ✕
                       </button>
                     </div>
+                    {editando && (
+                      <div className="mt-2 mb-1 rounded-lg bg-surface2 p-2.5">
+                        <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
+                          <div>
+                            <span className="field-label">Día o rango</span>
+                            {/* Duración: un rango de fechas, o un día con tiempo estimado (excluyentes) */}
+                            <RangoFecha
+                              etiqueta={`Fecha del paso ${i + 1}`}
+                              inicio={s.startDate}
+                              fin={finBorrador(s)}
+                              alerta={fuera ? 'Fuera del plazo de la tarea' : null}
+                              onChange={(inicio, fin) =>
+                                setStep(i, {
+                                  startDate: inicio,
+                                  dias: inicio ? String(daysBetween(inicio, fin) + 1) : '',
+                                  // un rango de varios días no admite tiempo estimado
+                                  ...(inicio && fin > inicio ? { tiempo: '' } : {}),
+                                })
+                              }
+                            />
+                          </div>
+                          <div title={varios ? 'El tiempo estimado es para pasos de un solo día' : 'Tiempo estimado (opcional)'}>
+                            <span className="field-label">Tiempo estimado</span>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                min={1}
+                                step="any"
+                                inputMode="decimal"
+                                aria-label={`Tiempo estimado del paso ${i + 1}`}
+                                placeholder="—"
+                                disabled={varios}
+                                className="input w-16 py-1 text-base sm:text-[13px] disabled:opacity-40"
+                                value={varios ? '' : (s.tiempo ?? '')}
+                                onChange={(e) => setStep(i, { tiempo: e.target.value })}
+                              />
+                              <div className={`w-[74px] ${varios ? 'pointer-events-none opacity-40' : ''}`}>
+                                <Select
+                                  aria-label={`Unidad del tiempo del paso ${i + 1}`}
+                                  className="py-1 text-[13px]"
+                                  value={s.unidad ?? 'h'}
+                                  onChange={(v) => setStep(i, { unidad: v })}
+                                  options={UNIDADES_TIEMPO}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-2 flex items-center justify-between gap-2 text-xs" aria-live="polite">
+                          <span className="text-muted">
+                            {s.startDate ? `⏱ ${duracionPaso(p)}` : sinDia ? <span className="text-hot">Elige un día para el tiempo estimado</span> : 'Sin fecha: queda como pendiente'}
+                            {fuera && <span className="text-hot"> · fuera de plazo</span>}
+                          </span>
+                          <span className="flex gap-3">
+                            {(s.startDate || s.tiempo) && (
+                              <button type="button" className="font-semibold text-muted hover:text-text" onClick={() => setStep(i, { startDate: '', dias: '', tiempo: '' })}>
+                                Quitar fecha
+                              </button>
+                            )}
+                            <button type="button" className="font-semibold text-accent" onClick={() => setProgramando(null)}>
+                              Listo
+                            </button>
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </FilaOrdenable>
                 );
               })}
@@ -388,7 +461,7 @@ export function TaskModal({
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => setSteps((xs) => [...xs, pasoVacio()])}
+                onClick={() => agregarVacio(steps.length)}
                 className="rounded-lg border border-dashed border-line px-2.5 py-[5px] text-xs font-semibold text-muted"
               >
                 + Añadir paso
@@ -456,7 +529,7 @@ function FilaOrdenable({ id, etiqueta, alerta = false, children }: { id: string;
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform), transition }}
       // Fuera de plazo: solo color (borde y fondo tenues), sin cambiar el tamaño de la fila
-      className={`-ml-2 flex flex-wrap items-center gap-x-2 gap-y-1.5 border-l-2 py-1.5 pl-1.5 ${alerta ? 'border-hot bg-hot/5' : 'border-transparent'} ${
+      className={`-ml-2 flex items-start gap-x-2 border-l-2 py-1.5 pl-1.5 ${alerta ? 'border-hot bg-hot/5' : 'border-transparent'} ${
         isDragging ? 'relative z-10 rounded-md bg-surface opacity-80 shadow-md' : ''
       }`}
     >
@@ -465,11 +538,11 @@ function FilaOrdenable({ id, etiqueta, alerta = false, children }: { id: string;
         {...listeners}
         aria-label={etiqueta}
         title="Arrastra para reordenar"
-        className="flex-none cursor-grab touch-none text-[15px] text-faint select-none hover:text-text active:cursor-grabbing"
+        className="flex h-[34px] flex-none cursor-grab touch-none items-center text-[15px] text-faint select-none hover:text-text active:cursor-grabbing sm:h-[30px]"
       >
         ⠿
       </span>
-      {children}
+      <div className="min-w-0 flex-1">{children}</div>
     </div>
   );
 }

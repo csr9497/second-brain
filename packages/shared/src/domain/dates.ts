@@ -1,6 +1,6 @@
 // Fechas como strings ISO 'YYYY-MM-DD'. "Hoy" se calcula con la zona horaria del
-// navegador. La aritmética se hace en UTC para evitar saltos por DST.
-import type { HabitSlot } from '../index';
+// navegador y la jornada del usuario. La aritmética se hace en UTC para evitar saltos por DST.
+import type { HabitSlot, Jornada } from '../index';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -8,7 +8,40 @@ export function toISO(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-export const todayISO = (now = new Date()) => toISO(now);
+export const JORNADA_POR_DEFECTO: Jornada = { finDia: '00:00', horaTarde: '12:00', horaNoche: '19:00' };
+
+// Jornada vigente. La app la fija al cargar la sesión (`fijarJornada`); hasta entonces, y en los tests, la de
+// por defecto. Es estado global para que todo lo que pregunta «qué día es hoy» use la misma sin pasarla a mano.
+let jornada: Jornada = JORNADA_POR_DEFECTO;
+export const fijarJornada = (j: Jornada) => {
+  jornada = j;
+};
+export const jornadaActual = () => jornada;
+
+const minutos = (hhmm: string) => {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+};
+
+/**
+ * Día al que pertenece un instante: antes de `finDia` todavía es el día anterior (su noche).
+ * Misma regla que public.dia_y_franja(). Se compara la hora de reloj, no se restan milisegundos, por el DST.
+ */
+export function diaDe(d: Date, j: Jornada = jornada): string {
+  const iso = toISO(d);
+  return d.getHours() * 60 + d.getMinutes() < minutos(j.finDia) ? addDays(iso, -1) : iso;
+}
+
+export const todayISO = (now = new Date()) => diaDe(now);
+
+/** Franja de un instante: mañana desde `finDia`, tarde desde `horaTarde`, noche desde `horaNoche` hasta `finDia`. */
+export function franjaDe(d: Date, j: Jornada = jornada): HabitSlot {
+  const fin = minutos(j.finDia);
+  const desplazado = (d.getHours() * 60 + d.getMinutes() - fin + 1440) % 1440;
+  if (desplazado < minutos(j.horaTarde) - fin) return 'manana';
+  if (desplazado < minutos(j.horaNoche) - fin) return 'tarde';
+  return 'noche';
+}
 
 const parse = (iso: string) => {
   const [y, m, d] = iso.split('-').map(Number);
@@ -34,11 +67,4 @@ export function weekRange(iso: string): { start: string; end: string } {
 
 export function daysBetween(from: string, to: string): number {
   return Math.round((parse(to).getTime() - parse(from).getTime()) / 86_400_000);
-}
-
-/** mañana <12h, tarde 12–19h, noche ≥19h */
-export function slotForHour(hour: number): HabitSlot {
-  if (hour < 12) return 'manana';
-  if (hour < 19) return 'tarde';
-  return 'noche';
 }

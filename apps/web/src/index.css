@@ -47,13 +47,17 @@
 
 @layer base {
   body { @apply bg-bg text-text font-sans antialiased; line-height: 1.5; }
+  /* viewport-fit=cover (app nativa y PWA en iPhone): el contenido no se mete bajo el notch ni los bordes.
+     En escritorio env() vale 0. Abajo cada pantalla deja su margen (el FAB ya suma safe-area-inset-bottom). */
+  body { padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left); }
   button { cursor: pointer; }
 }
 
 @layer components {
   .card { @apply bg-surface border border-line rounded-[14px] p-4; }
   .field-label { @apply block text-xs font-semibold text-muted mb-1.5; }
-  .input { @apply w-full bg-surface2 border border-line text-text rounded-[9px] px-3 py-2 text-sm outline-none focus:border-accent; }
+  /* iOS amplía la página al enfocar un campo con letra < 16px: en el teléfono van a 16px */
+  .input { @apply w-full bg-surface2 border border-line text-text rounded-[9px] px-3 py-2 text-base sm:text-sm outline-none focus:border-accent; }
   .btn { @apply rounded-[9px] px-4 py-2 text-[13.5px] font-semibold border border-line bg-surface2 text-text disabled:opacity-50; }
   .btn-primary { @apply bg-accent border-accent text-white; }
   .track { @apply flex-1 h-1.5 rounded-full bg-surface2 overflow-hidden; }

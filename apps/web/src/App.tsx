@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { api } from './lib/api';
 import { greeting, headerDate } from './lib/format';
 import { TaskModal } from './components/TaskModal';
 import { AvisosModal } from './components/AvisosModal';
@@ -20,11 +21,19 @@ import { useVista, hrefVista, listaVistas, puedeSalir, VISTAS } from './lib/useV
 import type { ModalState } from './lib/modal';
 import { todayISO } from '@sb/shared';
 import { useWebMcp } from './lib/webmcp/registrar';
+import { useLiveActivity } from './lib/nativo/useLiveActivity';
 
 export function App() {
   const session = useSession();
   if (session === undefined) return null;
   if (session === null) return <Login />;
+  return <ConJornada />;
+}
+
+/** Espera a la jornada antes de pintar: todo «hoy» y toda franja dependen de ella (`fijarJornada`). Si falla, sigue con la de por defecto. */
+function ConJornada() {
+  const jornada = useQuery({ queryKey: ['jornada'], queryFn: api.jornada, staleTime: Infinity, retry: 1 });
+  if (jornada.isPending) return null;
   return <Home />;
 }
 
@@ -39,6 +48,9 @@ function Home() {
   // el deadline queda vacío (uno vencido mandaría la tarea a incumplimiento)
   const nuevaTarea = (rango?: { inicio: string; fin: string }) =>
     setModal({ kind: 'tarea', inicial: rango ? { startDate: rango.inicio, deadline: rango.fin < todayISO() ? '' : rango.fin } : undefined });
+
+  // App nativa: la Live Activity sigue a Hoy
+  useLiveActivity();
 
   // Herramientas de interfaz de WebMCP: no pisan un modal abierto; cambiar de vista respeta la guardia
   useWebMcp({

@@ -26,6 +26,19 @@ export const turnosSchema = z
   .max(3, 'Máximo 3 turnos')
   .refine((t) => new Set(t.flat()).size === t.flat().length, 'Cada franja solo puede usarse una vez');
 export type Turnos = HabitSlot[][];
+
+// Jornada (tabla `jornada`): hora en que termina el día y en que empiezan la tarde y la noche. 'HH:MM' en pasos
+// de 15 min; finDia ≤ 06:00 < … y finDia < horaTarde < horaNoche (mismo CHECK `jornada_valida`).
+const hora15 = z.string().regex(/^([01]\d|2[0-3]):(00|15|30|45)$/, 'Hora en pasos de 15 min');
+export const jornadaSchema = z
+  .object({ finDia: hora15, horaTarde: hora15, horaNoche: hora15 })
+  .refine((j) => j.finDia <= '06:00', { message: 'El día debe terminar a las 06:00 como tarde', path: ['finDia'] })
+  .refine((j) => j.finDia < j.horaTarde && j.horaTarde < j.horaNoche, {
+    message: 'Las horas deben ir en orden: fin del día < tarde < noche',
+    path: ['horaNoche'],
+  });
+export type Jornada = z.infer<typeof jornadaSchema>;
+
 export type TaskFilter = z.infer<typeof taskFilter>;
 export type PaletteColor = z.infer<typeof paletteColor>;
 export type ProjectStatus = z.infer<typeof projectStatus>;
@@ -323,3 +336,4 @@ export * from './domain/gantt';
 export * from './domain/agente';
 export * from './colors';
 export * from './turnos';
+export * from './domain/liveActivity';

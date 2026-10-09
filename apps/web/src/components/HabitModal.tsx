@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { formatTurnos, resumenTurnos, slotForHour, turnosSchema, type HabitAdmin, type Turnos } from '@sb/shared';
+import { formatTurnos, franjaDe, resumenTurnos, turnosSchema, type HabitAdmin, type Turnos } from '@sb/shared';
 import { api } from '../lib/api';
 import { useInvalidateHabits } from '../lib/useHabits';
 import { Field, Modal, ModalActions } from './Modal';
@@ -13,7 +13,7 @@ export function HabitModal({ habit, onClose }: { habit?: HabitAdmin; onClose: ()
   const refresh = useInvalidateHabits();
   const editing = !!habit;
   const [nombre, setNombre] = useState(habit?.nombre ?? '');
-  const [turnos, setTurnos] = useState<Turnos>(habit?.turnos ?? [[slotForHour(new Date().getHours())]]);
+  const [turnos, setTurnos] = useState<Turnos>(habit?.turnos ?? [[franjaDe(new Date())]]);
   const [semanal, setSemanal] = useState(habit?.vecesSemana != null);
   const [veces, setVeces] = useState(habit?.vecesSemana ?? 3);
   const validos = semanal ? veces >= 1 && veces <= 7 : turnosSchema.safeParse(turnos).success;

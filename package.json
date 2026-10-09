@@ -14,6 +14,9 @@
     "db:reset": "supabase db reset",
     "db:env": "supabase status -o env | sed -n 's/^API_URL=/VITE_SUPABASE_URL=/p; s/^ANON_KEY=/VITE_SUPABASE_ANON_KEY=/p' > apps/web/.env.docker.local",
     "db:push:dev": ". ./.env.dev.local && supabase db push --db-url \"$SUPABASE_DEV_DB_URL\"",
-    "db:reset:dev": ". ./.env.dev.local && supabase db reset --db-url \"$SUPABASE_DEV_DB_URL\""
+    "db:reset:dev": ". ./.env.dev.local && supabase db reset --db-url \"$SUPABASE_DEV_DB_URL\"",
+    "ios:build": "pnpm --filter @sb/web exec vite build --mode native && pnpm --filter @sb/mobile exec cap sync ios",
+    "ios:open": "pnpm --filter @sb/mobile exec cap open ios",
+    "ios:gen": "cd apps/mobile/ios/App && xcodegen generate"
   }
 }

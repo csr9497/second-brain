@@ -1,4 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
+import { esNativo } from './nativo/liveActivity';
+import { almacenNativo } from './nativo/sesion';
 
 // Proyecto de producción (el que usa GitHub Pages). En desarrollo nunca debe usarse.
 const PROD_REF = 'cwmqgjeqtpilhcagotmn';
@@ -20,6 +22,8 @@ if (import.meta.env.DEV) document.title = `[${import.meta.env.MODE}] ${document.
 
 // La anon key es pública: la seguridad la da RLS (ver supabase/migrations).
 // x-timezone: los triggers que marcan hábitos desde tareas usan el día y la franja locales (public.hora_local()).
+// En la app nativa la sesión se comparte con los botones de la Live Activity por el Keychain (ver `almacenNativo`).
 export const sb = createClient(url, anonKey, {
   global: { headers: { 'x-timezone': Intl.DateTimeFormat().resolvedOptions().timeZone } },
+  ...(esNativo() && { auth: { storage: almacenNativo } }),
 });
