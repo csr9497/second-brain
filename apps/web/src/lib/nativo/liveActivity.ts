@@ -1,7 +1,9 @@
-// Puente con el plugin Swift local `LiveActivity` (apps/mobile/ios/App/App/LiveActivity/LiveActivityPlugin.swift).
-// Solo existe en la app nativa; en la web cada llamada fallaría con «not implemented».
+// Puente con la parte nativa: en iOS, el plugin Swift local `LiveActivity`
+// (apps/mobile/ios/App/App/LiveActivity/LiveActivityPlugin.swift); en la Mac, los mensajes `sbMac`
+// (apps/mobile/ios/App/Mac/Puente.swift). En la web cada llamada fallaría con «not implemented».
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import type { EstadoLiveActivity } from '@sb/shared';
+import { detectarPlataforma, puenteMac, type ManejadorMac } from './plataforma';
 
 export interface SesionNativa {
   url: string;
@@ -21,6 +23,15 @@ export interface LiveActivityPlugin {
   cerrarSesion(): Promise<void>;
 }
 
-export const esNativo = () => Capacitor.isNativePlatform();
+type ConWebkit = { webkit?: { messageHandlers?: Record<string, unknown> } };
+const webkit = () => (window as unknown as ConWebkit).webkit;
 
-export const LiveActivity = registerPlugin<LiveActivityPlugin>('LiveActivity');
+/** 'ios' (Capacitor), 'mac' (SecondBrainMac, apps/mobile/ios/App/Mac) o null (navegador). */
+export const plataformaNativa = () => detectarPlataforma({ capacitor: Capacitor.isNativePlatform(), webkit: webkit() });
+
+export const esNativo = () => plataformaNativa() !== null;
+
+export const LiveActivity: LiveActivityPlugin =
+  plataformaNativa() === 'mac'
+    ? puenteMac(webkit()!.messageHandlers!.sbMac as ManejadorMac)
+    : registerPlugin<LiveActivityPlugin>('LiveActivity');

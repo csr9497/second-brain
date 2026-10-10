@@ -17,12 +17,13 @@ import { HoyView } from './components/HoyView';
 import { ResumenView } from './components/resumen/ResumenView';
 import { GanttView } from './components/gantt/GanttView';
 import { ConfirmHost } from './components/ui/Confirmar';
-import { useVista, hrefVista, listaVistas, puedeSalir, VISTAS } from './lib/useVista';
+import { useVista, hrefVista, listaVistas, puedeSalir, VISTAS, type Vista } from './lib/useVista';
 import type { ModalState } from './lib/modal';
 import { todayISO } from '@sb/shared';
 import { useWebMcp } from './lib/webmcp/registrar';
 import { useLiveActivity } from './lib/nativo/useLiveActivity';
 import { useRefresco } from './lib/nativo/useRefresco';
+import { useAccionesNativas } from './lib/nativo/useAccionesNativas';
 import { useTiempoReal } from './lib/useTiempoReal';
 
 export function App() {
@@ -58,15 +59,25 @@ function Home() {
   // App nativa: jalar hacia abajo actualiza
   useRefresco();
 
-  // Herramientas de interfaz de WebMCP: no pisan un modal abierto; cambiar de vista respeta la guardia
+  // Cambiar de vista desde fuera (agente, menús nativos) respeta la guardia
+  const irA = async (v: Vista) => {
+    if (!(await puedeSalir())) return false;
+    window.location.hash = hrefVista(v);
+    return true;
+  };
+
+  // Herramientas de interfaz de WebMCP: no pisan un modal abierto
   useWebMcp({
     abrirTarea: (task) => (modal ? false : (setModal({ kind: 'tarea', task }), true)),
     nuevaTarea: (inicial) => (modal ? false : (setModal({ kind: 'tarea', inicial }), true)),
-    irA: async (v) => {
-      if (!(await puedeSalir())) return false;
-      window.location.hash = hrefVista(v);
-      return true;
-    },
+    irA,
+  });
+
+  // App de Mac: menús Archivo y Ver
+  useAccionesNativas({
+    nuevaTarea: () => (modal ? false : (setModal({ kind: 'tarea' }), true)),
+    crear: () => (modal ? false : (setModal({ kind: 'crear' }), true)),
+    irA,
   });
 
   return (

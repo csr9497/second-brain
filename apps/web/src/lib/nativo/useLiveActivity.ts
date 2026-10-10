@@ -4,7 +4,7 @@ import { App as AppNativa } from '@capacitor/app';
 import { estadoLiveActivity } from '@sb/shared';
 import { api } from '../api';
 import { TODAY_KEY } from '../useToday';
-import { esNativo, LiveActivity } from './liveActivity';
+import { esNativo, LiveActivity, plataformaNativa } from './liveActivity';
 
 const DEBOUNCE_MS = 300;
 
@@ -37,9 +37,10 @@ export function useLiveActivity() {
     return () => clearTimeout(t);
   }, [data]);
 
-  // Al volver a primer plano Hoy puede haber cambiado (otro dispositivo, los botones de la card)
+  // Al volver a primer plano Hoy puede haber cambiado (otro dispositivo, los botones de la card).
+  // En la Mac lo pide Swift (`sbRefrescar`): al abrir la barra, al despertar y en cada cambio de franja.
   useEffect(() => {
-    if (!esNativo()) return;
+    if (plataformaNativa() !== 'ios') return;
     const sub = AppNativa.addListener('appStateChange', ({ isActive }) => {
       if (isActive) void qc.invalidateQueries({ queryKey: TODAY_KEY });
     });
