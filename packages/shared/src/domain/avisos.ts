@@ -17,6 +17,10 @@ export interface AvisoProgramado {
   cuando: string;
   titulo: string;
   cuerpo: string;
+  /** Hábitos de la franja que faltan: el botón «Marcar todos» del aviso los marca en `fecha`. Vacío en otros avisos. */
+  habitos: { id: string; slot: HabitSlot }[];
+  /** Día de la jornada al que se refiere (para marcar). */
+  fecha: string;
 }
 
 const ORDEN: HabitSlot[] = ['manana', 'tarde', 'noche'];
@@ -48,9 +52,16 @@ export function avisosDelDia(today: TodayPayload, config: ConfigAvisos | null, a
     const cuando = new Date(y, m - 1, d + (minutos(hora) < minutos(j.finDia) ? 1 : 0), h, min);
     if (cuando <= ahora) continue;
     // Un turno «o» puede aparecer más de una vez en la franja: un nombre por hábito
-    const pendientes = [...new Map(today.habits.porFranja[franja].filter((c) => !c.done).map((c) => [c.id, c.nombre])).values()];
-    if (pendientes.length === 0) continue;
-    avisos.push({ id: `${today.date}-${franja}`, franja, cuando: cuando.toISOString(), ...textoAviso(franja, pendientes) });
+    const fichas = [...new Map(today.habits.porFranja[franja].filter((c) => !c.done).map((c) => [c.id, c])).values()];
+    if (fichas.length === 0) continue;
+    avisos.push({
+      id: `${today.date}-${franja}`,
+      franja,
+      cuando: cuando.toISOString(),
+      ...textoAviso(franja, fichas.map((c) => c.nombre)),
+      habitos: fichas.map((c) => ({ id: c.id, slot: c.slot })),
+      fecha: today.date,
+    });
   }
   return avisos;
 }

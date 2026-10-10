@@ -53,7 +53,7 @@ describe('ejecutarAccion', () => {
 describe('avisosMac', () => {
   it('manda los avisos a Swift', async () => {
     const postMessage = vi.fn().mockResolvedValue({ programados: 1 });
-    const aviso = { id: '2026-10-01-tarde', franja: 'tarde' as const, cuando: '2026-10-01T22:00:00.000Z', titulo: 'Tarde · te falta 1', cuerpo: 'Agua' };
+    const aviso = { id: '2026-10-01-tarde', franja: 'tarde' as const, cuando: '2026-10-01T22:00:00.000Z', titulo: 'Tarde · te falta 1', cuerpo: 'Agua', habitos: [], fecha: '2026-10-01' };
     await expect(avisosMac({ postMessage }).programar([aviso])).resolves.toEqual({ programados: 1 });
     expect(postMessage).toHaveBeenCalledWith({ metodo: 'programarAvisos', args: { avisos: [aviso] } });
   });

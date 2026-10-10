@@ -127,6 +127,7 @@ export function projectViews(projects: ProjectRow[], tasks: Pick<Task, 'projectI
         color: p.color,
         pctSemana: pct(week.filter((t) => t.status === 'hecha').length, week.length),
         hoyToca: p.scheduleDays.includes(dow),
+        lastActivityAt: p.lastActivityAt,
       };
     })
     .sort(

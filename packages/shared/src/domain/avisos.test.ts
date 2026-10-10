@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { HabitChip, HabitSlot, TodayPayload } from '../index';
 import { avisosDelDia, textoAviso } from './avisos';
+// Contrato: la Edge Function de Web Push usa el mismo texto
+import { textoAviso as textoEdge } from '../../../../supabase/functions/recordatorios/texto';
 
 const chip = (id: string, slot: HabitSlot, o: Partial<HabitChip> = {}): HabitChip => ({
   id, nombre: id, position: 1, slot, turno: [slot], done: false, doneIn: null, ...o,
@@ -22,6 +24,14 @@ describe('textoAviso', () => {
   });
 });
 
+describe('contrato con la Edge Function', () => {
+  it('el mismo texto que el aviso Web Push', () => {
+    for (const habitos of [['Agua'], ['a', 'b'], ['a', 'b', 'c', 'd'], ['a', 'b', 'c', 'd', 'e', 'f']]) {
+      for (const f of ['manana', 'tarde', 'noche'] as const) expect(textoAviso(f, habitos)).toEqual(textoEdge(f, habitos));
+    }
+  });
+});
+
 describe('avisosDelDia', () => {
   it('una por franja con hora y pendientes, solo las que no pasaron', () => {
     const t = today({ manana: [chip('a', 'manana')], tarde: [chip('b', 'tarde'), chip('c', 'tarde')], noche: [chip('d', 'noche')] });
@@ -30,7 +40,8 @@ describe('avisosDelDia', () => {
       ['tarde', local(1, 17).toISOString()],
       ['noche', local(1, 21, 30).toISOString()],
     ]);
-    expect(r[0]).toMatchObject({ id: '2026-10-01-tarde', titulo: 'Tarde · te faltan 2', cuerpo: 'b, c' });
+    expect(r[0]).toMatchObject({ id: '2026-10-01-tarde', titulo: 'Tarde · te faltan 2', cuerpo: 'b, c', fecha: '2026-10-01' });
+    expect(r[0].habitos).toEqual([{ id: 'b', slot: 'tarde' }, { id: 'c', slot: 'tarde' }]);
   });
 
   it('sin pendientes en la franja o sin hora, no hay aviso', () => {

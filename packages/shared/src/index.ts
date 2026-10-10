@@ -219,6 +219,8 @@ export interface Project {
   color: PaletteColor;
   pctSemana: number;
   hoyToca: boolean;
+  /** Último cambio en una tarea del proyecto (ISO); sirve para avisar de proyectos parados */
+  lastActivityAt: string;
 }
 
 export interface Idea {
@@ -342,3 +344,4 @@ export * from './colors';
 export * from './turnos';
 export * from './domain/liveActivity';
 export * from './domain/avisos';
+export * from './domain/mac';
