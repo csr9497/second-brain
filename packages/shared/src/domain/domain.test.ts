@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, daysBetween, diaDe, franjaDe, todayISO, weekRange, weekday } from './dates';
+import { addDays, daysBetween, diaDe, franjaDe, proximaFrontera, todayISO, weekRange, weekday } from './dates';
 import { positionBetween } from './ordering';
 import { bucketTasks, computeStreak, pct } from './metrics';
 
@@ -180,5 +180,28 @@ describe('bucketTasks: tareas con rango', () => {
       expect(ids(bucketTasks([t('r', today, '2026-10-09')], dia, weekEnd, () => false).hoy)).toEqual(['r']);
     }
     expect(ids(bucketTasks([t('r', today, '2026-10-09')], '2026-10-10', weekEnd, () => false).hoy)).toEqual([]);
+  });
+});
+
+describe('proximaFrontera', () => {
+  const j = (finDia: string) => ({ finDia, horaTarde: '12:00', horaNoche: '19:00' });
+  const local = (d: number, h: number, m = 0) => new Date(2026, 9, d, h, m);
+
+  it('la siguiente hora de la jornada del mismo día', () => {
+    expect(proximaFrontera(local(1, 9), j('00:00'))).toEqual(local(1, 12));
+    expect(proximaFrontera(local(1, 14, 30), j('00:00'))).toEqual(local(1, 19));
+  });
+
+  it('pasada la noche, el fin del día de mañana', () => {
+    expect(proximaFrontera(local(1, 20), j('00:00'))).toEqual(local(2, 0));
+    expect(proximaFrontera(local(1, 20), j('02:00'))).toEqual(local(2, 2));
+  });
+
+  it('pasada la medianoche con fin_dia, el fin del día de hoy', () => {
+    expect(proximaFrontera(local(2, 1), j('02:00'))).toEqual(local(2, 2));
+  });
+
+  it('justo en una frontera, la siguiente', () => {
+    expect(proximaFrontera(local(1, 12), j('00:00'))).toEqual(local(1, 19));
   });
 });
