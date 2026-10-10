@@ -65,6 +65,7 @@ targets:
     sources:
       - path: SecondBrainLiveActivity
       - path: App/LiveActivity/Atributos.swift
+      - path: App/LiveActivity/EstadoCard.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.csr9497.secondbrain.LiveActivity

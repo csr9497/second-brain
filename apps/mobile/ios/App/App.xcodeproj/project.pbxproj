@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		03B86BECA19AA2AF0ED26BC5 /* Atributos.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBD50B9E303BDF6917B3A007 /* Atributos.swift */; };
+		08C7609B6B992D0C08F3EBBC /* Marcas.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDB13E84FCB907CBA8B85618 /* Marcas.swift */; };
+		188415E8E09209CDE107CC9E /* EstadoCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A1A0888F27CA90A354AC215 /* EstadoCard.swift */; };
 		1CA998C627766237F2232BEB /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = FD127B870EFB46EFAC91834E /* CapApp-SPM */; };
 		26E51AC20D9FE4119F144870 /* public in Resources */ = {isa = PBXBuildFile; fileRef = 7E5BBB12596EE01767A6151A /* public */; };
 		2700A5422E45C887BEAE5B76 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 9CC6C49B810BBC284BCED483 /* Main.storyboard */; };
@@ -26,6 +28,7 @@
 		C2D061B65651793628DA5323 /* LiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B9B793ACB90308763563F83 /* LiveActivityWidget.swift */; };
 		C7F7669C4295218B6825AFAD /* LiveActivityPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C654DAB3A8A1AFD16E0DA9C /* LiveActivityPlugin.swift */; };
 		D1E9A698DF2E0DBDC2BB6BFB /* Comunes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B59172A2A07CDF848EFADBFE /* Comunes.swift */; };
+		D522D24AEAD63C825ACF1EFB /* EstadoCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A1A0888F27CA90A354AC215 /* EstadoCard.swift */; };
 		E8E03F4FB1BE61A377693A7C /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9420949282AB92AA28A975D3 /* AppDelegate.swift */; };
 		F4F2C861EA6611B352BC63E2 /* Intents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2FE4779CC69383D0BFFF15 /* Intents.swift */; };
 		FBACC0F8DDF4F94FD78E7914 /* AccionesCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5F8EA2D2CC7593C241F2A4F /* AccionesCard.swift */; };
@@ -62,6 +65,7 @@
 		4846905883A618FDF55E02C0 /* SupabaseREST.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseREST.swift; sourceTree = "<group>"; };
 		49D88A349FD70A9153DD2C03 /* App.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4B9B793ACB90308763563F83 /* LiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityWidget.swift; sourceTree = "<group>"; };
+		5A1A0888F27CA90A354AC215 /* EstadoCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EstadoCard.swift; sourceTree = "<group>"; };
 		5ACBE8DDC96481341E5CE7AA /* SecondBrainLiveActivity.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = SecondBrainLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		5C654DAB3A8A1AFD16E0DA9C /* LiveActivityPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityPlugin.swift; sourceTree = "<group>"; };
 		5E26B346DDCD3840AD099692 /* Sesion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sesion.swift; sourceTree = "<group>"; };
@@ -80,6 +84,7 @@
 		CBD50B9E303BDF6917B3A007 /* Atributos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Atributos.swift; sourceTree = "<group>"; };
 		D068C5B7331A82D45ACB7405 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		ED2016878D44EAA9692D059F /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		EDB13E84FCB907CBA8B85618 /* Marcas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Marcas.swift; sourceTree = "<group>"; };
 		F0FFE1FE8EDE6D379D42C7E3 /* Bloqueo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bloqueo.swift; sourceTree = "<group>"; };
 		FBAD08F2F68C98A276C21BAD /* BridgeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -160,7 +165,9 @@
 				B5F8EA2D2CC7593C241F2A4F /* AccionesCard.swift */,
 				CBD50B9E303BDF6917B3A007 /* Atributos.swift */,
 				FBAD08F2F68C98A276C21BAD /* BridgeViewController.swift */,
+				5A1A0888F27CA90A354AC215 /* EstadoCard.swift */,
 				5C654DAB3A8A1AFD16E0DA9C /* LiveActivityPlugin.swift */,
+				EDB13E84FCB907CBA8B85618 /* Marcas.swift */,
 				5E26B346DDCD3840AD099692 /* Sesion.swift */,
 				4846905883A618FDF55E02C0 /* SupabaseREST.swift */,
 			);
@@ -293,8 +300,10 @@
 				E8E03F4FB1BE61A377693A7C /* AppDelegate.swift in Sources */,
 				03B86BECA19AA2AF0ED26BC5 /* Atributos.swift in Sources */,
 				4256AF3DDDB7CEA7131A90DB /* BridgeViewController.swift in Sources */,
+				188415E8E09209CDE107CC9E /* EstadoCard.swift in Sources */,
 				A676683E51EDDFEDED6EAFB0 /* Intents.swift in Sources */,
 				C7F7669C4295218B6825AFAD /* LiveActivityPlugin.swift in Sources */,
+				08C7609B6B992D0C08F3EBBC /* Marcas.swift in Sources */,
 				67740B5377F807ABF1532F55 /* SceneDelegate.swift in Sources */,
 				9101D4FCC7E35D4A64425C4A /* Sesion.swift in Sources */,
 				A0DEEBD4E8D0B2597B5B7E97 /* SupabaseREST.swift in Sources */,
@@ -308,6 +317,7 @@
 				9AF2B379A3FE469F041080C7 /* Atributos.swift in Sources */,
 				59ADC2798C0156F6A8E8C101 /* Bloqueo.swift in Sources */,
 				D1E9A698DF2E0DBDC2BB6BFB /* Comunes.swift in Sources */,
+				D522D24AEAD63C825ACF1EFB /* EstadoCard.swift in Sources */,
 				F4F2C861EA6611B352BC63E2 /* Intents.swift in Sources */,
 				97B42C27A5168EEC7202550E /* Isla.swift in Sources */,
 				C2D061B65651793628DA5323 /* LiveActivityWidget.swift in Sources */,

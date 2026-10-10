@@ -128,3 +128,13 @@ enum SupabaseREST {
         return Date(timeIntervalSince1970: exp).timeIntervalSinceNow < 60
     }
 }
+
+/// Escrituras de los botones ✓ (card de iOS y barra de la Mac) con la sesión del Keychain.
+struct EscritorREST: EscritorMarcas {
+    func marcarHabito(id: String, slot: String, fecha: String) async throws {
+        try await SupabaseREST.marcarHabito(id: id, slot: slot, fecha: fecha)
+    }
+    func marcarPaso(id: String, tipo: String) async throws {
+        try await SupabaseREST.marcarPaso(id: id, tipo: tipo)
+    }
+}
