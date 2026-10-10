@@ -21,7 +21,12 @@ Widgets de WidgetKit para el escritorio y el Centro de notificaciones con lo pen
   3. Avisa a la app con una notificación Darwin (`com.csr9497.secondbrain.toque`).
   4. La app saca la cola y marca cada toque con `EstadoMac.marcarHabito/marcarPaso`, como la barra. La instantánea pasa a hecho o «fallo» y luego al estado real.
 - **Con la app cerrada,** los toques esperan en la cola y se procesan en el primer `sincronizar` al abrirla. Por eso conviene «Abrir al iniciar sesión».
-- **Línea de tiempo** `.never`: el widget no se programa solo. Lo recarga la app, que ya vuelve a pedir Hoy en cada cambio de franja, al despertar y con Realtime.
+- **Respeta las franjas aunque la app no lo recargue.** El estado trae `proximaFranja`, el próximo cambio según la jornada.
+  - La línea de tiempo tiene una entrada ahora y otra en esa hora, y vuelve a leer la instantánea un minuto después (`.after`).
+  - Desde el cambio, el estado está **caducado** (`EstadoCard.caducado(en:)`): el widget muestra la franja nueva con «Actualizando…» y sin los hábitos de la anterior.
+  - Tras la noche (cambio de día) tampoco muestra pasos ni %.
+  - La app, que vuelve a pedir Hoy en ese mismo momento, lo reemplaza en segundos por los hábitos de la franja nueva.
+  - El panel de la barra aplica la misma regla.
 - **Tamaños:**
   - **Pequeño:** franja, anillo del % y «N pendientes», sin botones; tocarlo abre la app.
   - **Mediano:** franja y anillo a la izquierda; a la derecha, hasta 4 burbujas de hábitos y 2 pasos con ✓ (4 pasos si la franja ya está completa).
@@ -29,6 +34,6 @@ Widgets de WidgetKit para el escritorio y el Centro de notificaciones con lo pen
 
 ## Pruebas
 
-- **XCTest:** `CompartidoTests`, con la instantánea de ida y vuelta y la cola sin repetidos que se vacía al tomarla. `Compartido.carpetaDePrueba` usa una carpeta temporal.
+- **XCTest:** `FranjaVigenteTests` (caduca desde `proximaFranja`, franja siguiente, cambio de día, fechas ISO) y `CompartidoTests`, con la instantánea de ida y vuelta y la cola sin repetidos que se vacía al tomarla. `Compartido.carpetaDePrueba` usa una carpeta temporal.
 - **En vivo** contra dev, con el gancho temporal de depuración: la instantánea refleja el estado, y un toque encolado más el aviso Darwin hacen que la app escriba el hábito y actualice la instantánea (0 % → 13 %).
 - **Manual** (Cesar): añadir los widgets desde la galería, ver que pintan, tocar un ✓ en el mediano y tocar el pequeño para abrir la app.

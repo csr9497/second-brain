@@ -27,7 +27,9 @@ struct Entrada: TimelineEntry {
     var instantanea: Compartido.Instantanea?
 }
 
-/// La app recarga el widget cada vez que cambia lo que pinta la barra; el widget no se programa solo.
+/// La app recarga el widget cada vez que cambia lo que pinta la barra. Además, el widget programa una entrada en el
+/// próximo cambio de franja: desde ahí no muestra los hábitos de la franja anterior (`caducado`) aunque la app no lo
+/// haya recargado aún (cerrada, sin red, la Mac dormida).
 struct Proveedor: TimelineProvider {
     func placeholder(in context: Context) -> Entrada { Entrada(date: .now, instantanea: Self.ejemplo) }
 
@@ -36,7 +38,16 @@ struct Proveedor: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<Entrada>) -> Void) {
-        completion(Timeline(entries: [Entrada(date: .now, instantanea: Compartido.leer())], policy: .never))
+        let ahora = Date()
+        let i = Compartido.leer()
+        var entradas = [Entrada(date: ahora, instantanea: i)]
+        var politica: TimelineReloadPolicy = .never
+        if let vence = i?.estado?.vence, vence > ahora {
+            entradas.append(Entrada(date: vence, instantanea: i))
+            // Un minuto después vuelve a leer la instantánea, por si la app ya trajo la franja nueva
+            politica = .after(vence.addingTimeInterval(60))
+        }
+        completion(Timeline(entries: entradas, policy: politica))
     }
 
     /// Para la galería de widgets antes de tener datos.
@@ -109,7 +120,9 @@ struct VistaWidget: View {
 
     var body: some View {
         if let i = entrada.instantanea, i.conSesion {
-            if let e = i.estado, !e.diaCompleto {
+            if let e = i.estado, e.caducado(en: entrada.date) {
+                Caducado(e: e, conPasos: familia != .systemSmall)
+            } else if let e = i.estado, !e.diaCompleto {
                 familia == .systemSmall ? AnyView(Pequeno(e: e)) : AnyView(Mediano(e: e))
             } else if i.recibido {
                 Aviso(icono: "checkmark.circle.fill", texto: "Día completo", color: Colores.bueno)
@@ -135,13 +148,32 @@ private struct Aviso: View {
 }
 
 private struct Cabecera: View {
-    var e: EstadoCard
+    var titulo: String
+    init(e: EstadoCard) { titulo = e.franjaCompleta ? "\(nombreFranja(e.franja)) ✓" : nombreFranja(e.franja) }
+    init(titulo: String) { self.titulo = titulo }
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: "brain").foregroundStyle(.tint)
-            Text(e.franjaCompleta ? "\(nombreFranja(e.franja)) ✓" : nombreFranja(e.franja))
-                .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            Text(titulo).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
         }
+    }
+}
+
+/// Ya empezó la franja siguiente y la app aún no trajo sus hábitos: muestra la franja nueva sin los hábitos de la
+/// anterior. Los pasos siguen valiendo si es el mismo día (no tras la noche).
+private struct Caducado: View {
+    var e: EstadoCard
+    var conPasos: Bool
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Cabecera(titulo: nombreFranja(e.franjaSiguiente))
+            Text("Actualizando…").font(.callout.weight(.medium)).foregroundStyle(.secondary)
+            if conPasos && !e.siguienteEsOtroDia {
+                ForEach(e.pasos.prefix(3), id: \.self) { p in FilaPaso(p: p) }
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

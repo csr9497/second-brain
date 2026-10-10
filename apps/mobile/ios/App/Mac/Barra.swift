@@ -13,7 +13,9 @@ struct EtiquetaBarra: View {
     let estado: EstadoMac
 
     var body: some View {
-        if let e = estado.estado, !e.diaCompleto {
+        if let e = estado.estado, e.caducado(en: Date()) {
+            Image(systemName: "brain")
+        } else if let e = estado.estado, !e.diaCompleto {
             Label("\(Int(e.pctDia.rounded())) %", systemImage: "brain")
                 .labelStyle(.titleAndIcon)
         } else if estado.conSesion && estado.recibido {
@@ -46,6 +48,10 @@ struct PanelBarra: View {
         if !estado.conSesion {
             Text("Inicia sesión en Second Brain").font(.headline)
             Button("Abrir Second Brain") { abrirVentana() }
+        } else if let e = estado.estado, e.caducado(en: Date()) {
+            // Empezó otra franja y la web aún no mandó sus hábitos (abrir el panel ya pidió Hoy)
+            Text("Second Brain").font(.headline)
+            Text("\(nombreFranja(e.franjaSiguiente)) · Actualizando…").font(.subheadline).foregroundStyle(.secondary)
         } else if let e = estado.estado, !e.diaCompleto {
             cabecera(e)
             if !e.franjaCompleta && !e.habitos.isEmpty {

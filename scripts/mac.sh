@@ -36,6 +36,6 @@ case "${1:-}" in
     ditto "$dd/Build/Products/Release/Second Brain.app" "/Applications/Second Brain.app"
     open "/Applications/Second Brain.app"
     ;;
-  test) xcb test | tail -20 ;;
+  test) xcb test 2>&1 | grep -E "error:|Test Case.*failed|Executed|TEST (SUCCEEDED|FAILED)" ;;
   *) echo "uso: scripts/mac.sh build|run|install|test [dev]" >&2; exit 1 ;;
 esac

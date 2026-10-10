@@ -90,3 +90,40 @@ enum Compartido {
         NSFileCoordinator().coordinate(writingItemAt: url, options: [], error: &error, byAccessor: bloque)
     }
 }
+
+// MARK: - Franja vigente
+
+extension Compartido {
+    /// ISO 8601 como lo manda la web (`toISOString`, con milisegundos) o sin fracción.
+    static func fechaISO(_ texto: String) -> Date? {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = f.date(from: texto) { return d }
+        f.formatOptions = [.withInternetDateTime]
+        return f.date(from: texto)
+    }
+}
+
+extension EstadoCard {
+    /// Cuándo deja de valer lo que muestra: el próximo cambio de franja según la jornada (lo calcula la web).
+    var vence: Date? { proximaFranja.flatMap(Compartido.fechaISO) }
+
+    /// true si ya pasó el cambio de franja: los hábitos que trae son de la franja anterior. El widget y la barra
+    /// no los muestran hasta que la app traiga los de la nueva.
+    func caducado(en fecha: Date) -> Bool {
+        guard let vence else { return false }
+        return fecha >= vence
+    }
+
+    /// La franja que empieza en `proximaFranja`: mañana → tarde → noche → mañana (del día siguiente).
+    var franjaSiguiente: String {
+        switch franja {
+        case "manana": return "tarde"
+        case "tarde": return "noche"
+        default: return "manana"
+        }
+    }
+
+    /// Tras la noche empieza otro día (`fin_dia`): tampoco valen los pasos ni el % del día.
+    var siguienteEsOtroDia: Bool { franja == "noche" }
+}

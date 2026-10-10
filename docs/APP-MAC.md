@@ -64,6 +64,7 @@ Comprobado el 2026-10-10:
 - Para añadirlos: clic derecho en el escritorio → «Editar widgets» → **Second Brain → Hoy**, en tamaño pequeño o mediano.
 - **Pequeño:** la franja, el % del día y cuántos pendientes quedan. Tocarlo abre la app.
 - **Mediano:** además, las burbujas de los hábitos de la franja y los pasos de hoy, con ✓.
+- **Respetan las franjas:** al llegar el cambio de franja (según la jornada), el widget deja de mostrar los hábitos de la franja anterior y pone «Actualizando…» hasta que la app trae los de la nueva, normalmente en segundos. Tras la noche tampoco muestra los pasos del día anterior. El panel de la barra hace lo mismo.
 - **Los pinta y los marca la app.** La app guarda lo que muestra la barra en el App Group y recarga los widgets. Un ✓ en el widget se encola y la app lo escribe con la misma lógica que la barra. Si la app está cerrada, el toque queda «enviando» hasta que la abres. Por eso conviene «Abrir al iniciar sesión».
 
 ## 6. Checklist de prueba
@@ -87,6 +88,7 @@ Probado el 2026-10-10 contra dev, con un gancho temporal que ejecutaba JS en la 
 - [ ] Añadir los widgets en el escritorio y verlos pintar (pequeño y mediano).
 - [ ] Tocar un ✓ en el widget mediano.
 - [ ] Tocar el widget pequeño abre la ventana.
+- [ ] Cambio de franja con el widget a la vista: «Actualizando…» y luego los hábitos de la franja nueva.
 
 ## 7. Limitaciones
 
