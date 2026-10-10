@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import Observation
+import WidgetKit
 
 /// Lo que pinta la barra de menús: el último estado que mandó la web (`sincronizar`) y si hay sesión.
 /// Es el destino de las marcas en la Mac y programa cuándo volver a pedir Hoy a la web.
@@ -22,6 +23,7 @@ final class EstadoMac: DestinoEstado {
     @ObservationIgnored lazy var marcas = Marcas(destino: self, escritor: EscritorREST(), fechaLocal: { SupabaseREST.fechaLocal() })
 
     init() {
+        escucharWidget()
         despertar = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.refrescar() }
@@ -35,6 +37,7 @@ final class EstadoMac: DestinoEstado {
 
     func publicar(_ estado: EstadoCard) async {
         self.estado = estado
+        compartir()
     }
 
     // MARK: Desde la web (Puente)
@@ -43,14 +46,22 @@ final class EstadoMac: DestinoEstado {
         self.estado = estado
         recibido = true
         programar(estado?.proximaFranja)
+        compartir()
+        // Toques del widget que llegaron con la app cerrada o antes de tener estado
+        procesarToques()
     }
 
-    func sesionGuardada() { conSesion = true }
+    func sesionGuardada() {
+        guard !conSesion else { return }
+        conSesion = true
+        compartir()
+    }
 
     func sesionCerrada() {
         conSesion = false
         estado = nil
         programar(nil)
+        compartir()
     }
 
     // MARK: Botones de la barra
@@ -66,6 +77,39 @@ final class EstadoMac: DestinoEstado {
         Task {
             try? await marcas.marcarPaso(id: p.id, tipo: p.tipo)
             refrescar()
+        }
+    }
+
+    // MARK: Widgets (Compartido)
+
+    /// Guarda lo que pinta la barra en el App Group y recarga el widget.
+    private func compartir() {
+        Compartido.guardar(Compartido.Instantanea(estado: estado, conSesion: conSesion, recibido: recibido, escrita: Date()))
+        WidgetCenter.shared.reloadTimelines(ofKind: Compartido.tipoWidget)
+    }
+
+    /// El widget avisa con una notificación Darwin cuando encola un toque.
+    private func escucharWidget() {
+        let centro = CFNotificationCenterGetDarwinNotifyCenter()
+        let yo = Unmanaged.passUnretained(self).toOpaque()
+        CFNotificationCenterAddObserver(centro, yo, { _, observador, _, _, _ in
+            guard let observador else { return }
+            let estado = Unmanaged<EstadoMac>.fromOpaque(observador).takeUnretainedValue()
+            DispatchQueue.main.async { MainActor.assumeIsolated { estado.procesarToques() } }
+        }, Compartido.avisoToque as CFString, nil, .deliverImmediately)
+    }
+
+    /// Marca los toques encolados por el widget con las mismas `Marcas` de la barra. Sin estado (aún cargando), espera
+    /// al próximo `sincronizar`.
+    func procesarToques() {
+        guard let e = estado else { return }
+        for t in Compartido.tomarCola() {
+            switch t.tipo {
+            case .habito:
+                if let h = e.habitos.first(where: { $0.id == t.id && $0.slot == t.detalle }) { marcarHabito(h) }
+            case .paso:
+                if let p = e.pasos.first(where: { $0.id == t.id }) { marcarPaso(p) }
+            }
         }
     }
 

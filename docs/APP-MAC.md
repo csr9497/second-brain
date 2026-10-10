@@ -1,8 +1,8 @@
 # App de Mac: runbook
 
-App de macOS con la web completa en una ventana y una **barra de menús** con los hábitos de la franja y los pasos de hoy, que se marcan con ✓ sin abrir la ventana. Es solo para la MacBook de Cesar: se firma con la cuenta gratuita (Personal Team) y no se notariza. Diseño: `docs/superpowers/specs/2026-10-10-app-mac-design.md`.
+App de macOS con la web completa en una ventana, una **barra de menús** y **widgets** con los hábitos de la franja y los pasos de hoy, que se marcan con ✓ sin abrir la ventana. Es solo para la MacBook de Cesar: se firma con la cuenta gratuita (Personal Team) y no se notariza. Diseño: `docs/superpowers/specs/2026-10-10-app-mac-design.md`.
 
-Fases: **M1** (esta: ventana y barra), M2 (avisos nativos por franja) y M3 (widgets).
+Fases: **M1** (ventana y barra), **M3** (widgets, `docs/superpowers/specs/2026-10-10-mac-widgets-design.md`) y M2 (avisos nativos por franja, pendiente).
 
 ## 1. Requisitos
 
@@ -36,6 +36,7 @@ Comprobado el 2026-10-10:
 - Con `DEVELOPMENT_TEAM` del Personal Team y firma automática, `xcodebuild -allowProvisioningUpdates` firma con «Apple Development» **sin perfil de aprovisionamiento**: sandbox y red saliente no lo necesitan.
 - **No caduca a los 7 días** como en iOS: dura lo que el certificado de desarrollo (hoy, hasta octubre de 2027). Al renovarlo, vuelve a ejecutar `pnpm mac:install`.
 - El Keychain funciona dentro del sandbox sin pedir permisos.
+- El App Group `3WL76C24SA.com.csr9497.secondbrain` (con el prefijo del Team ID) también firma sin perfil y se usa sin avisos.
 
 ## 5. Cómo se comporta
 
@@ -58,6 +59,13 @@ Comprobado el 2026-10-10:
 - **Enlaces externos:** se abren en el navegador.
 - **Sesión:** la web la copia al Keychain (`guardarSesion`) y la barra escribe con ella. Si la barra renueva el token, la web toma los tokens nuevos al cargar la sesión (`almacenNativo`), igual que en iOS.
 
+### Widgets
+
+- Para añadirlos: clic derecho en el escritorio → «Editar widgets» → **Second Brain → Hoy**, en tamaño pequeño o mediano.
+- **Pequeño:** la franja, el % del día y cuántos pendientes quedan. Tocarlo abre la app.
+- **Mediano:** además, las burbujas de los hábitos de la franja y los pasos de hoy, con ✓.
+- **Los pinta y los marca la app.** La app guarda lo que muestra la barra en el App Group y recarga los widgets. Un ✓ en el widget se encola y la app lo escribe con la misma lógica que la barra. Si la app está cerrada, el toque queda «enviando» hasta que la abres. Por eso conviene «Abrir al iniciar sesión».
+
 ## 6. Checklist de prueba
 
 Probado el 2026-10-10 contra dev, con un gancho temporal que ejecutaba JS en la página y capturaba el WebView y el panel. No hay acceso a la pantalla desde la terminal.
@@ -74,9 +82,14 @@ Probado el 2026-10-10 contra dev, con un gancho temporal que ejecutaba JS en la 
 - [ ] Cerrar sesión: la barra pasa a «Inicia sesión».
 - [ ] Abrir al iniciar sesión (`SMAppService`).
 - [ ] Mirar el panel real: hasta ahora solo se vio renderizado fuera de la barra.
+- [x] Widgets: la extensión queda registrada (`pluginkit`) y la app escribe la instantánea en el App Group.
+- [x] Un toque del widget (cola + aviso Darwin) lo marca la app y la instantánea se actualiza.
+- [ ] Añadir los widgets en el escritorio y verlos pintar (pequeño y mediano).
+- [ ] Tocar un ✓ en el widget mediano.
+- [ ] Tocar el widget pequeño abre la ventana.
 
 ## 7. Limitaciones
 
-- No hay avisos nativos (M2) ni widgets (M3). Los avisos siguen llegando por la PWA, porque WKWebView no tiene Web Push.
+- Todavía no hay avisos nativos (M2). Los avisos siguen llegando por la PWA, porque WKWebView no tiene Web Push.
 - Si la Mac está en reposo, nada se actualiza hasta que despierta.
 - `pnpm ios:build` (Capacitor) y `pnpm mac:build` comparten `apps/web/dist`: cada uno copia su build a su carpeta (`App/public` o `Mac/public`).

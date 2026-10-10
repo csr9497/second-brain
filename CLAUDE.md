@@ -51,7 +51,7 @@ pnpm ios:gen            # xcodegen: regenera App.xcodeproj desde apps/mobile/ios
 pnpm ios:open           # abre el proyecto en Xcode (ver docs/APP-NATIVA.md)
 pnpm mac:run            # app de Mac: build native + xcodebuild Debug y la abre (`scripts/mac.sh run dev` = contra Supabase dev)
 pnpm mac:install        # build Release en /Applications/Second Brain.app (ver docs/APP-MAC.md)
-pnpm mac:test           # XCTest de SecondBrainMacTests (Marcas, EstadoCard)
+pnpm mac:test           # XCTest de SecondBrainMacTests (Marcas, EstadoCard, Compartido)
 
 # un solo test
 pnpm --filter @sb/shared exec vitest run src/domain/domain.test.ts -t "computeStreak"
@@ -101,6 +101,7 @@ Studio local: http://127.0.0.1:54323. Deploy: cada push a `main` ejecuta `.githu
 - **App de Mac** (target `SecondBrainMac` en el mismo `project.yml`, fuentes en `apps/mobile/ios/App/Mac/`; runbook en `docs/APP-MAC.md`): sin Capacitor.
   - Un `WKWebView` que vive mientras corre la app (cerrar la ventana no lo destruye) carga el build `native` copiado a `Mac/public` por `app://localhost` (`EsquemaApp`).
   - La web detecta `window.webkit.messageHandlers.sbMac` y usa `puenteMac` (`lib/nativo/plataforma.ts`), con el mismo contrato que el plugin de iOS: `useLiveActivity` y la sesión funcionan igual. En la Mac, `supabase.ts` mantiene la renovación del token con la página oculta.
+  - Widgets (`MacWidget/`, extensión `SecondBrainMacWidget`): leen la instantánea que la app guarda en el App Group (`Mac/Compartido.swift`) y sus ✓ se encolan para que los escriba la app (aviso Darwin); el widget no tiene la sesión.
   - La barra de menús (`Barra.swift`) pinta el `EstadoLiveActivity` que manda la web y llama a `sbRefrescar()` al abrirse, al despertar y en `proximaFranja`. Los menús llaman a `window.sbAccion` (`useAccionesNativas`).
 
 ## Reglas de dominio no obvias

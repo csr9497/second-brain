@@ -4,8 +4,6 @@
 <dict>
 	<key>com.apple.security.app-sandbox</key>
 	<true/>
-	<key>com.apple.security.network.client</key>
-	<true/>
 	<key>com.apple.security.application-groups</key>
 	<array>
 		<string>3WL76C24SA.com.csr9497.secondbrain</string>
