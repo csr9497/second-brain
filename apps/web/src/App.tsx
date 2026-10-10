@@ -17,6 +17,7 @@ import { HoyView } from './components/HoyView';
 import { ResumenView } from './components/resumen/ResumenView';
 import { GanttView } from './components/gantt/GanttView';
 import { ConfirmHost } from './components/ui/Confirmar';
+import { SinConexion } from './components/SinConexion';
 import { useVista, hrefVista, listaVistas, puedeSalir, VISTAS, type Vista } from './lib/useVista';
 import type { ModalState } from './lib/modal';
 import { todayISO } from '@sb/shared';
@@ -85,6 +86,7 @@ function Home() {
 
   return (
     <div className="mx-auto max-w-[1040px] px-4 pt-[26px] pb-28 sm:pb-[72px]">
+      <SinConexion />
       <header>
         <div className="text-xs font-semibold tracking-[.08em] text-faint uppercase">{headerDate(todayISO())}</div>
         <div className="flex items-start justify-between gap-3">
