@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
-# App de Mac (docs/APP-MAC.md). Uso: scripts/mac.sh build|run|install|test
+# App de Mac (docs/APP-MAC.md). Uso: scripts/mac.sh build|run|install|test [dev]
+# Por defecto la web usa apps/web/.env.native.local; con `dev`, las variables de apps/web/.env.dev.local (Supabase dev).
 set -euo pipefail
 raiz="$(cd "$(dirname "$0")/.." && pwd)"
+if [ "${2:-}" = dev ]; then
+  # Las variables del entorno tienen prioridad sobre los archivos .env de Vite
+  set -a; . "$raiz/apps/web/.env.dev.local"; set +a
+fi
 proyecto="$raiz/apps/mobile/ios/App"
 dd=/tmp/sb-mac-dd
 
@@ -32,5 +37,5 @@ case "${1:-}" in
     open "/Applications/Second Brain.app"
     ;;
   test) xcb test | tail -20 ;;
-  *) echo "uso: scripts/mac.sh build|run|install|test" >&2; exit 1 ;;
+  *) echo "uso: scripts/mac.sh build|run|install|test [dev]" >&2; exit 1 ;;
 esac

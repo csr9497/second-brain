@@ -40,7 +40,7 @@ pnpm dev                # Vite :5173 contra Supabase dev (nube) — usuario: dev
 pnpm dev:local          # Vite :5173 contra Supabase local (Docker)
 pnpm db:push:dev        # aplica migraciones pendientes al proyecto dev
 pnpm db:reset:dev       # recrea la DB dev desde migraciones + seed
-pnpm test               # vitest de packages/shared
+pnpm test               # vitest de packages/shared y de apps/web (solo funciones puras)
 supabase test db        # tests pgTAP de RLS y triggers (supabase/tests/database)
 pnpm typecheck          # web + service worker (src/sw/tsconfig.json)
 node scripts/vapid-keys.mjs   # genera VAPID_KEYS (secret) y VITE_VAPID_PUBLIC_KEY
@@ -49,6 +49,9 @@ pnpm build              # apps/web/dist
 pnpm ios:build          # app iOS: vite build --mode native (apps/web/.env.native.local) + cap sync ios
 pnpm ios:gen            # xcodegen: regenera App.xcodeproj desde apps/mobile/ios/App/project.yml
 pnpm ios:open           # abre el proyecto en Xcode (ver docs/APP-NATIVA.md)
+pnpm mac:run            # app de Mac: build native + xcodebuild Debug y la abre (`scripts/mac.sh run dev` = contra Supabase dev)
+pnpm mac:install        # build Release en /Applications/Second Brain.app (ver docs/APP-MAC.md)
+pnpm mac:test           # XCTest de SecondBrainMacTests (Marcas, EstadoCard)
 
 # un solo test
 pnpm --filter @sb/shared exec vitest run src/domain/domain.test.ts -t "computeStreak"
@@ -89,11 +92,16 @@ Studio local: http://127.0.0.1:54323. Deploy: cada push a `main` ejecuta `.githu
   - Sesión: `useSession`. Si no hay sesión, se muestra `<Login>`.
   - Formularios: no hay `<select>` nativos; se usa `components/ui/Select.tsx` (Radix) con las opciones de `lib/options.ts`.
   - `vite.config.ts` usa `base: './'`, para servir igual en `/` (local) y en `/second-brain/` (Pages).
-- **`apps/mobile`** (prototipo iOS; runbook en `docs/APP-NATIVA.md`): Capacitor 8 por SPM que carga el build de `apps/web` hecho con `vite build --mode native` (sin service worker ni PWA; en la web, `esNativo()` de `lib/nativo/`).
+- **`apps/mobile`** (prototipo iOS; runbook en `docs/APP-NATIVA.md`): Capacitor 8 por SPM que carga el build de `apps/web` hecho con `vite build --mode native` (sin service worker ni PWA; en la web, `esNativo()` de `lib/nativo/`; `plataformaNativa()` distingue `'ios'` y `'mac'`).
   - El proyecto Xcode sale de XcodeGen: `apps/mobile/ios/App/project.yml` y el `App.xcodeproj` commiteado. Tras tocar `project.yml`, `pnpm ios:gen`.
   - Plugin Swift local `LiveActivity` (`App/LiveActivity/`): `sincronizar`, `guardarSesion`, `leerSesion` y `cerrarSesion`. La web lo usa desde `lib/nativo/`: `useLiveActivity` sincroniza la card con `['today']` vía `estadoLiveActivity` (`@sb/shared`), y `useSession` copia la sesión al Keychain.
   - Extensión `SecondBrainLiveActivity` (SwiftUI): pinta la card. Sus botones son App Intents que corren en el proceso de la app y escriben por PostgREST (`SupabaseREST.swift`) con la sesión del Keychain.
   - Supabase rota el refresh token: si un botón lo renueva, el almacenamiento de supabase-js en nativo (`almacenNativo`) toma los tokens del Keychain al cargar la sesión.
+  - La lógica de los botones ✓ («enviando» → hecho o «fallo») es `Marcas.swift`, sobre un `DestinoEstado` (la Live Activity en iOS, `EstadoMac` en la Mac); el estado es `EstadoCard.swift` (sin ActivityKit).
+- **App de Mac** (target `SecondBrainMac` en el mismo `project.yml`, fuentes en `apps/mobile/ios/App/Mac/`; runbook en `docs/APP-MAC.md`): sin Capacitor.
+  - Un `WKWebView` que vive mientras corre la app (cerrar la ventana no lo destruye) carga el build `native` copiado a `Mac/public` por `app://localhost` (`EsquemaApp`).
+  - La web detecta `window.webkit.messageHandlers.sbMac` y usa `puenteMac` (`lib/nativo/plataforma.ts`), con el mismo contrato que el plugin de iOS: `useLiveActivity` y la sesión funcionan igual. En la Mac, `supabase.ts` mantiene la renovación del token con la página oculta.
+  - La barra de menús (`Barra.swift`) pinta el `EstadoLiveActivity` que manda la web y llama a `sbRefrescar()` al abrirse, al despertar y en `proximaFranja`. Los menús llaman a `window.sbAccion` (`useAccionesNativas`).
 
 ## Reglas de dominio no obvias
 
