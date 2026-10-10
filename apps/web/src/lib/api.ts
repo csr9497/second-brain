@@ -102,6 +102,7 @@ const toTask = (r: Row): Task => ({
   status: r.status,
   startDate: r.start_date,
   deadline: r.deadline,
+  minutosDia: r.minutos_dia,
   position: Number(r.position),
   notes: r.notes,
   completedAt: r.completed_at,
@@ -140,6 +141,7 @@ const taskColumns = (t: Partial<CreateTaskInput & UpdateTaskInput>): Row =>
       status: t.status,
       start_date: t.startDate,
       deadline: t.deadline,
+      minutos_dia: t.minutosDia,
       notes: t.notes,
     }).filter(([, v]) => v !== undefined),
   );

@@ -4,6 +4,7 @@
 
 ## Pendientes
 ### En curso
+- [ ] Duración de la tarea (rama `feat/duracion-tarea`): probar en el navegador, aplicar la migración `tareas_minutos_dia` en dev (`pnpm db:push:dev`) y producción (`supabase db push`), y fusionar
 - [ ] Probar en el iPhone: color «enviando» y fallo al tocar la card, hábitos de la noche pasada la medianoche con «El día termina» configurado, y jalar hacia abajo para actualizar
 - [ ] Fusionar la rama `feat/refresco-nativo` (Team de firma en `project.yml` y jalar para actualizar)
 ### Siguiente
@@ -15,6 +16,8 @@
 - [ ] Fase W: servidor MCP (variantes B y C de `docs/MCP.md`)
 
 ## Realizado
+### 2026-10-10
+- Duración de la tarea: `tasks.minutos_dia` («h/día», 8 h por defecto). Los pasos se miden contra días × h/día: presupuesto en el modal; un paso solo con tiempo toma el inicio de la tarea y uno con fecha sin días dura hasta el deadline; Encadenar llena el día de trabajo de la tarea y avisa de los que no caben; el calendario y el Gantt con zoom usan esa escala. El contrato para la app móvil y la de escritorio está en `docs/DATA-MODEL.md`. WebMCP aplica las mismas reglas. Tests: 187 vitest y 103 pgTAP (sin commit aún)
 ### 2026-10-09
 - Card de la Live Activity: el botón pasa a «enviando» al tocar sin esperar la red, luego hecho o «fallo» 2,5 s; ediciones serializadas y timeout de 10 s (3aa360b)
 - Jornada configurable (tabla `jornada`, migración aplicada en dev y producción): inicio de tarde y noche y hora en que termina el día (≤ 06:00); antes de esa hora sigue siendo la noche del día anterior en toda la app, los triggers, los avisos y la card; se edita en Gestionar hábitos → Franjas del día; 14 tests pgTAP nuevos (3aa360b)

@@ -38,6 +38,7 @@ const task = (id: string, steps: Step[] = [], o: Partial<Task> = {}): Task => ({
   status: 'por_hacer',
   startDate: null,
   deadline: HOY,
+  minutosDia: null,
   position: 1,
   notes: null,
   completedAt: null,

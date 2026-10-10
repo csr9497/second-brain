@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
-import { JORNADA_MIN, addDays, calendarGrid, carriles, daysBetween, duracionHoras, finPaso, fueraDePlazo, mesDe, rangoSeleccion, sumarMeses, todayISO, tramosDelDia, weekday } from '@sb/shared';
+import { addDays, calendarGrid, carriles, daysBetween, duracionHoras, finPaso, fueraDePlazo, mesDe, minutosDia, rangoSeleccion, sumarMeses, todayISO, tramosDelDia, weekday } from '@sb/shared';
 import { headerDate, mesLabel } from '../../lib/format';
-import { nombrePaso, programacion, type PlanProps } from '../../lib/pasosBorrador';
+import { nombrePaso, plazoDe, programacion, type PlanProps } from '../../lib/pasosBorrador';
 
 const DIAS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 const navBtn = 'rounded-full border border-line px-2.5 py-0.5 text-xs font-semibold text-muted hover:text-text';
@@ -60,9 +60,9 @@ export function CalendarioPlan({ tarea, steps, color, sel, setSel }: PlanProps) 
   const dias: string[] = [];
   for (let d = start; d <= end; d = addDays(d, 1)) dias.push(d);
   const marca = arrastre ? rangoSeleccion(arrastre.desde, arrastre.hasta) : sel;
-  const plazo = { startDate: tarea.startDate || null, deadline: tarea.deadline || null };
+  const plazo = plazoDe(tarea);
   const pasos = steps
-    .map((s, i) => ({ i, p: programacion(s) }))
+    .map((s, i) => ({ i, p: programacion(s, tarea) }))
     .filter((x) => x.p.startDate)
     .map((x) => ({ ...x, desde: x.p.startDate!, hasta: finPaso(x.p)! }))
     .sort((a, b) => a.desde.localeCompare(b.desde) || a.i - b.i);
@@ -219,7 +219,9 @@ function DiaExpandido({
   const deRango = ordenados.filter((x) => x.p.duracionMin == null);
   const tramos = tramosDelDia(ordenados.map((x) => ({ ...x.p, x }))).map((t) => ({ ...t, x: t.paso.x }));
   const total = tramos.length ? tramos[tramos.length - 1].hasta : 0;
-  const escala = Math.max(JORNADA_MIN, total);
+  // A escala del día de trabajo de la tarea (h/día)
+  const dia = minutosDia(tarea);
+  const escala = Math.max(dia, total);
   const btn = 'rounded-lg border border-dashed border-line px-2.5 py-[5px] text-xs font-semibold text-muted hover:text-text';
   const fila = (key: string, icono: ReactNode, texto: ReactNode, detalle: ReactNode) => (
     <li key={key} className="flex items-center gap-2 py-1 text-[12.5px]">
@@ -257,8 +259,8 @@ function DiaExpandido({
         <div className="mb-2 rounded-md border border-line/70 p-2">
           <div className="mb-1.5 flex items-baseline justify-between text-[11.5px]">
             <span className="font-semibold text-muted">⛓ Encadenados en el día</span>
-            <span className={`tabular-nums ${total > JORNADA_MIN ? 'font-semibold text-hot' : 'text-faint'}`}>
-              {duracionHoras(total)} de {duracionHoras(JORNADA_MIN)}
+            <span className={`tabular-nums ${total > dia ? 'font-semibold text-hot' : 'text-faint'}`}>
+              {duracionHoras(total)} de {duracionHoras(dia)}
             </span>
           </div>
           {/* Uno detrás de otro, a escala de la jornada */}

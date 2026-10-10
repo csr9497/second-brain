@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { borradorVacio, daysBetween, addDays, estirarPaso, estirarPasoMin, fueraDePlazo, moverPaso, duracionHoras, rangoSeleccion, spanTarea, todayISO } from '@sb/shared';
+import { borradorVacio, daysBetween, addDays, estirarPaso, estirarPasoMin, fueraDePlazo, minutosDia, moverPaso, duracionHoras, rangoSeleccion, spanTarea, todayISO } from '@sb/shared';
 import { colocar, comoTask, desdeBorrador, nombrePaso, type PlanProps, type StepDraft } from '../../lib/pasosBorrador';
 import { Barra, type Fase, type Op } from '../gantt/Barra';
 import { fondo } from '../gantt/constantes';
@@ -125,7 +125,7 @@ export function GanttPlan({ tarea, steps, color, onPasos, sel, setSel }: PlanPro
 
         {/* Pasos: mover/estirar; los sin programar se colocan en su fila */}
         {virtual.steps.map((s, i) => {
-          const g = s.startDate && s.duracionDias ? geometriaPaso(s, x, col, offsets.get(s.id)) : null;
+          const g = s.startDate && s.duracionDias ? geometriaPaso(s, x, col, offsets.get(s.id), minutosDia(virtual)) : null;
           return (
             <div key={steps[i].id ?? `nuevo-${i}`} className={`flex border-b border-line/60 ${fila === i ? 'bg-accent/10' : ''}`}>
               {etiqueta(

@@ -4,13 +4,25 @@ import { addDays, daysBetween } from './dates';
 type Programable = { startDate: string | null; duracionDias: number | null; duracionMin?: number | null };
 
 /**
- * Jornada de un día para encadenar pasos por tiempo (8 h): si el siguiente no cabe, pasa al día siguiente.
- * También es la escala con la que el Gantt con zoom dibuja los pasos por tiempo dentro de un día.
+ * Día de trabajo por defecto de una tarea (8 h), si no tiene `minutosDia`: es lo que cabe en un día al encadenar
+ * pasos por tiempo y la escala con la que el Gantt con zoom los dibuja dentro de un día.
  */
 export const JORNADA_MIN = 8 * 60;
 /** Salto al estirar un paso por tiempo, en minutos. */
 export const PASO_MINUTOS = 15;
 export const MIN_DIA = 1440;
+
+/** Plazo de una tarea para programar y medir sus pasos. `minutosDia`: lo que se le dedica al día (null = JORNADA_MIN). */
+export type PlazoTarea = { startDate: string | null; deadline: string | null; minutosDia?: number | null };
+
+/** Minutos del día de trabajo de la tarea. */
+export const minutosDia = (t?: { minutosDia?: number | null } | null) => t?.minutosDia ?? JORNADA_MIN;
+
+/** Días de la tarea (inicio–deadline, inclusivo), o null si le falta un lado o el fin es antes del inicio. */
+export function diasTarea(t: PlazoTarea) {
+  if (!t.startDate || !t.deadline || t.deadline < t.startDate) return null;
+  return daysBetween(t.startDate, t.deadline) + 1;
+}
 
 /** El paso es por tiempo estimado (minutos en un solo día). */
 export const esPorTiempo = (p: Programable): p is Programable & { duracionMin: number } => p.duracionMin != null;
@@ -32,7 +44,7 @@ export function duracionPaso(p: Programable) {
 
 /**
  * Pasos por tiempo de un mismo día, en el orden recibido (el de la lista), uno detrás de otro:
- * minuto de inicio y fin dentro de la jornada (puede pasar de JORNADA_MIN si se cargó de más).
+ * minuto de inicio y fin dentro del día (puede pasar del día de trabajo de la tarea si se cargó de más).
  */
 export function tramosDelDia<T extends Programable>(pasos: T[]): { paso: T; desde: number; hasta: number }[] {
   let cursor = 0;
@@ -41,6 +53,44 @@ export function tramosDelDia<T extends Programable>(pasos: T[]): { paso: T; desd
     cursor = r.hasta;
     return r;
   });
+}
+
+/**
+ * Completa la programación de un paso con la de su tarea:
+ * - por tiempo y sin fecha → empieza el día de inicio de la tarea (si la tarea no tiene inicio, queda sin fecha);
+ * - con fecha y sin días → dura hasta el deadline de la tarea (1 día si no hay deadline o empieza después).
+ */
+export function completarPaso<T extends Programable>(p: T, t: PlazoTarea): T {
+  if (!p.startDate && p.duracionMin != null && t.startDate) return { ...p, startDate: t.startDate, duracionDias: 1 };
+  if (p.startDate && p.duracionDias == null && p.duracionMin == null) {
+    const hasta = t.deadline && t.deadline >= p.startDate ? daysBetween(p.startDate, t.deadline) + 1 : 1;
+    return { ...p, duracionDias: hasta };
+  }
+  return p;
+}
+
+/** Minutos de trabajo de un paso: por tiempo, sus minutos; por días, días × día de trabajo de la tarea; sin fecha, 0. */
+export function minutosPaso(p: Programable, t: PlazoTarea) {
+  if (!p.startDate) return 0;
+  return esPorTiempo(p) ? p.duracionMin : (p.duracionDias ?? 1) * minutosDia(t);
+}
+
+/**
+ * Presupuesto de la tarea: lo que suman sus pasos programados frente a su duración (días × día de trabajo).
+ * `total` es null si la tarea no tiene inicio y deadline válidos.
+ */
+export function presupuestoTarea(pasos: Programable[], t: PlazoTarea) {
+  const usado = pasos.reduce((n, p) => n + minutosPaso(p, t), 0);
+  const dias = diasTarea(t);
+  const total = dias == null ? null : dias * minutosDia(t);
+  return { usado, total, excede: total != null && usado > total };
+}
+
+/** "2 días 3 h", "5 h 30 min": minutos expresados en días de trabajo de `dia` minutos. */
+export function duracionEnDias(min: number, dia = JORNADA_MIN) {
+  const d = Math.floor(min / dia);
+  const resto = min - d * dia;
+  return [d ? `${d} ${d === 1 ? 'día' : 'días'}` : '', resto || !d ? duracionHoras(resto) : ''].filter(Boolean).join(' ');
 }
 
 /** Último día del paso (inicio + días − 1), o null si no está programado. */
@@ -67,16 +117,17 @@ export function fueraDePlazo(p: Programable, tarea: { startDate: string | null; 
 
 /**
  * Pasos seguidos desde `desde`. Por días: cada uno empieza el día siguiente al fin del anterior (1 día si no tiene).
- * Por tiempo: se encadenan en el mismo día mientras quepan en la jornada (JORNADA_MIN); el que no cabe pasa al día
- * siguiente. Un paso más largo que la jornada ocupa un día para él solo.
+ * Por tiempo: se encadenan en el mismo día mientras quepan en el día de trabajo (`diaTrabajo`, por defecto JORNADA_MIN; el
+ * de la tarea); el que no cabe pasa al día siguiente. Un paso más largo que el día ocupa un día para él solo.
+ * Los que terminan después del deadline de la tarea los marca `fueraDePlazo`.
  */
-export function encadenar<T extends Programable>(pasos: T[], desde: string): T[] {
+export function encadenar<T extends Programable>(pasos: T[], desde: string, diaTrabajo = JORNADA_MIN): T[] {
   let dia = desde;
   let usado: number | null = null; // minutos ya ocupados en `dia` por pasos por tiempo
   return pasos.map((p) => {
     if (p.duracionMin != null) {
       const dur = Math.min(p.duracionMin, MIN_DIA);
-      if (usado != null && usado + dur > JORNADA_MIN) {
+      if (usado != null && usado + dur > diaTrabajo) {
         dia = addDays(dia, 1);
         usado = 0;
       }

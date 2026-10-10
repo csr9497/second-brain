@@ -56,6 +56,8 @@ const taskFields = z.object({
   priority: priority,
   startDate: isoDate.nullish(),
   deadline: isoDate.nullish(),
+  /** Día de trabajo de la tarea en minutos (15 min a 24 h, de 15 en 15; null = 8 h). Igual que el CHECK tasks_minutos_dia */
+  minutosDia: z.number().int().min(15).max(1440).multipleOf(15).nullish(),
   notes: z.string().nullish(),
   /** Hábitos vinculados: completar la tarea o uno de sus pasos los marca ese día */
   habitIds: z.array(z.uuid()),
@@ -158,6 +160,8 @@ export interface Task {
   status: TaskStatus;
   startDate: string | null;
   deadline: string | null;
+  /** Minutos al día dedicados a la tarea; null = JORNADA_MIN (8 h) */
+  minutosDia: number | null;
   position: number;
   notes: string | null;
   completedAt: string | null;

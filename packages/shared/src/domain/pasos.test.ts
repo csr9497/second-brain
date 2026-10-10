@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { duracionHoras, duracionPaso, encadenar, finPaso, fueraDePlazo, pasoEnRango, pasosDelPeriodo, rangoSeleccion, tramosDelDia } from './pasos';
+import { completarPaso, diasTarea, duracionEnDias, duracionHoras, duracionPaso, encadenar, finPaso, minutosDia, minutosPaso, presupuestoTarea, fueraDePlazo, pasoEnRango, pasosDelPeriodo, rangoSeleccion, tramosDelDia } from './pasos';
 
 const p = (startDate: string | null, duracionDias: number | null) => ({ startDate, duracionDias });
 
@@ -99,4 +99,55 @@ describe('pasosDelPeriodo', () => {
   it('en la semana entran todos los programados que la tocan', () =>
     expect(pasosDelPeriodo(pasos, '2026-10-05', '2026-10-11').visibles.map((x) => x.id)).toEqual(['hoy', 'cruza', 'manana']));
   it('un paso sin programar nunca está en el rango', () => expect(pasoEnRango(p(null, null), '2026-01-01', '2026-12-31')).toBe(false));
+});
+
+describe('duración de la tarea', () => {
+  const tarea = { startDate: '2026-10-05', deadline: '2026-10-09', minutosDia: 240 };
+  it('días de la tarea', () => {
+    expect(diasTarea(tarea)).toBe(5);
+    expect(diasTarea({ startDate: '2026-10-05', deadline: null })).toBeNull();
+    expect(diasTarea({ startDate: '2026-10-09', deadline: '2026-10-05' })).toBeNull();
+  });
+  it('día de trabajo: el de la tarea o 8 h', () => {
+    expect(minutosDia(tarea)).toBe(240);
+    expect(minutosDia({ minutosDia: null })).toBe(480);
+  });
+  it('un paso por tiempo sin fecha empieza el día de inicio de la tarea', () => {
+    expect(completarPaso({ startDate: null, duracionDias: null, duracionMin: 45 }, tarea)).toEqual({ startDate: '2026-10-05', duracionDias: 1, duracionMin: 45 });
+    // sin inicio de la tarea queda sin fecha
+    expect(completarPaso({ startDate: null, duracionDias: null, duracionMin: 45 }, { startDate: null, deadline: null })).toMatchObject({ startDate: null });
+  });
+  it('un paso con fecha y sin días dura hasta el deadline de la tarea', () => {
+    expect(completarPaso({ startDate: '2026-10-07', duracionDias: null, duracionMin: null }, tarea)).toMatchObject({ duracionDias: 3 });
+    expect(completarPaso({ startDate: '2026-10-12', duracionDias: null, duracionMin: null }, tarea)).toMatchObject({ duracionDias: 1 });
+    expect(completarPaso({ startDate: '2026-10-07', duracionDias: null, duracionMin: null }, { startDate: null, deadline: null })).toMatchObject({ duracionDias: 1 });
+  });
+  it('lo ya programado no cambia', () => {
+    const x = { startDate: '2026-10-06', duracionDias: 2, duracionMin: null };
+    expect(completarPaso(x, tarea)).toBe(x);
+  });
+  it('minutos de un paso según el día de trabajo de la tarea', () => {
+    expect(minutosPaso({ startDate: '2026-10-06', duracionDias: 2, duracionMin: null }, tarea)).toBe(480);
+    expect(minutosPaso({ startDate: '2026-10-06', duracionDias: 1, duracionMin: 90 }, tarea)).toBe(90);
+    expect(minutosPaso({ startDate: null, duracionDias: null, duracionMin: null }, tarea)).toBe(0);
+  });
+  it('presupuesto: pasos frente a días × día de trabajo', () => {
+    const pasos = [{ startDate: '2026-10-05', duracionDias: 4, duracionMin: null }, { startDate: '2026-10-09', duracionDias: 1, duracionMin: 300 }];
+    expect(presupuestoTarea(pasos, tarea)).toEqual({ usado: 1260, total: 1200, excede: true });
+    expect(presupuestoTarea(pasos, { startDate: null, deadline: null })).toMatchObject({ total: null, excede: false });
+  });
+  it('duración en días de trabajo', () => {
+    expect(duracionEnDias(1260, 240)).toBe('5 días 1 h');
+    expect(duracionEnDias(240, 240)).toBe('1 día');
+    expect(duracionEnDias(90, 240)).toBe('1 h 30 min');
+    expect(duracionEnDias(0)).toBe('0 min');
+  });
+  it('encadenar usa el día de trabajo de la tarea', () => {
+    const tp = (t: string, duracionMin: number) => ({ t, startDate: null, duracionDias: null, duracionMin });
+    const r = encadenar([tp('a', 180), tp('b', 120)], '2026-10-05', 240);
+    expect(r.map((x) => [x.t, x.startDate])).toEqual([
+      ['a', '2026-10-05'],
+      ['b', '2026-10-06'],
+    ]);
+  });
 });

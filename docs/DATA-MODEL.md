@@ -51,6 +51,7 @@ erDiagram
     text status
     date start_date
     date deadline
+    int minutos_dia "día de trabajo: 15-1440, de 15 en 15; null = 8 h"
     numeric position
     text notes
     timestamptz completed_at
@@ -134,6 +135,8 @@ erDiagram
 - **Racha**: recorrer hacia atrás días consecutivos con % = 100% (o umbral) de los turnos vigentes ese día. Se puede
   calcular al vuelo o cachear en una tabla `streaks` si crece el volumen.
 - **Incumplimiento** = `deadline < current_date AND status <> 'hecha'`.
+- **Duración de la tarea y de sus pasos** (ver la sección de abajo): `(deadline − start_date + 1) × minutos_dia`.
+  Se calcula en el cliente; no se almacena.
 - **Subtarea completa la tarea**: al marcar el último `step`, un trigger o la capa de
   servicio setea `tasks.status = 'hecha'`. Recomendado hacerlo en el servicio (más
   controlable que un trigger de DB).
@@ -141,3 +144,31 @@ erDiagram
 Ver `supabase/migrations/` para el DDL ejecutable (con `user_id` y RLS por tabla).
 
 - **`aplicar_plan(cambios jsonb)`** (RPC, `security invoker`): aplica en una transacción los cambios del Gantt — `{"tasks":[{id,start_date,deadline}],"steps":[{id,start_date,duracion_dias,duracion_min?}]}` (sin `duracion_min`, no se toca) —; una fila ajena o inexistente (`P0002`) o un CHECK violado aborta todo.
+
+## Duración de la tarea y de sus pasos (contrato para todos los clientes)
+
+Esta regla vale para la web, la app móvil y la de escritorio. La lógica pura está en
+`packages/shared/src/domain/pasos.ts`. Un cliente en TypeScript (Capacitor, Tauri,
+Electron…) debe **importarla de `@sb/shared`** y no reescribirla. Un cliente nativo
+(Swift, Kotlin…) debe replicar exactamente lo de abajo y copiar como casos de prueba
+los de `pasos.test.ts` («duración de la tarea») y `agente.test.ts` (`programarPaso`).
+
+| Concepto | Regla | En `@sb/shared` |
+|---|---|---|
+| Día de trabajo | `tasks.minutos_dia`; si es null, 480 (8 h). | `minutosDia(t)`, `JORNADA_MIN` |
+| Días de la tarea | `deadline − start_date + 1`; null si falta un lado o el fin es antes del inicio. | `diasTarea(t)` |
+| Duración de la tarea | días × día de trabajo, en minutos. | `presupuestoTarea(...).total` |
+| Minutos de un paso | Por tiempo, `duracion_min`. Por días, `duracion_dias × minutosDia`. Sin fecha, 0. | `minutosPaso(p, t)` |
+| Presupuesto | Suma de los minutos de los pasos, hechos incluidos, frente a la duración; `excede` si la pasa. Se muestra en días de trabajo («2 días 3 h de 5 días»). | `presupuestoTarea(pasos, t)`, `duracionEnDias(min, dia)` |
+| Paso solo con tiempo | Sin `start_date` y con `duracion_min`: `start_date = tasks.start_date`, `duracion_dias = 1`. Si la tarea no tiene inicio, el paso no se puede guardar con tiempo (la base exige fecha: CHECK `steps_tiempo_un_dia`). | `completarPaso(p, t)` |
+| Paso con fecha y sin días | `duracion_dias` = hasta el deadline (`deadline − start_date + 1`); 1 si no hay deadline o el paso empieza después. | `completarPaso(p, t)` |
+| Encadenar | Desde el inicio de la tarea (hoy si no tiene). Por días, uno tras otro. Por tiempo, en el mismo día mientras quepan en `minutosDia`; el que no cabe pasa al día siguiente. Después se cuentan los que quedan fuera de plazo y se avisa. | `encadenar(pasos, desde, minutosDia(t))`, `fueraDePlazo` |
+| Escala de un día | Los pasos por tiempo de un día se dibujan y totalizan sobre `minutosDia`: el detalle del día del calendario («3 h de 4 h») y el ancho de un día en el Gantt con zoom. | `tramosDelDia` + `minutosDia` |
+| Agentes (WebMCP) | `programarPaso(actual, cambios, tarea)` aplica las dos reglas de `completarPaso`. `encadenarTarea` usa el día de trabajo de la tarea. `get_task` devuelve `minutosDia` y `presupuesto`. | `domain/agente.ts` |
+
+Notas:
+- Las fechas que se completan con la tarea se **escriben** en la base al guardar. Si
+  después cambia el inicio de la tarea, el paso no se mueve solo: hay que reprogramarlo
+  o encadenar de nuevo.
+- En el formulario, «h/día» admite cuartos de hora (`0.25`). Se redondea a 15 min y se
+  limita a 15 min–24 h, como exige el CHECK `tasks_minutos_dia`. Vacío guarda null.

@@ -4,7 +4,7 @@ import type { CalendarMonth } from './calendar';
 import { isOverdue } from './metrics';
 import { positionBetween } from './ordering';
 import { weekRange } from './dates';
-import { duracionPaso, encadenar, finPaso, fueraDePlazo, pasosDelPeriodo } from './pasos';
+import { completarPaso, duracionPaso, encadenar, finPaso, fueraDePlazo, minutosDia, pasosDelPeriodo, presupuestoTarea, type PlazoTarea } from './pasos';
 
 export const FRANJAS: HabitSlot[] = ['manana', 'tarde', 'noche'];
 
@@ -99,8 +99,12 @@ export function resumirTarea(t: Task, hoy: string, periodo: { desde: string; has
 /** Tarea completa con sus pasos programados y los nombres de sus hábitos vinculados. */
 export function detallarTarea(t: Task, hoy: string, habitos: { id: string; nombre: string }[]) {
   const plazo = { startDate: t.startDate, deadline: t.deadline };
+  const p = presupuestoTarea(t.steps, t);
   return {
     ...resumirTarea(t, hoy),
+    minutosDia: minutosDia(t),
+    // Lo que suman los pasos frente a la duración de la tarea (días × minutosDia), en minutos
+    presupuesto: { pasosMin: p.usado, tareaMin: p.total, excede: p.excede },
     descripcion: t.description,
     notas: t.notes,
     completada: t.completedAt,
@@ -189,19 +193,22 @@ type CambiosPaso = { startDate?: string | null; duracionDias?: number | null; du
 
 /**
  * Aplica cambios de programación sobre la actual y la normaliza: `startDate: null` la quita;
- * `duracionMin` lo vuelve por tiempo (1 día); `duracionDias` lo vuelve por días; con solo inicio, dura 1 día.
+ * `duracionMin` lo vuelve por tiempo (1 día); `duracionDias` lo vuelve por días. Con `tarea` (ver `completarPaso`):
+ * por tiempo sin inicio empieza el día de inicio de la tarea, y con solo inicio dura hasta su deadline; sin ella, 1 día.
  */
-export function programarPaso(actual: ProgramacionPaso, cambios: CambiosPaso): ProgramacionPaso | { error: string } {
+export function programarPaso(actual: ProgramacionPaso, cambios: CambiosPaso, tarea?: PlazoTarea): ProgramacionPaso | { error: string } {
   if (cambios.startDate === null) return { startDate: null, duracionDias: null, duracionMin: null };
-  const startDate = cambios.startDate ?? actual.startDate;
+  const startDate = cambios.startDate ?? actual.startDate ?? (cambios.duracionMin != null ? tarea?.startDate : null) ?? null;
   const porTiempo = cambios.duracionMin != null || (cambios.duracionDias == null && cambios.duracionMin === undefined && actual.duracionMin != null);
   if (!startDate) {
     return cambios.duracionDias != null || cambios.duracionMin != null
-      ? { error: 'Para dar duración a un paso hace falta su startDate (YYYY-MM-DD)' }
+      ? { error: 'Para dar duración a un paso hace falta su startDate (YYYY-MM-DD) o, si es por tiempo, que la tarea tenga inicio' }
       : { startDate: null, duracionDias: null, duracionMin: null };
   }
   if (porTiempo) return { startDate, duracionDias: 1, duracionMin: cambios.duracionMin ?? actual.duracionMin };
-  return { startDate, duracionDias: cambios.duracionDias ?? actual.duracionDias ?? 1, duracionMin: null };
+  const duracionDias = cambios.duracionDias ?? actual.duracionDias;
+  if (duracionDias == null && tarea) return completarPaso({ startDate, duracionDias: null, duracionMin: null }, tarea);
+  return { startDate, duracionDias: duracionDias ?? 1, duracionMin: null };
 }
 
 /**
@@ -229,11 +236,12 @@ export function reordenarPasos(pasos: { id: string; position: number }[], orden:
 
 /**
  * Encadena los pasos de la tarea en el orden de la lista desde `desde`: por días uno tras otro, y los
- * de tiempo en el mismo día mientras quepan en la jornada. Los hechos se dejan como están salvo `incluirHechos`.
+ * de tiempo en el mismo día mientras quepan en el día de trabajo de la tarea (`minutosDia`). Los hechos se
+ * dejan como están salvo `incluirHechos`.
  */
 export function encadenarTarea(t: Task, desde: string, incluirHechos = false): ({ id: string; titulo: string } & ProgramacionPaso)[] {
   const pasos = t.steps.filter((s) => incluirHechos || !s.done);
-  return encadenar(pasos, desde).map((s) => ({
+  return encadenar(pasos, desde, minutosDia(t)).map((s) => ({
     id: s.id,
     titulo: s.title,
     startDate: s.startDate,

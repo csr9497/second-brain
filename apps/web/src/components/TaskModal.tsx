@@ -3,10 +3,25 @@ import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, 
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { daysBetween, duracionPaso, encadenar, formatFrecuencia, fueraDePlazo, todayISO, type CreateTaskInput, type Task, type TaskStatus } from '@sb/shared';
+import {
+  daysBetween,
+  duracionEnDias,
+  duracionHoras,
+  duracionPaso,
+  encadenar,
+  formatFrecuencia,
+  fueraDePlazo,
+  JORNADA_MIN,
+  minutosDia,
+  presupuestoTarea,
+  todayISO,
+  type CreateTaskInput,
+  type Task,
+  type TaskStatus,
+} from '@sb/shared';
 import { api } from '../lib/api';
 import { rangoPaso } from '../lib/format';
-import { aBorrador, claveDe, diasDe, finBorrador, minutosDe, nombrePaso, pasoVacio, porTiempo, programacion, type Seleccion, type StepDraft } from '../lib/pasosBorrador';
+import { aBorrador, claveDe, diasDe, finBorrador, minutosDe, nombrePaso, pasoVacio, plazoDe, porTiempo, programacion, type Seleccion, type StepDraft, type TareaPlan } from '../lib/pasosBorrador';
 import { PRIORITY_OPTIONS, TASK_STATUS_OPTIONS, TASK_TYPE_OPTIONS, UNIDADES_TIEMPO } from '../lib/options';
 import { useHabits } from '../lib/useHabits';
 import { TODAY_KEY } from '../lib/useToday';
@@ -19,6 +34,17 @@ import { useToast } from './Toast';
 
 const detalles = 'group mb-[13px] rounded-lg border border-line';
 const resumen = 'flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs font-semibold text-muted select-none [&::-webkit-details-marker]:hidden';
+
+/** Horas al día del formulario → minutos (de 15 en 15, 15 min a 24 h), o null si está vacío o no es válido (= 8 h). */
+function minutosDiaDe(horas: string) {
+  const n = Number(horas.replace(',', '.'));
+  if (!horas.trim() || !Number.isFinite(n) || n <= 0) return null;
+  return Math.min(1440, Math.max(15, Math.round((n * 60) / 15) * 15));
+}
+
+/** «2 días 3 h de 5 días»: lo que suman los pasos frente a la duración de la tarea, en sus días de trabajo. */
+const textoPresupuesto = (usado: number, total: number, dia: number | null) =>
+  `${duracionEnDias(usado, dia ?? JORNADA_MIN)} de ${duracionEnDias(total, dia ?? JORNADA_MIN)}`;
 
 /** Crea una tarea o, si recibe `task`, la edita (campos, estado y pasos). */
 export function TaskModal({
@@ -46,6 +72,8 @@ export function TaskModal({
     status: task?.status ?? ('por_hacer' as TaskStatus),
     startDate: task?.startDate ?? inicial?.startDate ?? '',
     deadline: task?.deadline ?? inicial?.deadline ?? '',
+    // Horas al día dedicadas a la tarea ('' = 8 h)
+    horasDia: task?.minutosDia ? String(task.minutosDia / 60) : '',
     notes: task?.notes ?? '',
   });
   // Hábitos vinculados: completar la tarea o un paso los marca ese día (trigger en la DB)
@@ -97,8 +125,14 @@ export function TaskModal({
     setSteps(vacio ? [nuevo] : [...steps, nuevo]);
     setVerPasos(true);
   };
-  // Duración de la tarea (solo se cambia en la cabecera)
+  // Duración de la tarea (solo se cambia en la cabecera): días × horas al día. Contra ella se miden los pasos.
   const finAntes = !!form.startDate && !!form.deadline && form.deadline < form.startDate;
+  const minDia = minutosDiaDe(form.horasDia);
+  const tarea: TareaPlan = { startDate: form.startDate, deadline: form.deadline, titulo: form.title.trim(), minutosDia: minDia };
+  const presupuesto = presupuestoTarea(
+    steps.map((s) => programacion(s, tarea)),
+    plazoDe(tarea),
+  );
   const duracion =
     form.startDate && form.deadline && !finAntes
       ? `${daysBetween(form.startDate, form.deadline) + 1} ${daysBetween(form.startDate, form.deadline) === 0 ? 'día' : 'días'}`
@@ -127,7 +161,7 @@ export function TaskModal({
   const habitOptions = (habits.data ?? []).filter((h) => !h.archivedAt || habitIds.includes(h.id));
   const toggleHabit = (id: string) => setHabitIds((xs) => (xs.includes(id) ? xs.filter((x) => x !== id) : [...xs, id]));
   const conTitulo = steps.filter((s) => s.title.trim()).length;
-  const programados = steps.filter((s) => s.startDate).length;
+  const programados = steps.filter((s) => programacion(s, tarea).startDate).length;
 
   const fields = () => ({
     title: form.title.trim(),
@@ -137,6 +171,7 @@ export function TaskModal({
     priority: form.priority,
     startDate: form.startDate || null,
     deadline: form.deadline || null,
+    minutosDia: minDia,
     notes: form.notes || null,
     habitIds,
   });
@@ -155,7 +190,7 @@ export function TaskModal({
       // Un paso sin título pero colocado se guarda como «Paso N»; sin título ni fecha, se descarta
       const titulos = steps.map((s, i) => (s.title.trim() || s.startDate ? nombrePaso(s, i) : ''));
       if (!task) {
-        const newSteps = steps.flatMap((s, i) => (titulos[i] ? [{ title: titulos[i], ...programacion(s) }] : []));
+        const newSteps = steps.flatMap((s, i) => (titulos[i] ? [{ title: titulos[i], ...programacion(s, tarea) }] : []));
         return api.createTask({ ...fields(), steps: newSteps });
       }
       await api.updateTask(task.id, { ...fields(), status: form.status }, task.habitIds);
@@ -168,7 +203,7 @@ export function TaskModal({
           continue;
         }
         const { draft, title } = k;
-        const prog = programacion(draft);
+        const prog = programacion(draft, tarea);
         if (
           title !== s.title ||
           prog.startDate !== (s.startDate ?? null) ||
@@ -185,7 +220,7 @@ export function TaskModal({
       const reordenado = guardados.some((s, k) => (s.id ?? null) !== esperado[k]);
       for (const [k, s] of guardados.entries()) {
         const position = reordenado ? (k + 1) * 1000 : undefined;
-        if (!s.id) await api.addStep(task.id, { title: titulos[steps.indexOf(s)], ...programacion(s) }, position);
+        if (!s.id) await api.addStep(task.id, { title: titulos[steps.indexOf(s)], ...programacion(s, tarea) }, position);
         else if (position !== undefined && position !== task.steps.find((x) => x.id === s.id)!.position) await api.moverPaso(s.id, position);
       }
     },
@@ -242,11 +277,27 @@ export function TaskModal({
               <span className="field-label">Fin</span>
               <input type="date" className="input w-full sm:w-auto" value={form.deadline} onChange={set('deadline')} aria-invalid={finAntes} />
             </label>
+            <label className="col-span-2 block min-w-0 sm:col-span-1" title="Horas al día que le dedicas (8 h si lo dejas vacío)">
+              <span className="field-label">h/día</span>
+              <input
+                type="number"
+                min={0.25}
+                max={24}
+                step={0.25}
+                inputMode="decimal"
+                placeholder={String(JORNADA_MIN / 60)}
+                className="input w-full sm:w-[72px]"
+                value={form.horasDia}
+                onChange={set('horasDia')}
+              />
+            </label>
             <div className="col-span-2 text-[13px] sm:col-span-1 sm:pb-2" aria-live="polite">
               {finAntes ? (
                 <span className="font-semibold text-hot">El fin es antes del inicio</span>
               ) : duracion ? (
-                <span className="font-semibold">⏱ {duracion}</span>
+                <span className="font-semibold">
+                  ⏱ {duracion} <span className="font-normal text-faint">× {duracionHoras(minutosDia(tarea))}</span>
+                </span>
               ) : (
                 <span className="text-faint">Sin duración</span>
               )}
@@ -319,7 +370,12 @@ export function TaskModal({
           <summary className={resumen}>
             <span aria-hidden className="transition group-open:rotate-90">▸</span>
             Pasos
-            <span className="ml-auto truncate font-normal text-faint">{`${conTitulo} ${conTitulo === 1 ? 'paso' : 'pasos'} · ${programados} programados`}</span>
+            <span className="ml-auto truncate font-normal text-faint">
+              {`${conTitulo} ${conTitulo === 1 ? 'paso' : 'pasos'} · ${programados} programados`}
+              {presupuesto.total != null && (
+                <span className={presupuesto.excede ? 'font-semibold text-hot' : ''}>{` · ${textoPresupuesto(presupuesto.usado, presupuesto.total, minDia)}`}</span>
+              )}
+            </span>
           </summary>
           <div className="px-3 pt-1 pb-3">
             {/* Una fila por paso: asa, nombre, chip de programación y quitar. Un paso sin fecha es solo un pendiente;
@@ -329,12 +385,14 @@ export function TaskModal({
             <SortableContext items={steps.map(claveDe)} strategy={verticalListSortingStrategy}>
             <div role="group" aria-label="Pasos" className="mb-2 flex flex-col divide-y divide-line/60">
               {steps.map((s, i) => {
-                const p = programacion(s);
+                const p = programacion(s, tarea);
                 const varios = (diasDe(s) ?? 1) > 1;
-                const fuera = !s.done && fueraDePlazo(p, { startDate: form.startDate || null, deadline: form.deadline || null });
+                const fuera = !s.done && fueraDePlazo(p, plazoDe(tarea));
                 const clave = claveDe(s);
                 const editando = programando === clave;
-                const sinDia = !s.startDate && porTiempo(s);
+                // Por tiempo sin fecha: toma el día de inicio de la tarea; si la tarea no tiene inicio, falta el día
+                const sinDia = !p.startDate && porTiempo(s);
+                const delInicio = !s.startDate && !!p.startDate;
                 return (
                   <FilaOrdenable key={clave} id={clave} etiqueta={`Mover paso ${i + 1}`} alerta={fuera}>
                     <div className="flex items-center gap-2">
@@ -366,12 +424,12 @@ export function TaskModal({
                         className={`max-w-[45%] flex-none truncate rounded-full border px-2 py-1 text-xs font-medium whitespace-nowrap transition sm:max-w-none sm:px-2.5 ${
                           fuera || sinDia
                             ? 'border-hot/60 text-hot'
-                            : s.startDate
+                            : p.startDate
                               ? 'border-line bg-surface2 text-text'
                               : 'border-dashed border-line text-faint hover:text-muted'
                         } ${editando ? 'ring-2 ring-accent/40' : ''}`}
                       >
-                        {s.startDate ? (
+                        {p.startDate ? (
                           <>
                             <span aria-hidden className="hidden sm:inline">📅 </span>
                             {rangoPaso(p)}
@@ -436,7 +494,13 @@ export function TaskModal({
                         </div>
                         <div className="mt-2 flex items-center justify-between gap-2 text-xs" aria-live="polite">
                           <span className="text-muted">
-                            {s.startDate ? `⏱ ${duracionPaso(p)}` : sinDia ? <span className="text-hot">Elige un día para el tiempo estimado</span> : 'Sin fecha: queda como pendiente'}
+                            {p.startDate ? (
+                              `⏱ ${duracionPaso(p)}${delInicio ? ' · el día de inicio de la tarea' : ''}`
+                            ) : sinDia ? (
+                              <span className="text-hot">Elige un día o pon inicio a la tarea</span>
+                            ) : (
+                              'Sin fecha: queda como pendiente'
+                            )}
                             {fuera && <span className="text-hot"> · fuera de plazo</span>}
                           </span>
                           <span className="flex gap-3">
@@ -473,7 +537,8 @@ export function TaskModal({
                   // Se calcula fuera del updater de setSteps: React puede ejecutarlo dos veces (StrictMode)
                   const desde = form.startDate || todayISO();
                   const nombrados = steps.filter((s) => s.title.trim());
-                  // Los de tiempo estimado se encadenan en el mismo día (jornada de 8 h); los de días, día tras día
+                  // Desde el inicio de la tarea: los de tiempo estimado en el mismo día mientras quepan en su día de
+                  // trabajo (h/día); los de días, día tras día. Se avisa de los que terminan después del fin.
                   const encadenados = encadenar(
                     nombrados.map((s) =>
                       minutosDe(s) != null && (diasDe(s) ?? 1) === 1
@@ -481,7 +546,10 @@ export function TaskModal({
                         : { startDate: null, duracionDias: diasDe(s), duracionMin: null },
                     ),
                     desde,
+                    minutosDia(tarea),
                   );
+                  const noCaben = encadenados.filter((e) => fueraDePlazo(e, plazoDe(tarea))).length;
+                  if (noCaben) toast(`⚠ ${noCaben} ${noCaben === 1 ? 'paso no cabe' : 'pasos no caben'} antes del fin de la tarea`);
                   const nuevo = new Map(nombrados.map((s, i) => [s, encadenados[i]]));
                   setSteps(
                     steps.map((x) => {
@@ -499,7 +567,7 @@ export function TaskModal({
           </div>
         </details>
         <PlanificadorTarea
-          tarea={{ startDate: form.startDate, deadline: form.deadline, titulo: form.title.trim() }}
+          tarea={tarea}
           steps={steps}
           color={color}
           onPasos={setSteps}
