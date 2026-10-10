@@ -47,16 +47,17 @@ export function desplazamientos(pasos: Programado[]): Map<string, number> {
 }
 
 /**
- * Posición de un paso en la pista. Con zoom suficiente, un paso por tiempo ocupa su parte de la jornada, tras los
- * anteriores del mismo día (`desde`, en minutos), y se estira de 15 en 15 min (`unidadEstirar` px); se mueve por días.
+ * Posición de un paso en la pista. Con zoom suficiente, un paso por tiempo ocupa su parte del día de trabajo de su
+ * tarea (`dia` minutos = el ancho de un día), tras los anteriores del mismo día (`desde`, en minutos), y se estira de
+ * 15 en 15 min (`unidadEstirar` px); se mueve por días.
  */
-export function geometriaPaso(s: Programado, x: (f: string) => number, col: number, desde = 0) {
+export function geometriaPaso(s: Programado, x: (f: string) => number, col: number, desde = 0, dia = JORNADA_MIN) {
   if (s.duracionMin != null && col >= HORAS_DESDE) {
     return {
-      left: x(s.startDate!) + (desde / JORNADA_MIN) * col,
-      width: (s.duracionMin / JORNADA_MIN) * col,
+      left: x(s.startDate!) + (desde / dia) * col,
+      width: (s.duracionMin / dia) * col,
       minutos: true,
-      unidadEstirar: (col * PASO_MINUTOS) / JORNADA_MIN,
+      unidadEstirar: (col * PASO_MINUTOS) / dia,
     };
   }
   return { left: x(s.startDate!), width: (s.duracionDias ?? 1) * col, minutos: false, unidadEstirar: col };

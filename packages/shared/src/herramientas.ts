@@ -27,7 +27,7 @@ const def = <S extends z.ZodType>(name: string, nivel: NivelHerramienta, descrip
   interfaz,
 });
 const PROGRAMAR =
-  'Programar un paso: startDate (YYYY-MM-DD) + duracionDias (rango de días), o startDate + duracionMin (tiempo estimado en minutos, un solo día; los de un mismo día se encadenan en orden en una jornada de 8 h).';
+  'Programar un paso: startDate (YYYY-MM-DD) + duracionDias (rango de días), o startDate + duracionMin (tiempo estimado en minutos, un solo día; los de un mismo día se encadenan en orden en el día de trabajo de la tarea, minutosDia, 8 h si no tiene). Solo duracionMin, sin startDate: empieza el día de inicio de la tarea. Solo startDate: dura hasta el deadline de la tarea.';
 const vacio = z.object({});
 
 const COMUN = 'Second Brain (app personal de Cesar). Las fechas son YYYY-MM-DD en su zona horaria; toda respuesta incluye `hoy` y `tz`.';
@@ -61,7 +61,7 @@ export const HERRAMIENTAS = {
   create_task: def(
     'create_task',
     1,
-    `${COMUN} Crea una tarea. Opcional: inicio y deadline, proyecto (id de list_projects), pasos (${PROGRAMAR}) y hábitos vinculados (ids de list_habits; completar la tarea o un paso los marca ese día).`,
+    `${COMUN} Crea una tarea. Opcional: inicio y deadline, minutosDia (minutos al día que se le dedican, de 15 en 15; 8 h si falta), proyecto (id de list_projects), pasos (${PROGRAMAR}) y hábitos vinculados (ids de list_habits; completar la tarea o un paso los marca ese día).`,
     createTaskInput,
   ),
   add_step: def('add_step', 1, `${COMUN} Añade un paso al final de una tarea, opcionalmente programado. ${PROGRAMAR}`, z.object({ taskId: id('la tarea'), paso: createStepInput })),
@@ -83,7 +83,7 @@ export const HERRAMIENTAS = {
   update_task: def(
     'update_task',
     2,
-    `${COMUN} Cambia campos de una tarea: título, descripción, notas, prioridad, tipo, proyecto, startDate/deadline (null para quitar), estado y hábitos vinculados (habitIds reemplaza la lista). Para marcarla hecha usa set_task_done.`,
+    `${COMUN} Cambia campos de una tarea: título, descripción, notas, prioridad, tipo, proyecto, startDate/deadline (null para quitar), minutosDia (null = 8 h), estado y hábitos vinculados (habitIds reemplaza la lista). Para marcarla hecha usa set_task_done.`,
     z.object({ id: id('la tarea'), cambios: updateTaskInput }),
   ),
   update_step: def(

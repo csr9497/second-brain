@@ -1,4 +1,4 @@
-import { MIN_DIA, addDays, daysBetween, type GanttDraft, type PaletteColor, type Task } from '@sb/shared';
+import { MIN_DIA, addDays, completarPaso, daysBetween, type GanttDraft, type PaletteColor, type PlazoTarea, type Task } from '@sb/shared';
 
 // Borradores del modal de tarea: strings de formulario ('' = vacío), compartidos con el planificador.
 export type StepDraft = {
@@ -35,8 +35,11 @@ export function minutosDe(s: StepDraft) {
 /** Último día del rango del borrador ('' si no tiene fecha). */
 export const finBorrador = (s: StepDraft) => (s.startDate ? addDays(s.startDate, (diasDe(s) ?? 1) - 1) : '');
 
-/** `titulo` solo se usa para rotular la barra de la tarea en el calendario. */
-export type TareaPlan = { startDate: string; deadline: string; titulo?: string };
+/** `titulo` solo se usa para rotular la barra de la tarea en el calendario. `minutosDia`: su día de trabajo (null = 8 h). */
+export type TareaPlan = { startDate: string; deadline: string; titulo?: string; minutosDia?: number | null };
+
+/** Plazo de la tarea del formulario ('' = sin fecha) para `completarPaso` y compañía. */
+export const plazoDe = (t: TareaPlan): PlazoTarea => ({ startDate: t.startDate || null, deadline: t.deadline || null, minutosDia: t.minutosDia ?? null });
 /** Qué se está colocando en el planificador: la tarea o el paso de ese índice. */
 export type Activo = 'tarea' | number;
 
@@ -72,14 +75,18 @@ export function diasDe(s: StepDraft) {
 }
 
 /**
- * Borrador → programación: con fecha y sin días se usa 1; días redondeados, mínimo 1; sin fecha, nada.
+ * Borrador → programación: días redondeados, mínimo 1; sin fecha, nada.
  * Por tiempo (solo en un día): duracionDias = 1 y los minutos; con un rango de varios días el tiempo no cuenta.
+ * Con `tarea`, se completa con ella (`completarPaso`): por tiempo sin fecha, el día de inicio de la tarea; con fecha
+ * y sin días, hasta su deadline. Sin `tarea`, con fecha y sin días se usa 1.
  */
-export function programacion(s: StepDraft) {
-  if (!s.startDate) return { startDate: null, duracionDias: null, duracionMin: null };
-  const dias = diasDe(s) ?? 1;
-  const min = dias === 1 ? minutosDe(s) : null;
-  return { startDate: s.startDate, duracionDias: dias, duracionMin: min };
+export function programacion(s: StepDraft, tarea?: TareaPlan) {
+  const min = (diasDe(s) ?? 1) === 1 ? minutosDe(s) : null;
+  const base = s.startDate
+    ? { startDate: s.startDate, duracionDias: diasDe(s) ?? (tarea && min == null ? null : 1), duracionMin: min }
+    : { startDate: null, duracionDias: null, duracionMin: min };
+  const r = tarea ? completarPaso(base, plazoDe(tarea)) : base;
+  return r.startDate ? r : { startDate: null, duracionDias: null, duracionMin: null };
 }
 
 /** Programación guardada → campos del borrador. */
@@ -116,10 +123,11 @@ export function comoTask(tarea: TareaPlan, steps: StepDraft[]): Task {
     status: 'por_hacer',
     startDate: tarea.startDate || null,
     deadline: tarea.deadline || null,
+    minutosDia: tarea.minutosDia ?? null,
     position: 0,
     notes: null,
     completedAt: null,
-    steps: steps.map((s, i) => ({ id: String(i), taskId: 'tarea', title: s.title, done: s.done ?? false, position: i, ...programacion(s) })),
+    steps: steps.map((s, i) => ({ id: String(i), taskId: 'tarea', title: s.title, done: s.done ?? false, position: i, ...programacion(s, tarea) })),
     habitIds: [],
   };
 }

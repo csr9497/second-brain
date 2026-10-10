@@ -15,6 +15,7 @@ const task = (id: string, o: Partial<Task> = {}): Task => ({
   status: 'por_hacer',
   startDate: null,
   deadline: null,
+  minutosDia: null,
   position: 1000,
   notes: null,
   completedAt: null,

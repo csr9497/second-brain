@@ -26,6 +26,7 @@ const task = (o: Partial<Task> = {}): Task => ({
   status: 'por_hacer',
   startDate: '2026-10-06',
   deadline: '2026-10-09',
+  minutosDia: null,
   position: 1000,
   notes: null,
   completedAt: null,

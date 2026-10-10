@@ -83,6 +83,7 @@ const tarea: Task = {
   status: 'en_curso',
   startDate: '2026-10-05',
   deadline: '2026-10-06',
+  minutosDia: null,
   position: 1,
   notes: null,
   completedAt: null,
@@ -154,6 +155,14 @@ describe('programarPaso', () => {
     expect(programarPaso(porTiempo, { duracionDias: 2 })).toEqual({ startDate: '2026-10-07', duracionDias: 2, duracionMin: null });
     expect(programarPaso(porDias, { duracionMin: 45 })).toEqual({ startDate: '2026-10-07', duracionDias: 1, duracionMin: 45 });
     expect(programarPaso(porDias, { startDate: null })).toEqual(nada);
+  });
+  it('con su tarea: solo minutos → día de inicio de la tarea; solo inicio → hasta el deadline', () => {
+    const tarea = { startDate: '2026-10-05', deadline: '2026-10-09' };
+    expect(programarPaso(nada, { duracionMin: 30 }, tarea)).toEqual({ startDate: '2026-10-05', duracionDias: 1, duracionMin: 30 });
+    expect(programarPaso(nada, { startDate: '2026-10-07' }, tarea)).toEqual({ startDate: '2026-10-07', duracionDias: 3, duracionMin: null });
+    expect(programarPaso(nada, { duracionMin: 30 }, { startDate: null, deadline: null })).toHaveProperty('error');
+    // lo que ya tiene días no cambia
+    expect(programarPaso(porDias, { startDate: '2026-10-06' }, tarea)).toEqual({ ...porDias, startDate: '2026-10-06' });
   });
 });
 

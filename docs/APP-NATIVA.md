@@ -71,6 +71,19 @@ Para ver la card, bloquea el simulador (Device → Lock, o ⌘L) después de abr
 - Si un botón falla (sin red, sesión caducada), la card no cambia; al abrir la app se corrige con los datos reales.
 - Sesión: la web copia sus tokens al Keychain (`guardarSesion`) y, si un botón renovó la sesión, la web toma los tokens del Keychain al cargarla (`almacenNativo` en `apps/web/src/lib/nativo/sesion.ts`), porque Supabase rota el refresh token.
 
+## 6 bis. Reglas de dominio que la app nativa debe respetar
+
+La app carga el build de `apps/web`, así que usa la misma lógica de `@sb/shared`. Las
+escrituras **nativas** no pasan por ella: los App Intents de la card escriben por
+PostgREST con `SupabaseREST.swift`. Si una escritura nativa crea o reprograma pasos o
+cambia las fechas de una tarea, debe aplicar el contrato de `docs/DATA-MODEL.md`
+(«Duración de la tarea y de sus pasos»):
+- un paso solo con tiempo toma el inicio de la tarea;
+- un paso con fecha y sin días dura hasta el deadline;
+- los pasos por tiempo se miden contra `tasks.minutos_dia` (8 h si es null).
+
+Hoy la card solo marca hábitos, tareas y pasos, y no le afecta.
+
 ## 7. Limitaciones de la cuenta gratuita
 
 - La card **no aparece sola** a la hora de cada franja: solo cuando abres la app (eso pide push-to-start por APNs).

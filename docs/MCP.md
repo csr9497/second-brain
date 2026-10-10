@@ -38,9 +38,12 @@ Las herramientas de marcar reciben `hecho` en vez de alternar el estado: un agen
 - inicio y días van juntos;
 - un paso por tiempo dura un día;
 - cambiar solo la fecha conserva el tipo;
-- `startDate: null` lo deja sin programar.
+- `startDate: null` lo deja sin programar;
+- con su tarea (`create_task`, `add_step`, `update_step`): un paso solo con `duracionMin` empieza el día de inicio de la tarea, y uno con solo `startDate` dura hasta el deadline (ver `docs/DATA-MODEL.md`, «Duración de la tarea y de sus pasos»).
 
-`reorder_steps` solo mueve los pasos que quedan desordenados (nunca renumera la lista). `chain_steps` usa `encadenar`: los de días van uno tras otro y los de tiempo en el mismo día, hasta 8 h. Se guarda con la RPC `aplicar_plan`, todo o nada.
+Las tareas aceptan `minutosDia` (su día de trabajo, de 15 en 15; null = 8 h). `get_task` devuelve `minutosDia` y `presupuesto` (`pasosMin`, `tareaMin`, `excede`).
+
+`reorder_steps` solo mueve los pasos que quedan desordenados (nunca renumera la lista). `chain_steps` usa `encadenar`: los de días van uno tras otro y los de tiempo en el mismo día, hasta llenar el día de trabajo de la tarea. Se guarda con la RPC `aplicar_plan`, todo o nada.
 
 Las herramientas de interfaz **no pisan un modal abierto**: devuelven error y piden a Cesar que lo cierre. `go_to` respeta la guardia de cambios sin guardar. `open_new_task` no guarda: Cesar completa y confirma la tarea.
 

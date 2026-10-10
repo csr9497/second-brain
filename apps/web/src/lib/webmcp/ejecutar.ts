@@ -12,6 +12,7 @@ import {
   resumirTarea,
   todayISO,
   type CreateStepInput,
+  type PlazoTarea,
   type Task,
 } from '@sb/shared';
 import type { EntradaHerramienta, NombreHerramienta } from '@sb/shared/herramientas';
@@ -34,9 +35,9 @@ const conHabitos = async (id: string) => {
   return detallarTarea(t, todayISO(), habitos);
 };
 
-/** Paso de entrada con la programación normalizada como la exige la base (o error legible). */
-function pasoValido(p: CreateStepInput): CreateStepInput {
-  const prog = programarPaso({ startDate: null, duracionDias: null, duracionMin: null }, p);
+/** Paso de entrada con la programación normalizada como la exige la base y completada con su tarea (o error legible). */
+function pasoValido(p: CreateStepInput, tarea: PlazoTarea): CreateStepInput {
+  const prog = programarPaso({ startDate: null, duracionDias: null, duracionMin: null }, p, tarea);
   if ('error' in prog) throw new Error(`Paso «${p.title}»: ${prog.error}`);
   return { ...p, ...prog };
 }
@@ -84,11 +85,12 @@ export const ejecutores = (ui: PuenteUI): Ejecutores => ({
     return { ok: true, mensaje: `Idea guardada: «${texto}»` };
   },
   create_task: async (entrada) => {
-    const t = await api.createTask({ ...entrada, steps: entrada.steps.map(pasoValido) });
+    const plazo = { startDate: entrada.startDate ?? null, deadline: entrada.deadline ?? null, minutosDia: entrada.minutosDia };
+    const t = await api.createTask({ ...entrada, steps: entrada.steps.map((p) => pasoValido(p, plazo)) });
     return { ok: true, tarea: resumirTarea(t, todayISO()) };
   },
   add_step: async ({ taskId, paso }) => {
-    await api.addStep(taskId, pasoValido(paso));
+    await api.addStep(taskId, pasoValido(paso, await api.task(taskId)));
     return { ok: true, tarea: await conHabitos(taskId) };
   },
   set_task_done: async ({ id, hecho }) => {
@@ -121,7 +123,7 @@ export const ejecutores = (ui: PuenteUI): Ejecutores => ({
     const s = t.steps.find((x) => x.id === id)!;
     const { title, ...prog } = cambios;
     const tocaProgramacion = Object.values(prog).some((v) => v !== undefined);
-    const nueva = tocaProgramacion ? programarPaso(s, prog) : null;
+    const nueva = tocaProgramacion ? programarPaso(s, prog, t) : null;
     if (nueva && 'error' in nueva) throw new Error(nueva.error);
     await api.updateStep(id, { ...(title !== undefined && { title }), ...nueva });
     return { ok: true, tarea: await conHabitos(t.id) };

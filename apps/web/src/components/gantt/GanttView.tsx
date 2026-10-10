@@ -10,6 +10,7 @@ import {
   estirarPasoMin,
   estirarTarea,
   fueraDePlazo,
+  minutosDia,
   moverPaso,
   moverTarea,
   rangoSeleccion,
@@ -295,7 +296,7 @@ export function GanttView({ onEditTask, onNewTask }: { onEditTask: (t: Task) => 
                       {t.steps
                         .filter((s) => s.startDate && s.duracionDias)
                         .map((s) => {
-                          const g = geometriaPaso(s, x, col, desplazamientos(t.steps).get(s.id));
+                          const g = geometriaPaso(s, x, col, desplazamientos(t.steps).get(s.id), minutosDia(t));
                           const obj: Objetivo = { tipo: 'paso', paso: s, minutos: g.minutos };
                           return (
                           <Fila

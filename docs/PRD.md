@@ -61,6 +61,7 @@ Campos de una tarea:
 - `priority`: alta | media | baja
 - `status`: por_hacer | en_curso | hecha
 - `start_date`, `deadline`
+- `minutos_dia`: horas al día dedicadas a la tarea (en minutos, de 15 en 15; vacío = 8 h)
 - `position`: orden manual (ver reordenamiento)
 - `notes`
 
@@ -68,10 +69,23 @@ Reglas:
 - **Subtareas (pasos).** Una tarea puede tener N pasos (`steps`). Si tiene >1 paso,
   se muestra el contador `hechos/total` y un desplegable con cada paso marcable.
   Al completar todos los pasos, la tarea se marca hecha automáticamente.
+- **Duración de la tarea.** Es su rango `start_date`–`deadline` (días, inclusivo) por
+  su día de trabajo (`minutos_dia`, «h/día» en la cabecera del modal; 8 h si falta).
+  Todos los cálculos de duración de sus pasos se hacen contra ella:
+  - **Presupuesto:** la suma de los pasos programados (los de días valen días × h/día;
+    los de tiempo, sus minutos) se muestra frente a la duración de la tarea
+    («2 días 3 h de 5 días») y en rojo si la pasa.
+  - **Paso solo con tiempo:** si un paso tiene tiempo estimado pero no fecha, empieza el
+    día de inicio de la tarea (si la tarea no tiene inicio, pide elegir un día).
+  - **Paso con fecha y sin días:** dura hasta el deadline de la tarea (1 día si no hay
+    deadline o empieza después).
+  - **Pasos por tiempo de un día:** se miden contra el día de trabajo de la tarea, no
+    contra una jornada fija (total del día en el calendario, escala del Gantt con zoom).
 - **Pasos programados.** La duración de un paso es **o** un rango de fechas (un día o
   varios) **o** un tiempo estimado en horas o minutos en un solo día; no tienen hora de
-  inicio. «Encadenar» coloca los pasos seguidos: los de días, uno tras otro; los de
-  tiempo, en el mismo día en el orden de la lista mientras quepan en una jornada de 8 h.
+  inicio. «Encadenar» coloca los pasos seguidos desde el inicio de la tarea: los de días,
+  uno tras otro; los de tiempo, en el mismo día en el orden de la lista mientras quepan
+  en el día de trabajo de la tarea. Avisa de cuántos no caben antes del deadline.
   Un paso fuera del plazo de la tarea se marca con color, sin mover la fila.
 - **Planificador del modal.** En el calendario, tocar un día lo expande para ver la
   tarea, sus pasos y los encadenados por tiempo en orden (con el total del día); solo
