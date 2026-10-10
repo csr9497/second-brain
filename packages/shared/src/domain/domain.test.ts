@@ -86,6 +86,35 @@ describe('computeStreak', () => {
   });
 });
 
+describe('bucketTasks: tareas con pasos programados', () => {
+  const today = '2026-10-10';
+  const weekEnd = '2026-10-11';
+  const paso = (startDate: string | null, done = false) => ({ done, startDate, duracionDias: startDate ? 1 : null });
+  const t = (id: string, o: { startDate?: string; deadline?: string; steps?: ReturnType<typeof paso>[] }) => ({
+    id, status: 'por_hacer', completedAt: null, startDate: o.startDate ?? null, deadline: o.deadline ?? null, steps: o.steps ?? [],
+  });
+  const ids = (xs: { id: string }[]) => xs.map((x) => x.id);
+  const hoy = (tasks: ReturnType<typeof t>[]) => ids(bucketTasks(tasks, today, weekEnd, () => false).hoy);
+
+  it('en su rango pero ningún paso hoy: no está en Hoy', () => {
+    expect(hoy([t('setup', { startDate: '2026-10-01', deadline: '2026-10-19', steps: [paso('2026-10-05'), paso('2026-10-14')] })])).toEqual([]);
+  });
+  it('con un paso hoy (pendiente o ya hecho): sí', () => {
+    expect(hoy([t('a', { startDate: '2026-10-01', deadline: '2026-10-19', steps: [paso('2026-10-05'), paso(today)] })])).toEqual(['a']);
+    expect(hoy([t('b', { startDate: '2026-10-01', deadline: '2026-10-19', steps: [paso(today, true)] })])).toEqual(['b']);
+  });
+  it('vence hoy: siempre, aunque sus pasos sean otro día', () => {
+    expect(hoy([t('v', { deadline: today, steps: [paso('2026-10-08')] })])).toEqual(['v']);
+  });
+  it('solo pasos sin fecha: cuenta como tarea sin pasos (su rango)', () => {
+    expect(hoy([t('s', { startDate: '2026-10-01', deadline: '2026-10-19', steps: [paso(null)] })])).toEqual(['s']);
+  });
+  it('sigue en la semana si su rango la cubre', () => {
+    const b = bucketTasks([t('setup', { startDate: '2026-10-01', deadline: '2026-10-19', steps: [paso('2026-10-14')] })], today, weekEnd, () => false);
+    expect(ids(b.semana)).toEqual(['setup']);
+  });
+});
+
 describe('bucketTasks', () => {
   const today = '2026-09-26';
   const weekEnd = '2026-09-27';

@@ -59,13 +59,20 @@ export function bucketTasks<T extends TaskLike>(
   const weekStart = weekRange(today).start;
   const pasoEntre = (t: T, desde: string, hasta: string) =>
     (t.steps ?? []).some((s) => !s.done && s.startDate != null && s.startDate <= hasta && (finPaso(s) ?? s.startDate) >= desde);
-  // Hoy cae dentro de su rango inicio–deadline (o es su inicio o su deadline), o tiene un paso pendiente que cubre hoy
   const enRango = (t: T) => t.startDate != null && t.deadline != null && t.startDate <= today && today <= t.deadline;
-  const isHoy = (t: T) => t.deadline === today || t.startDate === today || enRango(t) || pasoEntre(t, today, today);
+  // Un paso (hecho o no) que cubre hoy: si se marca hoy, la tarea sigue en Hoy con su paso hecho
+  const pasoHoy = (t: T) => (t.steps ?? []).some((s) => s.startDate != null && s.startDate <= today && (finPaso(s) ?? s.startDate) >= today);
+  const conPasosProgramados = (t: T) => (t.steps ?? []).some((s) => s.startDate != null);
+  // Hoy: vence hoy; o, con pasos programados, alguno cae hoy (el trabajo está en los pasos, no en todo el rango);
+  // o, sin pasos programados, empieza hoy o hoy cae en su rango inicio–deadline
+  const isHoy = (t: T) =>
+    t.deadline === today || (conPasosProgramados(t) ? pasoHoy(t) : t.startDate === today || enRango(t));
   const hoy = current.filter(isHoy);
   const semana = current.filter(
     (t) =>
       isHoy(t) ||
+      t.startDate === today ||
+      enRango(t) ||
       (t.deadline != null && t.deadline >= today && t.deadline <= weekEnd) ||
       (t.startDate != null && t.startDate >= weekStart && t.startDate <= weekEnd) ||
       pasoEntre(t, weekStart, weekEnd),

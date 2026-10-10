@@ -98,9 +98,11 @@ Reglas:
   endpoint de reorder en el back.)
 - **Permanencia.** Una tarea con `status != hecha` sigue visible aunque pase el día.
 - **Filtro** de la lista:
-  - *Hoy*: hoy cae dentro de su rango inicio–deadline (todos los días), o deadline = hoy, o sin deadline y con inicio hoy, o con un paso
-    pendiente programado que cubre hoy.
-  - *Semana*: lo de Hoy más deadline hasta el domingo, fecha de inicio dentro de la
+  - *Hoy*: deadline = hoy; o, si la tarea tiene pasos programados, alguno (pendiente o ya hecho) cubre hoy (el trabajo está en los
+    pasos: una tarea con pasos en otros días no sale en Hoy aunque hoy caiga en su rango); o, sin pasos programados, hoy cae dentro
+    de su rango inicio–deadline (todos los días) o empieza hoy. Es la misma lista que usan la card de iOS, la barra y los widgets
+    de la Mac.
+  - *Semana*: lo de Hoy más hoy dentro de su rango, deadline hasta el domingo, fecha de inicio dentro de la
     semana (lun–dom) o un paso pendiente en algún día de la semana.
   - *Todas*.
 - **Incumplimiento.** Lista aparte con tareas donde `deadline < hoy` y `status != hecha`.
