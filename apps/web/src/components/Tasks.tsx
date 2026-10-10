@@ -151,6 +151,7 @@ function TaskItem({
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
+      data-fila
       className={`flex items-start gap-[9px] rounded-xl border bg-surface px-3 py-[11px] ${vencida ? 'border-[color-mix(in_srgb,var(--hot)_45%,var(--line))]' : 'border-line'} ${isDragging ? 'relative z-10 opacity-50 shadow-md' : ''}`}
     >
       {sortable ? (
@@ -168,6 +169,7 @@ function TaskItem({
       <button
         aria-pressed={done}
         aria-label={done ? 'Marcar como pendiente' : 'Marcar como hecha'}
+        data-atajo="marcar"
         onClick={() => toggle.mutate(task.id)}
         className="mt-px grid size-5 flex-none place-items-center rounded-md border-[1.5px] border-faint text-xs text-transparent transition aria-pressed:border-accent aria-pressed:bg-accent aria-pressed:text-white"
       >
@@ -177,6 +179,7 @@ function TaskItem({
         <div className="flex items-center gap-2">
           <button
             onClick={() => onEdit(task)}
+            data-atajo="editar"
             title="Editar tarea"
             className={`min-w-0 truncate text-left text-sm hover:underline hover:decoration-faint hover:underline-offset-2 ${done ? 'text-faint line-through' : ''}`}
           >

@@ -18,6 +18,8 @@ import { ResumenView } from './components/resumen/ResumenView';
 import { GanttView } from './components/gantt/GanttView';
 import { ConfirmHost } from './components/ui/Confirmar';
 import { SinConexion } from './components/SinConexion';
+import { AtajosModal } from './components/AtajosModal';
+import { useAtajos } from './lib/useAtajos';
 import { useVista, hrefVista, listaVistas, puedeSalir, VISTAS, type Vista } from './lib/useVista';
 import type { ModalState } from './lib/modal';
 import { todayISO } from '@sb/shared';
@@ -75,6 +77,15 @@ function Home() {
     abrirTarea: (task) => (modal ? false : (setModal({ kind: 'tarea', task }), true)),
     nuevaTarea: (inicial) => (modal ? false : (setModal({ kind: 'tarea', inicial }), true)),
     irA,
+  });
+
+  // Teclado: n, c, 1–4, j/k, x, e y ? (lib/atajos.ts)
+  useAtajos({
+    nuevaTarea: () => setModal({ kind: 'tarea' }),
+    crear: () => setModal({ kind: 'crear' }),
+    irA: (v) => void irA(v),
+    ayuda: () => setModal({ kind: 'atajos' }),
+    hayModal: modal !== null,
   });
 
   // App de Mac: menús Archivo y Ver
@@ -160,6 +171,7 @@ function Home() {
       )}
       {modal?.kind === 'habito' && <HabitModal habit={modal.habit} onClose={modal.volver ? backToHabits : close} />}
       {modal?.kind === 'crear' && <CrearModal onSelect={setModal} onClose={close} />}
+      {modal?.kind === 'atajos' && <AtajosModal onClose={close} />}
       <button
         onClick={() => setModal({ kind: 'crear' })}
         aria-label="Crear"
