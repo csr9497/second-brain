@@ -7,7 +7,8 @@
     "dev:local": "vite --mode docker",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -p . && tsc -p src/sw"
+    "typecheck": "tsc -p . && tsc -p src/sw",
+    "test": "vitest run"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.2",
@@ -32,6 +33,7 @@
     "typescript": "^7.0.2",
     "vite": "^8.3.2",
     "vite-plugin-pwa": "^2.0.0",
+    "vitest": "^5.0.3",
     "workbox-build": "^7.4.1",
     "workbox-core": "^7.4.1",
     "workbox-precaching": "^7.4.1",
