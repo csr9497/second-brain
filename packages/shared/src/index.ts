@@ -341,3 +341,4 @@ export * from './domain/agente';
 export * from './colors';
 export * from './turnos';
 export * from './domain/liveActivity';
+export * from './domain/avisos';
