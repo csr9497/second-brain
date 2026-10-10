@@ -39,7 +39,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
 
         Task { @MainActor in
             AccionesCard.destino.ultimo = estado
-            let contenido = ActivityContent(state: estado, staleDate: nil)
+            let contenido = ActivityContent(state: estado, staleDate: estado.vence)
             if let actual = Activity<SecondBrainAttributes>.activities.first {
                 await actual.update(contenido)
                 CAPLog.print("[LiveActivity] actualizada \(actual.id)")

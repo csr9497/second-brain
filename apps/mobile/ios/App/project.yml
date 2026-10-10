@@ -126,6 +126,7 @@ targets:
       - path: MacWidget
         excludes: [Info.plist, "*.entitlements"]
       - path: Mac/Compartido.swift
+      - path: Mac/ExtraMac.swift
       - path: App/LiveActivity/EstadoCard.swift
     settings:
       base:
@@ -151,6 +152,7 @@ targets:
       - path: App/LiveActivity/EstadoCard.swift
       - path: App/LiveActivity/Marcas.swift
       - path: Mac/Compartido.swift
+      - path: Mac/ExtraMac.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.csr9497.secondbrain.mac.tests

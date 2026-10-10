@@ -14,14 +14,18 @@ struct EtiquetaBarra: View {
     @Environment(\.openWindow) private var abrir
 
     var body: some View {
-        contenido
-            // La etiqueta existe mientras corre la app: deja `openWindow` para avisos, widgets y Dock (`Ventana`)
-            .task { Ventana.abrir = abrir }
+        // Se vuelve a dibujar justo en el cambio de franja, aunque la web tarde en mandar el estado nuevo
+        TimelineView(.explicit([estado.estado?.vence].compactMap { $0 })) { contexto in
+            contenido(contexto.date)
+        }
+        // La etiqueta existe mientras corre la app: deja `openWindow` para avisos, widgets y Dock (`Ventana`)
+        .task { Ventana.abrir = abrir }
     }
 
-    @ViewBuilder private var contenido: some View {
-        if let e = estado.estado, e.caducado(en: Date()) {
-            Image(systemName: "brain")
+    @ViewBuilder private func contenido(_ ahora: Date) -> some View {
+        if let e = estado.estado, e.caducado(en: ahora) {
+            // Empezó otra franja: «…» hasta que llegue
+            Label("…", systemImage: "brain").labelStyle(.titleAndIcon)
         } else if let e = estado.estado, !e.diaCompleto {
             Label("\(Int(e.pctDia.rounded())) %", systemImage: "brain")
                 .labelStyle(.titleAndIcon)
@@ -37,18 +41,74 @@ struct EtiquetaBarra: View {
 struct PanelBarra: View {
     let estado: EstadoMac
     let web: Web
+    let avisos: Avisos
     @Environment(\.openWindow) private var abrir
     @State private var alIniciar = SMAppService.mainApp.status == .enabled
+    @State private var captura = ""
+    @State private var errorCaptura: String?
+    @State private var guardada = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if estado.conSesion { campoCaptura }
             contenido
+            if estado.conSesion, let x = estado.extra, !x.semanales.isEmpty, !(estado.estado?.caducado(en: Date()) ?? false) {
+                semanales(x)
+            }
+            if let guardado = estado.guardadoEn {
+                Label("Sin conexión · datos de las \(guardado.formatted(date: .omitted, time: .shortened))", systemImage: "wifi.slash")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            if estado.avisosDenegados {
+                HStack {
+                    Label("Avisos desactivados en macOS", systemImage: "bell.slash").font(.caption).foregroundStyle(Color2.malo)
+                    Spacer()
+                    Button("Activar") { avisos.abrirAjustes() }.controlSize(.small)
+                }
+            }
             Divider()
             pie
         }
         .padding(14)
         .frame(width: 320)
-        .onAppear { web.refrescar() }
+        .onAppear {
+            web.refrescar()
+            estado.actualizarPermiso()
+        }
+    }
+
+    /// Captura rápida: Enter la guarda en la bandeja (también con \(Captura.atajo) desde cualquier app).
+    private var campoCaptura: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            TextField("Capturar… (\(Captura.atajo))", text: $captura)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit {
+                    let texto = captura
+                    Task {
+                        errorCaptura = await Captura.shared.guardar(texto)
+                        if errorCaptura == nil, !texto.trimmingCharacters(in: .whitespaces).isEmpty {
+                            captura = ""
+                            guardada = true
+                            try? await Task.sleep(for: .seconds(1.5))
+                            guardada = false
+                        }
+                    }
+                }
+            if let errorCaptura { Text(errorCaptura).font(.caption).foregroundStyle(Color2.malo) }
+            if guardada { Text("Guardada en la bandeja ✓").font(.caption).foregroundStyle(Color2.bueno) }
+        }
+    }
+
+    /// Hábitos semanales con su progreso (hechas/meta); se marcan una vez al día.
+    private func semanales(_ x: ExtraMac) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("ESTA SEMANA").font(.system(size: 10, weight: .semibold)).foregroundStyle(.tertiary)
+            HStack(spacing: 10) {
+                ForEach(x.semanales, id: \.self) { h in
+                    SemanalMac(h: h, enviando: estado.enviandoSemanal.contains(h.id)) { estado.marcarSemanal(h) }
+                }
+            }
+        }
     }
 
     @ViewBuilder private var contenido: some View {
@@ -121,18 +181,41 @@ struct PanelBarra: View {
     }
 }
 
-private func nombreFranja(_ f: String) -> String {
-    switch f {
-    case "manana": return "Mañana"
-    case "tarde": return "Tarde"
-    case "noche": return "Noche"
-    default: return f.capitalized
-    }
-}
-
 extension EstadoCard {
     /// Pasos del día en total: `masPasos` cuenta los que van más allá de los 2 visibles de la card.
     var totalPasos: Int { masPasos > 0 ? masPasos + 2 : pasos.count }
+}
+
+/// Semanal: burbuja con anillo de progreso hacia la meta y «hechas/meta» debajo.
+struct SemanalMac: View {
+    let h: ExtraMac.Semanal
+    let enviando: Bool
+    let marcar: () -> Void
+
+    var body: some View {
+        Button(action: marcar) {
+            VStack(spacing: 2) {
+                ZStack {
+                    Circle().fill(h.hoy ? Color2.bueno : enviando ? Color2.bueno.opacity(0.22) : .clear)
+                    Circle().stroke(.quaternary, lineWidth: 2)
+                    Circle().trim(from: 0, to: min(1, Double(h.hechas) / Double(max(1, h.meta))))
+                        .stroke(Color2.bueno, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                    if h.hoy {
+                        Image(systemName: "checkmark").font(.system(size: 13, weight: .heavy)).foregroundStyle(.black.opacity(0.75))
+                    } else {
+                        Text(h.inicial).font(.system(size: 14, weight: .semibold))
+                    }
+                }
+                .frame(width: 34, height: 34)
+                Text("\(h.hechas)/\(h.meta)").font(.system(size: 10).monospacedDigit()).foregroundStyle(.secondary)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(h.hoy || enviando)
+        .help(h.hoy ? "\(h.nombre): hecho hoy" : "Marcar \(h.nombre) hoy")
+    }
 }
 
 struct AnilloMac: View {

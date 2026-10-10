@@ -21,13 +21,21 @@ final class Puente: NSObject, WKScriptMessageHandlerWithReply {
         let args = cuerpo["args"] as? [String: Any] ?? [:]
         switch metodo {
         case "sincronizar":
+            var extra: ExtraMac?
+            if let x = args["extra"], !(x is NSNull) {
+                do {
+                    extra = try JSONDecoder().decode(ExtraMac.self, from: JSONSerialization.data(withJSONObject: x))
+                } catch {
+                    print("[Mac] sincronizar: extra inválido: \(error)")
+                }
+            }
             guard let crudo = args["estado"], !(crudo is NSNull) else {
-                estado.sincronizar(nil)
+                estado.sincronizar(nil, extra: extra)
                 return (["activa": false, "id": NSNull()], nil)
             }
             do {
                 let datos = try JSONSerialization.data(withJSONObject: crudo)
-                estado.sincronizar(try JSONDecoder().decode(EstadoCard.self, from: datos))
+                estado.sincronizar(try JSONDecoder().decode(EstadoCard.self, from: datos), extra: extra)
                 return (["activa": true, "id": NSNull()], nil)
             } catch {
                 print("[Mac] sincronizar: estado inválido: \(error)")
@@ -52,6 +60,11 @@ final class Puente: NSObject, WKScriptMessageHandlerWithReply {
             Sesion.borrar()
             estado.sesionCerrada()
             _ = await avisos.programar([])
+            return (NSNull(), nil)
+        case "permisoAvisos":
+            return (["permiso": await avisos.permiso()], nil)
+        case "abrirAjustesAvisos":
+            avisos.abrirAjustes()
             return (NSNull(), nil)
         case "programarAvisos":
             do {

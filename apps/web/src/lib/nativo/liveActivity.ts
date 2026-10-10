@@ -2,7 +2,7 @@
 // (apps/mobile/ios/App/App/LiveActivity/LiveActivityPlugin.swift); en la Mac, los mensajes `sbMac`
 // (apps/mobile/ios/App/Mac/Puente.swift). En la web cada llamada fallaría con «not implemented».
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import type { EstadoLiveActivity } from '@sb/shared';
+import type { EstadoLiveActivity, ExtraMac } from '@sb/shared';
 import { avisosMac, detectarPlataforma, puenteMac, type ManejadorMac } from './plataforma';
 
 export interface SesionNativa {
@@ -13,8 +13,8 @@ export interface SesionNativa {
 }
 
 export interface LiveActivityPlugin {
-  /** Crea o actualiza la actividad; con `estado` null la termina. */
-  sincronizar(opts: { estado: EstadoLiveActivity | null }): Promise<{ activa: boolean; id: string | null }>;
+  /** Crea o actualiza la actividad; con `estado` null la termina. `extra` solo lo usa la app de Mac (barra y widgets). */
+  sincronizar(opts: { estado: EstadoLiveActivity | null; extra?: ExtraMac }): Promise<{ activa: boolean; id: string | null }>;
   /** Guarda la sesión en el Keychain para los botones de la card. */
   guardarSesion(sesion: SesionNativa): Promise<void>;
   /** Lee la sesión del Keychain (puede haberla renovado un botón de la card); `{}` si no hay. */

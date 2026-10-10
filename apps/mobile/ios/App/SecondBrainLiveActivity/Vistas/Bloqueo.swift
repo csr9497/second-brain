@@ -11,7 +11,14 @@ struct VistaBloqueo: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Cabecera(estado: estado)
-            if estado.diaCompleto {
+            if estado.actualizando == true && estado.diaCompleto {
+                Link(destination: Tema.enlaceHoy) {
+                    Text("Empezó la \(estado.nombreFranja.lowercased()). Abre la app para actualizar.")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(Tema.suave)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            } else if estado.diaCompleto {
                 DiaCompleto(pct: estado.pct)
             } else if estado.mostrarBurbujas {
                 HStack(alignment: .top, spacing: 12) {

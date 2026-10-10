@@ -59,6 +59,30 @@ final class FranjaVigenteTests: XCTestCase {
         XCTAssertTrue(estado("noche", proxima: nil).siguienteEsOtroDia)
     }
 
+    func testTrasCaducarMismoDiaConservaPasos() {
+        var e = estado("tarde", proxima: frontera)
+        e.habitos = [.init(id: "h", nombre: "Leer", inicial: "L", slot: "tarde", turno: ["tarde"], hecho: false, marca: nil)]
+        e.pasos = [.init(id: "p", titulo: "Escribir", tipo: "paso", marca: nil)]
+        let c = e.trasCaducar
+        XCTAssertEqual(c.franja, "noche")
+        XCTAssertEqual(c.habitos, [])
+        XCTAssertEqual(c.pasos.map(\.id), ["p"])
+        XCTAssertEqual(c.pctDia, 40)
+        XCTAssertEqual(c.actualizando, true)
+    }
+
+    func testTrasCaducarOtroDiaVaciaTodo() {
+        var e = estado("noche", proxima: frontera)
+        e.pasos = [.init(id: "p", titulo: "Escribir", tipo: "paso", marca: nil)]
+        e.masPasos = 3
+        let c = e.trasCaducar
+        XCTAssertEqual(c.franja, "manana")
+        XCTAssertEqual(c.pasos, [])
+        XCTAssertEqual(c.masPasos, 0)
+        XCTAssertEqual(c.pctDia, 0)
+        XCTAssertTrue(c.diaCompleto)
+    }
+
     func testFechaISOConYSinFraccion() {
         XCTAssertNotNil(Compartido.fechaISO("2026-10-10T17:00:00.000Z"))
         XCTAssertNotNil(Compartido.fechaISO("2026-10-10T17:00:00Z"))

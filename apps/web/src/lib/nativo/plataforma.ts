@@ -37,8 +37,14 @@ export function puenteMac(m: ManejadorMac): LiveActivityPlugin {
 export function avisosMac(m: ManejadorMac) {
   return {
     programar: async (avisos: AvisoProgramado[]) => (await m.postMessage({ metodo: 'programarAvisos', args: { avisos } })) as { programados: number },
+    /** Permiso de notificaciones de la app en macOS. */
+    permiso: async () => ((await m.postMessage({ metodo: 'permisoAvisos', args: {} })) as { permiso: PermisoAvisos }).permiso,
+    /** Abre Ajustes del Sistema → Notificaciones → Second Brain. */
+    abrirAjustes: async () => void (await m.postMessage({ metodo: 'abrirAjustesAvisos', args: {} })),
   };
 }
+
+export type PermisoAvisos = 'permitido' | 'denegado' | 'sin-decidir';
 
 /** Acciones que piden los menús nativos (`window.sbAccion`). */
 export interface AccionesNativas<V extends string> {

@@ -10,6 +10,7 @@
 		03B86BECA19AA2AF0ED26BC5 /* Atributos.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBD50B9E303BDF6917B3A007 /* Atributos.swift */; };
 		06A0450CCFFE83C6D4EADF76 /* CompartidoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6C23421B03CBA58AD27B04D /* CompartidoTests.swift */; };
 		08C7609B6B992D0C08F3EBBC /* Marcas.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDB13E84FCB907CBA8B85618 /* Marcas.swift */; };
+		11502E16560E0A3986B9E7E7 /* Captura.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E769C3B2A22DF030DC38D01 /* Captura.swift */; };
 		188415E8E09209CDE107CC9E /* EstadoCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A1A0888F27CA90A354AC215 /* EstadoCard.swift */; };
 		19203E9A6DC46E78A8F432C1 /* Marcas.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDB13E84FCB907CBA8B85618 /* Marcas.swift */; };
 		1CA998C627766237F2232BEB /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = FD127B870EFB46EFAC91834E /* CapApp-SPM */; };
@@ -17,6 +18,7 @@
 		26E51AC20D9FE4119F144870 /* public in Resources */ = {isa = PBXBuildFile; fileRef = 7E5BBB12596EE01767A6151A /* public */; };
 		2700A5422E45C887BEAE5B76 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 9CC6C49B810BBC284BCED483 /* Main.storyboard */; };
 		2858945A138D09B49EE0FDD1 /* EstadoCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A1A0888F27CA90A354AC215 /* EstadoCard.swift */; };
+		28FFB0C94E798720B183DA76 /* ExtraMac.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4AD559D520CD18424622272 /* ExtraMac.swift */; };
 		3B281B2682042AEA5C41FE1C /* Comandos.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D8EAB2BAB714C0FC3201EFB /* Comandos.swift */; };
 		3FB3C8C0634A765EE81D042E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 76989E05CECAD7B8B3C424A7 /* Assets.xcassets */; };
 		4256AF3DDDB7CEA7131A90DB /* BridgeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBAD08F2F68C98A276C21BAD /* BridgeViewController.swift */; };
@@ -41,6 +43,7 @@
 		9AF2B379A3FE469F041080C7 /* Atributos.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBD50B9E303BDF6917B3A007 /* Atributos.swift */; };
 		A0DEEBD4E8D0B2597B5B7E97 /* SupabaseREST.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4846905883A618FDF55E02C0 /* SupabaseREST.swift */; };
 		A676683E51EDDFEDED6EAFB0 /* Intents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2FE4779CC69383D0BFFF15 /* Intents.swift */; };
+		A6E805ECDC4AF82E91EF8E22 /* ExtraMac.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4AD559D520CD18424622272 /* ExtraMac.swift */; };
 		B053E44CEB33923C103EBE84 /* public in Resources */ = {isa = PBXBuildFile; fileRef = 03E671DD7798E81B797B58FF /* public */; };
 		B3E9D250DBA52054D1C0F960 /* EsquemaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ED79DB214771BCFC511A46C /* EsquemaApp.swift */; };
 		C2D061B65651793628DA5323 /* LiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B9B793ACB90308763563F83 /* LiveActivityWidget.swift */; };
@@ -54,6 +57,7 @@
 		E8E03F4FB1BE61A377693A7C /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9420949282AB92AA28A975D3 /* AppDelegate.swift */; };
 		ECD4A69CE64194292FA1C8F4 /* EstadoMac.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F736D08C479D12B83D5D382 /* EstadoMac.swift */; };
 		F1B7D5D7BEE15E03C7BBD8D7 /* SupabaseREST.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4846905883A618FDF55E02C0 /* SupabaseREST.swift */; };
+		F47027A95B9ABC02B2AB76BA /* ExtraMac.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4AD559D520CD18424622272 /* ExtraMac.swift */; };
 		F4F2C861EA6611B352BC63E2 /* Intents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D2FE4779CC69383D0BFFF15 /* Intents.swift */; };
 		FBACC0F8DDF4F94FD78E7914 /* AccionesCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5F8EA2D2CC7593C241F2A4F /* AccionesCard.swift */; };
 		FCB46125F08E0047F5B890A8 /* SecondBrainLiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5ACBE8DDC96481341E5CE7AA /* SecondBrainLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -121,6 +125,7 @@
 		5ACBE8DDC96481341E5CE7AA /* SecondBrainLiveActivity.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = SecondBrainLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		5C654DAB3A8A1AFD16E0DA9C /* LiveActivityPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityPlugin.swift; sourceTree = "<group>"; };
 		5E26B346DDCD3840AD099692 /* Sesion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sesion.swift; sourceTree = "<group>"; };
+		5E769C3B2A22DF030DC38D01 /* Captura.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Captura.swift; sourceTree = "<group>"; };
 		6051C25AB466AE4B292E35EE /* SecondBrainMac.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SecondBrainMac.entitlements; sourceTree = "<group>"; };
 		68ED4E8FE0185474B6E8E85B /* capacitor.config.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		6B04ADF7B81E144C4949AE51 /* CapApp-SPM */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "CapApp-SPM"; path = "CapApp-SPM"; sourceTree = SOURCE_ROOT; };
@@ -140,6 +145,7 @@
 		9D2FE4779CC69383D0BFFF15 /* Intents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Intents.swift; sourceTree = "<group>"; };
 		A6C23421B03CBA58AD27B04D /* CompartidoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompartidoTests.swift; sourceTree = "<group>"; };
 		AFB3D1ED0ED54E08B001F3DA /* SecondBrainMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecondBrainMacApp.swift; sourceTree = "<group>"; };
+		B4AD559D520CD18424622272 /* ExtraMac.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtraMac.swift; sourceTree = "<group>"; };
 		B59172A2A07CDF848EFADBFE /* Comunes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Comunes.swift; sourceTree = "<group>"; };
 		B5F8EA2D2CC7593C241F2A4F /* AccionesCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccionesCard.swift; sourceTree = "<group>"; };
 		C3B91E2D125268AC3003A5B5 /* Avisos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Avisos.swift; sourceTree = "<group>"; };
@@ -283,10 +289,12 @@
 				292168FBBF203E21203BA4C8 /* Assets.xcassets */,
 				C3B91E2D125268AC3003A5B5 /* Avisos.swift */,
 				6EA31948F31C2F0E3D0457AD /* Barra.swift */,
+				5E769C3B2A22DF030DC38D01 /* Captura.swift */,
 				8D8EAB2BAB714C0FC3201EFB /* Comandos.swift */,
 				237098B621787A24D77F1F10 /* Compartido.swift */,
 				3ED79DB214771BCFC511A46C /* EsquemaApp.swift */,
 				0F736D08C479D12B83D5D382 /* EstadoMac.swift */,
+				B4AD559D520CD18424622272 /* ExtraMac.swift */,
 				03E671DD7798E81B797B58FF /* public */,
 				7ACB88FA2F6FE069B139334F /* Puente.swift */,
 				6051C25AB466AE4B292E35EE /* SecondBrainMac.entitlements */,
@@ -481,6 +489,7 @@
 			files = (
 				96FF69F75E29683A857E8D69 /* Compartido.swift in Sources */,
 				824177A920E5386A44CCD778 /* EstadoCard.swift in Sources */,
+				F47027A95B9ABC02B2AB76BA /* ExtraMac.swift in Sources */,
 				E493FC07D5D5014B3DBA4901 /* WidgetHoy.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -491,11 +500,13 @@
 			files = (
 				868AE7A1A5077171F6F6DB26 /* Avisos.swift in Sources */,
 				76850AE33BBF9833EF6F6ACA /* Barra.swift in Sources */,
+				11502E16560E0A3986B9E7E7 /* Captura.swift in Sources */,
 				3B281B2682042AEA5C41FE1C /* Comandos.swift in Sources */,
 				7400ACEAF245320515B795AC /* Compartido.swift in Sources */,
 				B3E9D250DBA52054D1C0F960 /* EsquemaApp.swift in Sources */,
 				2858945A138D09B49EE0FDD1 /* EstadoCard.swift in Sources */,
 				ECD4A69CE64194292FA1C8F4 /* EstadoMac.swift in Sources */,
+				28FFB0C94E798720B183DA76 /* ExtraMac.swift in Sources */,
 				D73B2F9972DDBA84B4A9BCEC /* Marcas.swift in Sources */,
 				8E7E63FCBBF25224370D6E99 /* Puente.swift in Sources */,
 				67ED08CDEDC700A6F1AEDCBE /* SecondBrainMacApp.swift in Sources */,
@@ -545,6 +556,7 @@
 				06A0450CCFFE83C6D4EADF76 /* CompartidoTests.swift in Sources */,
 				C49BFFB014498C0D2DB4CE0D /* EstadoCard.swift in Sources */,
 				721C54F54D4AEC78BB652CA5 /* EstadoCardTests.swift in Sources */,
+				A6E805ECDC4AF82E91EF8E22 /* ExtraMac.swift in Sources */,
 				19203E9A6DC46E78A8F432C1 /* Marcas.swift in Sources */,
 				FE082EDCF5453EE5BAD3BA1B /* MarcasTests.swift in Sources */,
 			);

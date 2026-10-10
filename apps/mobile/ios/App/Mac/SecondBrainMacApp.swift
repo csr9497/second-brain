@@ -16,7 +16,7 @@ struct SecondBrainMacApp: App {
         .commands { Comandos(web: delegado.web) }
 
         MenuBarExtra {
-            PanelBarra(estado: delegado.estado, web: delegado.web)
+            PanelBarra(estado: delegado.estado, web: delegado.web, avisos: delegado.avisos)
         } label: {
             EtiquetaBarra(estado: delegado.estado)
         }
@@ -34,7 +34,24 @@ final class Delegado: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         estado.refrescar = { [weak self] in self?.web.refrescar() }
         Ventana.web = web
+        avisos.alCambiarPermiso = { [weak self] in self?.estado.actualizarPermiso() }
+        estado.actualizarPermiso()
+        Captura.shared.alGuardar = { [weak self] in self?.web.refrescar() }
+        Captura.shared.registrarAtajo()
+        // Abierta por un widget (--fondo) o al iniciar sesión en la Mac: sin ventana, solo la barra
+        if CommandLine.arguments.contains("--fondo") || Self.abiertaAlIniciarSesion() {
+            DispatchQueue.main.async {
+                NSApp.windows.filter { $0.identifier?.rawValue.hasPrefix(Delegado.ventana) == true }.forEach { $0.close() }
+                NSApp.setActivationPolicy(.accessory)
+            }
+        }
         _ = web // carga la web aunque la ventana no se abra (inicio de sesión en la Mac)
+    }
+
+    private static func abiertaAlIniciarSesion() -> Bool {
+        guard let evento = NSAppleEventManager.shared().currentAppleEvent else { return false }
+        return evento.eventID == kAEOpenApplication
+            && evento.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
     }
 
     /// Cerrar la ventana deja la app en la barra de menús.

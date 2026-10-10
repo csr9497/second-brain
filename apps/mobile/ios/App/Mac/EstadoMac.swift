@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import Observation
+import UserNotifications
 import WidgetKit
 
 /// Lo que pinta la barra de menús: el último estado que mandó la web (`sincronizar`) y si hay sesión.
@@ -12,6 +13,14 @@ final class EstadoMac: DestinoEstado {
     private(set) var conSesion = Sesion.leer() != nil
     /// La web mandó al menos un estado desde que arrancó la app (antes, la barra dice «Cargando…»).
     private(set) var recibido = false
+    /// El día completo (semanales, las tres franjas, todos los pasos, racha): solo en la Mac.
+    private(set) var extra: ExtraMac?
+    /// Lo que se muestra salió de la última instantánea guardada, no de la web (arranque sin conexión): cuándo era.
+    private(set) var guardadoEn: Date?
+    /// Permiso de notificaciones en macOS (lo muestra la barra si están desactivadas).
+    private(set) var avisosDenegados = false
+    /// Semanales tocados en la barra cuya escritura está en curso.
+    private(set) var enviandoSemanal: Set<String> = []
 
     /// Pide a la web que vuelva a cargar Hoy (`Web.refrescar`); lo pone la app al arrancar.
     @ObservationIgnored var refrescar: () -> Void = {}
@@ -24,7 +33,13 @@ final class EstadoMac: DestinoEstado {
 
     init() {
         escucharWidget()
-        // Lo que haya en el App Group puede ser de otra sesión: el widget empieza con lo que sabe esta app
+        // Sin conexión al arrancar, la barra y el widget muestran lo último que se guardó (si es de esta sesión y de hoy;
+        // si cambió la franja, `caducado` lo oculta). Con sesión nueva, la web lo reemplaza enseguida.
+        if conSesion, let i = Compartido.leer(), i.conSesion, Date().timeIntervalSince(i.escrita) < 18 * 3600 {
+            estado = i.estado
+            extra = i.extra
+            guardadoEn = i.escrita
+        }
         compartir()
         despertar = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
@@ -44,9 +59,11 @@ final class EstadoMac: DestinoEstado {
 
     // MARK: Desde la web (Puente)
 
-    func sincronizar(_ estado: EstadoCard?) {
+    func sincronizar(_ estado: EstadoCard?, extra: ExtraMac?) {
         self.estado = estado
+        if let extra { self.extra = extra }
         recibido = true
+        guardadoEn = nil
         programar(estado?.proximaFranja)
         compartir()
         // Toques del widget que llegaron con la app cerrada o antes de tener estado
@@ -62,6 +79,8 @@ final class EstadoMac: DestinoEstado {
     func sesionCerrada() {
         conSesion = false
         estado = nil
+        extra = nil
+        guardadoEn = nil
         programar(nil)
         compartir()
     }
@@ -82,12 +101,59 @@ final class EstadoMac: DestinoEstado {
         }
     }
 
+    /// Semanal: se marca como mucho una vez al día, en la franja actual (como `toggleHabit` en la web).
+    func marcarSemanal(_ h: ExtraMac.Semanal) {
+        guard let x = extra, !h.hoy, !enviandoSemanal.contains(h.id) else { return }
+        enviandoSemanal.insert(h.id)
+        Task {
+            do {
+                try await SupabaseREST.marcarHabito(id: h.id, slot: x.franjaActual, fecha: x.fecha)
+                if var y = extra, let i = y.semanales.firstIndex(where: { $0.id == h.id }) {
+                    y.semanales[i].hoy = true
+                    y.semanales[i].hechas += 1
+                    extra = y
+                    compartir()
+                }
+            } catch {
+                print("[Mac] marcar semanal \(h.nombre) falló: \(error)")
+            }
+            enviandoSemanal.remove(h.id)
+            refrescar()
+        }
+    }
+
+    /// Un hábito o paso que no está en el estado de la card (otra franja, más allá de los 5 pasos): se escribe directo.
+    private func marcarDirecto(_ t: Compartido.Toque) {
+        guard let x = extra else { return }
+        Task {
+            do {
+                switch t.tipo {
+                case .habito, .semanal: try await SupabaseREST.marcarHabito(id: t.id, slot: t.detalle.isEmpty ? x.franjaActual : t.detalle, fecha: x.fecha)
+                case .paso: try await SupabaseREST.marcarPaso(id: t.id, tipo: t.detalle)
+                }
+            } catch {
+                print("[Mac] marcar \(t.tipo) \(t.id) falló: \(error)")
+            }
+            refrescar()
+        }
+    }
+
+    // MARK: Avisos
+
+    func actualizarPermiso() {
+        Task {
+            let ajustes = await UNUserNotificationCenter.current().notificationSettings()
+            avisosDenegados = ajustes.authorizationStatus == .denied
+        }
+    }
+
     // MARK: Widgets (Compartido)
 
-    /// Guarda lo que pinta la barra en el App Group y recarga el widget.
+    /// Guarda lo que pinta la barra en el App Group y recarga los widgets.
     private func compartir() {
-        Compartido.guardar(Compartido.Instantanea(estado: estado, conSesion: conSesion, recibido: recibido, escrita: Date()))
-        WidgetCenter.shared.reloadTimelines(ofKind: Compartido.tipoWidget)
+        Compartido.guardar(Compartido.Instantanea(estado: estado, conSesion: conSesion, recibido: recibido || guardadoEn != nil,
+                                                  escrita: guardadoEn ?? Date(), extra: extra))
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     /// El widget avisa con una notificación Darwin cuando encola un toque.
@@ -104,13 +170,15 @@ final class EstadoMac: DestinoEstado {
     /// Marca los toques encolados por el widget con las mismas `Marcas` de la barra. Sin estado (aún cargando), espera
     /// al próximo `sincronizar`.
     func procesarToques() {
-        guard let e = estado else { return }
+        guard estado != nil || extra != nil else { return }
         for t in Compartido.tomarCola() {
             switch t.tipo {
             case .habito:
-                if let h = e.habitos.first(where: { $0.id == t.id && $0.slot == t.detalle }) { marcarHabito(h) }
+                if let h = estado?.habitos.first(where: { $0.id == t.id && $0.slot == t.detalle }) { marcarHabito(h) } else { marcarDirecto(t) }
             case .paso:
-                if let p = e.pasos.first(where: { $0.id == t.id }) { marcarPaso(p) }
+                if let p = estado?.pasos.first(where: { $0.id == t.id }) { marcarPaso(p) } else { marcarDirecto(t) }
+            case .semanal:
+                if let h = extra?.semanales.first(where: { $0.id == t.id }) { marcarSemanal(h) }
             }
         }
     }
@@ -118,9 +186,7 @@ final class EstadoMac: DestinoEstado {
     /// Vuelve a pedir Hoy en el próximo cambio de franja (+5 s de margen) o, sin él, en `respaldo`.
     private func programar(_ proximaFranja: String?) {
         temporizador?.invalidate()
-        let formato = ISO8601DateFormatter()
-        formato.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let cuando = proximaFranja.flatMap { formato.date(from: $0) }.map { $0.addingTimeInterval(5) }
+        let cuando = proximaFranja.flatMap(FechaISO.leer).map { $0.addingTimeInterval(5) }
             ?? Date().addingTimeInterval(Self.respaldo)
         let t = Timer(fire: max(cuando, Date().addingTimeInterval(1)), interval: 0, repeats: false) { [weak self] _ in
             MainActor.assumeIsolated {

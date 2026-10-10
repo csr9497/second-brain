@@ -29,14 +29,32 @@ enum Compartido {
         var recibido: Bool
         /// Cuándo la escribió la app.
         var escrita: Date
+        /// El día completo (widget grande, racha). Opcional: instantáneas de antes no lo traen.
+        var extra: ExtraMac?
+        /// Cuándo el widget marcó un toque «enviando»: si la app no responde en `esperaToque`, el widget deja de
+        /// mostrarlo (por ejemplo, con la app cerrada y sin poder abrirla).
+        var enviandoDesde: Date?
+        /// Ids tocados en el widget desde `enviandoDesde` (hábitos, semanales o pasos).
+        var enviando: [String]?
+
+        init(estado: EstadoCard?, conSesion: Bool, recibido: Bool, escrita: Date, extra: ExtraMac? = nil) {
+            self.estado = estado
+            self.conSesion = conSesion
+            self.recibido = recibido
+            self.escrita = escrita
+            self.extra = extra
+        }
     }
+
+    /// Lo que espera el widget a que la app escriba un toque antes de dejar de mostrarlo «enviando».
+    static let esperaToque: TimeInterval = 20
 
     /// Un ✓ tocado en el widget, pendiente de que la app lo escriba.
     struct Toque: Codable, Equatable {
-        enum Tipo: String, Codable { case habito, paso }
+        enum Tipo: String, Codable { case habito, paso, semanal }
         var tipo: Tipo
         var id: String
-        /// Hábito: franja (`manana|tarde|noche`). Paso: `paso|tarea`.
+        /// Hábito: franja (`manana|tarde|noche`). Paso: `paso|tarea`. Semanal: vacío.
         var detalle: String
     }
 
@@ -100,39 +118,6 @@ enum Compartido {
     }
 }
 
-// MARK: - Franja vigente
-
 extension Compartido {
-    /// ISO 8601 como lo manda la web (`toISOString`, con milisegundos) o sin fracción.
-    static func fechaISO(_ texto: String) -> Date? {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let d = f.date(from: texto) { return d }
-        f.formatOptions = [.withInternetDateTime]
-        return f.date(from: texto)
-    }
-}
-
-extension EstadoCard {
-    /// Cuándo deja de valer lo que muestra: el próximo cambio de franja según la jornada (lo calcula la web).
-    var vence: Date? { proximaFranja.flatMap(Compartido.fechaISO) }
-
-    /// true si ya pasó el cambio de franja: los hábitos que trae son de la franja anterior. El widget y la barra
-    /// no los muestran hasta que la app traiga los de la nueva.
-    func caducado(en fecha: Date) -> Bool {
-        guard let vence else { return false }
-        return fecha >= vence
-    }
-
-    /// La franja que empieza en `proximaFranja`: mañana → tarde → noche → mañana (del día siguiente).
-    var franjaSiguiente: String {
-        switch franja {
-        case "manana": return "tarde"
-        case "tarde": return "noche"
-        default: return "manana"
-        }
-    }
-
-    /// Tras la noche empieza otro día (`fin_dia`): tampoco valen los pasos ni el % del día.
-    var siguienteEsOtroDia: Bool { franja == "noche" }
+    static func fechaISO(_ texto: String) -> Date? { FechaISO.leer(texto) }
 }

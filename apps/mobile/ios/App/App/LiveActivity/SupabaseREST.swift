@@ -37,6 +37,11 @@ enum SupabaseREST {
         try await escribir("PATCH", ruta: "\(tabla)?id=eq.\(id)", cuerpo: cuerpo, prefer: "return=representation")
     }
 
+    /// Captura rápida (app de Mac): una idea en la bandeja (`ideas`, estado `inbox`), como «Captura» en la web.
+    static func capturar(_ texto: String) async throws {
+        try await escribir("POST", ruta: "ideas", cuerpo: ["texto": texto], prefer: "return=representation")
+    }
+
     /// Día de calendario del dispositivo, `yyyy-MM-dd` (sin jornada: solo para estados de la card sin `fecha`).
     static func fechaLocal(_ fecha: Date = Date()) -> String {
         let f = DateFormatter()

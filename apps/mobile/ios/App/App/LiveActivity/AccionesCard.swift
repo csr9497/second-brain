@@ -16,7 +16,7 @@ final class DestinoLiveActivity: DestinoEstado {
     func publicar(_ estado: EstadoCard) async {
         guard let actividad = Activity<SecondBrainAttributes>.activities.first else { return }
         ultimo = estado.diaCompleto ? nil : estado
-        let contenido = ActivityContent(state: estado, staleDate: nil)
+        let contenido = ActivityContent(state: estado, staleDate: estado.vence)
         if estado.diaCompleto {
             await actividad.end(contenido, dismissalPolicy: .after(Date().addingTimeInterval(5 * 60)))
             print("[LiveActivity] día completo: actividad terminada")

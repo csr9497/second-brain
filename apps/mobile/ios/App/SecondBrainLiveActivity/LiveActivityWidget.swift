@@ -12,13 +12,14 @@ struct SecondBrainWidgets: WidgetBundle {
 
 struct LiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
+        // Pasado el cambio de franja (`staleDate` = proximaFranja) los hábitos son de la anterior: no se muestran
         ActivityConfiguration(for: SecondBrainAttributes.self) { contexto in
-            VistaBloqueo(estado: contexto.state)
+            VistaBloqueo(estado: contexto.isStale ? contexto.state.trasCaducar : contexto.state)
                 .activityBackgroundTint(Tema.fondo)
                 .activitySystemActionForegroundColor(Tema.texto)
                 .widgetURL(Tema.enlaceHoy)
         } dynamicIsland: { contexto in
-            let estado = contexto.state
+            let estado = contexto.isStale ? contexto.state.trasCaducar : contexto.state
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     IslaCabecera(estado: estado)

@@ -57,4 +57,11 @@ describe('avisosMac', () => {
     await expect(avisosMac({ postMessage }).programar([aviso])).resolves.toEqual({ programados: 1 });
     expect(postMessage).toHaveBeenCalledWith({ metodo: 'programarAvisos', args: { avisos: [aviso] } });
   });
+  it('permiso y abrir ajustes', async () => {
+    const postMessage = vi.fn().mockResolvedValue({ permiso: 'denegado' });
+    const a = avisosMac({ postMessage });
+    await expect(a.permiso()).resolves.toBe('denegado');
+    await a.abrirAjustes();
+    expect(postMessage).toHaveBeenLastCalledWith({ metodo: 'abrirAjustesAvisos', args: {} });
+  });
 });
