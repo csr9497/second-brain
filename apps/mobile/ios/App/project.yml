@@ -100,11 +100,15 @@ targets:
         embed: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.csr9497.secondbrain.mac
-        PRODUCT_NAME: Second Brain
+        # «Second Brain Dev» (scripts/mac.sh … dev) pasa SB_SUFIJO=.dev y SB_NOMBRE=" Dev": otro bundle id, widget,
+        # App Group y Keychain, para que el build de desarrollo nunca toque los datos de la app de producción.
+        SB_SUFIJO: ""
+        SB_NOMBRE: ""
+        PRODUCT_BUNDLE_IDENTIFIER: com.csr9497.secondbrain.mac$(SB_SUFIJO)
+        PRODUCT_NAME: Second Brain$(SB_NOMBRE)
         PRODUCT_MODULE_NAME: SecondBrainMac
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: Second Brain
+        INFOPLIST_KEY_CFBundleDisplayName: Second Brain$(SB_NOMBRE)
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
         INFOPLIST_KEY_NSHumanReadableCopyright: ""
         CODE_SIGN_ENTITLEMENTS: Mac/SecondBrainMac.entitlements
@@ -125,7 +129,9 @@ targets:
       - path: App/LiveActivity/EstadoCard.swift
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.csr9497.secondbrain.mac.widget
+        SB_SUFIJO: ""
+        SB_NOMBRE: ""
+        PRODUCT_BUNDLE_IDENTIFIER: com.csr9497.secondbrain.mac$(SB_SUFIJO).widget
         PRODUCT_NAME: SecondBrainMacWidget
         INFOPLIST_FILE: MacWidget/Info.plist
         GENERATE_INFOPLIST_FILE: NO

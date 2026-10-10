@@ -24,6 +24,8 @@ final class EstadoMac: DestinoEstado {
 
     init() {
         escucharWidget()
+        // Lo que haya en el App Group puede ser de otra sesión: el widget empieza con lo que sabe esta app
+        compartir()
         despertar = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.refrescar() }

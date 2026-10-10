@@ -29,8 +29,12 @@ Widgets de WidgetKit para el escritorio y el Centro de notificaciones con lo pen
   - El panel de la barra aplica la misma regla.
 - **Tamaños:**
   - **Pequeño:** franja, anillo del % y «N pendientes», sin botones; tocarlo abre la app.
-  - **Mediano:** franja y anillo a la izquierda; a la derecha, hasta 4 burbujas de hábitos y 2 pasos con ✓ (4 pasos si la franja ya está completa).
+  - **Mediano:** a la izquierda la franja, el anillo y los pendientes; a la derecha, las secciones «Hábitos» (hasta 4 burbujas con su nombre, porque las iniciales se repiten, o «Franja completa») y «Pasos de hoy» (hasta 2 con ✓, «+N más», o «Sin pasos para hoy»). Las dos columnas ocupan todo el alto.
   - Sin sesión: «Abre Second Brain e inicia sesión». Nada pendiente: «Día completo».
+
+## Producción y desarrollo separados
+
+«Second Brain Dev» (`scripts/mac.sh … dev`) se compila con `SB_SUFIJO=.dev` y `SB_NOMBRE=" Dev"`: bundle id `com.csr9497.secondbrain.mac.dev` (widget `….mac.dev.widget`), App Group `3WL76C24SA.com.csr9497.secondbrain.dev` y servicio del Keychain por bundle id. `Compartido.sufijo` lo deduce del bundle id. Antes los dos builds compartían todo y el widget de producción mostraba datos de dev.
 
 ## Pruebas
 

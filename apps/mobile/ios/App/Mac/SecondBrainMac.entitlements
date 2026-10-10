@@ -8,7 +8,7 @@
 	<true/>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>3WL76C24SA.com.csr9497.secondbrain</string>
+		<string>3WL76C24SA.com.csr9497.secondbrain$(SB_SUFIJO)</string>
 	</array>
 </dict>
 </plist>

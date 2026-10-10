@@ -6,9 +6,18 @@ import Foundation
 ///   `Marcas` igual que la barra.
 /// El grupo empieza por el Team ID: en macOS así vale sin perfil de aprovisionamiento (Personal Team).
 enum Compartido {
-    static let grupo = "3WL76C24SA.com.csr9497.secondbrain"
+    /// "" en producción y ".dev" en «Second Brain Dev» (`scripts/mac.sh … dev`, `SB_SUFIJO`): sale del bundle id de la
+    /// app (`com.csr9497.secondbrain.mac<sufijo>`) o de su widget (`….widget`), así que cada uno usa su propio grupo.
+    static let sufijo: String = {
+        var id = Bundle.main.bundleIdentifier ?? ""
+        if id.hasSuffix(".widget") { id.removeLast(".widget".count) }
+        let base = "com.csr9497.secondbrain.mac"
+        return id.hasPrefix(base) ? String(id.dropFirst(base.count)) : ""
+    }()
+    /// Debe coincidir con `com.apple.security.application-groups` de los entitlements (`$(SB_SUFIJO)`).
+    static let grupo = "3WL76C24SA.com.csr9497.secondbrain" + sufijo
     /// Notificación Darwin con la que el widget avisa a la app de que hay toques en la cola.
-    static let avisoToque = "com.csr9497.secondbrain.toque"
+    static let avisoToque = "com.csr9497.secondbrain\(sufijo).toque"
     /// Tipo del widget (`WidgetCenter.reloadTimelines(ofKind:)`).
     static let tipoWidget = "SecondBrainHoy"
 

@@ -8,7 +8,12 @@ struct Sesion: Codable {
     var accessToken: String
     var refreshToken: String
 
+    #if os(macOS)
+    /// En la Mac, por bundle id: la app de producción y «Second Brain Dev» no comparten la sesión.
+    private static let servicio = (Bundle.main.bundleIdentifier ?? "com.csr9497.secondbrain.mac") + ".sesion"
+    #else
     private static let servicio = "com.csr9497.secondbrain.sesion"
+    #endif
     private static let cuenta = "supabase"
 
     private static var consulta: [String: Any] {

@@ -14,13 +14,13 @@ Fases: **M1** (ventana y barra), **M2** (avisos nativos, `docs/superpowers/specs
 
 La app usa el mismo build que iOS (`vite build --mode native`), que lee `apps/web/.env.native.local`. Hoy ese archivo apunta a **producción**, que es lo que quieres en la app instalada.
 
-Para probar contra Supabase **dev** sin tocar ese archivo, añade `dev` al final del comando. Toma las variables de `apps/web/.env.dev.local`, que en Vite tienen prioridad sobre los archivos `.env`. Usuario: `dev@local.test` / `devpassword`.
+Para probar contra Supabase **dev** sin tocar ese archivo, añade `dev` al final del comando. Se compila **«Second Brain Dev»**, una app aparte con su propio bundle id (`….mac.dev`), widget, App Group y Keychain. Así nunca mezcla sus datos con los de la app de producción, y en la galería de widgets aparecen las dos por separado. Toma las variables de `apps/web/.env.dev.local`, que en Vite tienen prioridad sobre los archivos `.env`. Usuario: `dev@local.test` / `devpassword`.
 
 ## 3. Comandos (desde la raíz)
 
 ```bash
 pnpm mac:run            # build de la web + xcodebuild Debug y abre la app (/tmp/sb-mac-dd)
-scripts/mac.sh run dev  # lo mismo contra Supabase dev
+scripts/mac.sh run dev  # «Second Brain Dev» contra Supabase dev (/tmp/sb-mac-dd-dev)
 pnpm mac:install        # build Release y la copia a /Applications/Second Brain.app (cierra la anterior)
 pnpm mac:test           # tests de Swift (SecondBrainMacTests)
 pnpm mac:build          # solo la web: apps/web/dist → apps/mobile/ios/App/Mac/public
@@ -63,7 +63,7 @@ Comprobado el 2026-10-10:
 
 - Para añadirlos: clic derecho en el escritorio → «Editar widgets» → **Second Brain → Hoy**, en tamaño pequeño o mediano.
 - **Pequeño:** la franja, el % del día y cuántos pendientes quedan. Tocarlo abre la app.
-- **Mediano:** además, las burbujas de los hábitos de la franja y los pasos de hoy, con ✓.
+- **Mediano:** a la izquierda, lo mismo que el pequeño; a la derecha, los hábitos de la franja (burbuja con su nombre, hasta 4) y los pasos de hoy (hasta 2 con ✓, «+N más», o «Sin pasos para hoy»).
 - **Respetan las franjas:** al llegar el cambio de franja (según la jornada), el widget deja de mostrar los hábitos de la franja anterior y pone «Actualizando…» hasta que la app trae los de la nueva, normalmente en segundos. Tras la noche tampoco muestra los pasos del día anterior. El panel de la barra hace lo mismo.
 - **Los pinta y los marca la app.** La app guarda lo que muestra la barra en el App Group y recarga los widgets. Un ✓ en el widget se encola y la app lo escribe con la misma lógica que la barra. Si la app está cerrada, el toque queda «enviando» hasta que la abres. Por eso conviene «Abrir al iniciar sesión».
 

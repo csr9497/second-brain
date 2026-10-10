@@ -195,9 +195,6 @@ private struct Anillo: View {
 /// Pequeño: franja, % del día y cuántos pendientes quedan (sin botones: tocarlo abre la app).
 private struct Pequeno: View {
     var e: EstadoCard
-    private var pendientes: Int {
-        e.habitos.filter { !$0.hecho }.count + (e.masPasos > 0 ? e.masPasos + 2 : e.pasos.count)
-    }
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Cabecera(e: e)
@@ -208,45 +205,81 @@ private struct Pequeno: View {
                 Spacer()
             }
             Spacer(minLength: 0)
-            Text(pendientes == 1 ? "1 pendiente" : "\(pendientes) pendientes")
+            Text(pendientes(e) == 1 ? "1 pendiente" : "\(pendientes(e)) pendientes")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }
 }
 
-/// Mediano: % y franja a la izquierda; burbujas de hábitos y hasta 3 pasos con ✓ a la derecha.
+/// Pendientes de la card: hábitos sin marcar de la franja + pasos del día (`masPasos` cuenta los que van tras los 2).
+private func pendientes(_ e: EstadoCard) -> Int {
+    e.habitos.filter { !$0.hecho }.count + (e.masPasos > 0 ? e.masPasos + 2 : e.pasos.count)
+}
+
+/// Mediano: a la izquierda la franja, el % y los pendientes (como el pequeño); a la derecha los hábitos de la franja
+/// con su nombre y, debajo, los pasos de hoy. Las dos columnas ocupan todo el alto.
 private struct Mediano: View {
     var e: EstadoCard
     var body: some View {
-        HStack(alignment: .top, spacing: 14) {
-            VStack(alignment: .leading, spacing: 10) {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 0) {
                 Cabecera(e: e)
-                Anillo(pct: e.pctDia, tamano: 58)
+                Spacer(minLength: 6)
+                Anillo(pct: e.pctDia, tamano: 62)
+                Spacer(minLength: 6)
+                Text(pendientes(e) == 1 ? "1 pendiente" : "\(pendientes(e)) pendientes")
+                    .font(.caption2).foregroundStyle(.secondary)
             }
-            VStack(alignment: .leading, spacing: 8) {
-                if !e.franjaCompleta && !e.habitos.isEmpty {
-                    HStack(spacing: 8) {
-                        ForEach(e.habitos.prefix(4), id: \.self) { h in Burbuja(h: h) }
+            .frame(width: 92, alignment: .leading)
+            .frame(maxHeight: .infinity)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Seccion(titulo: "Hábitos")
+                if e.franjaCompleta || e.habitos.isEmpty {
+                    Label("Franja completa", systemImage: "checkmark.circle.fill")
+                        .font(.caption.weight(.medium)).foregroundStyle(Colores.bueno)
+                } else {
+                    HStack(alignment: .top, spacing: 6) {
+                        ForEach(e.habitos.prefix(4), id: \.self) { h in Burbuja(h: h).frame(maxWidth: .infinity) }
                     }
                 }
-                ForEach(e.pasos.prefix(e.franjaCompleta || e.habitos.isEmpty ? 4 : 2), id: \.self) { p in FilaPaso(p: p) }
-                Spacer(minLength: 0)
+                Spacer(minLength: 4)
+                Seccion(titulo: "Pasos de hoy")
+                if e.pasos.isEmpty {
+                    Text("Sin pasos para hoy").font(.caption).foregroundStyle(.secondary)
+                } else {
+                    ForEach(e.pasos.prefix(2), id: \.self) { p in FilaPaso(p: p) }
+                    let mas = (e.masPasos > 0 ? e.masPasos + 2 : e.pasos.count) - min(2, e.pasos.count)
+                    if mas > 0 { Text("+\(mas) más").font(.caption2).foregroundStyle(.secondary) }
+                }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
     }
 }
 
+private struct Seccion: View {
+    var titulo: String
+    var body: some View {
+        Text(titulo.uppercased()).font(.system(size: 9, weight: .semibold)).tracking(0.6).foregroundStyle(.tertiary)
+    }
+}
+
+/// Burbuja de un hábito con su nombre debajo (las iniciales solas se repiten: Ejercicio y Estiramiento).
 private struct Burbuja: View {
     var h: EstadoCard.Habito
     var body: some View {
         Button(intent: MarcarDesdeWidget(.init(tipo: .habito, id: h.id, detalle: h.slot))) {
-            ZStack {
-                Circle().fill(h.marca == .enviando ? Colores.bueno.opacity(0.25) : .clear)
-                Circle().strokeBorder(h.marca == .enviando ? Colores.bueno : h.marca == .fallo ? Colores.malo : .secondary, lineWidth: 2)
-                Text(h.inicial).font(.system(size: 13, weight: .semibold))
+            VStack(spacing: 3) {
+                ZStack {
+                    Circle().fill(h.marca == .enviando ? Colores.bueno.opacity(0.25) : .clear)
+                    Circle().strokeBorder(h.marca == .enviando ? Colores.bueno : h.marca == .fallo ? Colores.malo : .secondary, lineWidth: 2)
+                    Text(h.inicial).font(.system(size: 13, weight: .semibold))
+                }
+                .frame(width: 30, height: 30)
+                Text(h.nombre).font(.system(size: 10)).foregroundStyle(.secondary)
+                    .lineLimit(1).truncationMode(.tail)
             }
-            .frame(width: 30, height: 30)
         }
         .buttonStyle(.plain)
         .disabled(h.marca == .enviando)
