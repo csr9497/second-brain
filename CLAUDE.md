@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `docs/API.md`: diseño REST original; ya no hay API propia
 - `design/mockup.html`: referencia visual; sus tokens CSS están en `apps/web/src/index.css`
 
-Estado: Fases 0–5 sobre la pantalla Hoy (incluye los avisos Web Push) y PWA instalable. Faltan lo offline, los avisos de proyectos y deadlines y las métricas (Fase 6).
+Estado: Fases 0–5 sobre la pantalla Hoy (incluye los avisos Web Push), PWA instalable, prototipo iOS con Live Activity y app de Mac (ventana, barra de menús, avisos y widgets). Faltan lo offline, los avisos de proyectos y deadlines y las métricas (Fase 6).
 
 Producción:
 - Frontend estático en **GitHub Pages**: https://csr9497.github.io/second-brain/ (repo `csr9497/second-brain`).
@@ -101,6 +101,7 @@ Studio local: http://127.0.0.1:54323. Deploy: cada push a `main` ejecuta `.githu
 - **App de Mac** (target `SecondBrainMac` en el mismo `project.yml`, fuentes en `apps/mobile/ios/App/Mac/`; runbook en `docs/APP-MAC.md`): sin Capacitor.
   - Un `WKWebView` que vive mientras corre la app (cerrar la ventana no lo destruye) carga el build `native` copiado a `Mac/public` por `app://localhost` (`EsquemaApp`).
   - La web detecta `window.webkit.messageHandlers.sbMac` y usa `puenteMac` (`lib/nativo/plataforma.ts`), con el mismo contrato que el plugin de iOS: `useLiveActivity` y la sesión funcionan igual. En la Mac, `supabase.ts` mantiene la renovación del token con la página oculta.
+  - Avisos (M2): `useAvisosMac` calcula con `avisosDelDia` (`@sb/shared`) los de hoy y los manda con `programarAvisos`; `Mac/Avisos.swift` los programa como notificaciones locales (reemplaza los `aviso-*`).
   - Widgets (`MacWidget/`, extensión `SecondBrainMacWidget`): leen la instantánea que la app guarda en el App Group (`Mac/Compartido.swift`) y sus ✓ se encolan para que los escriba la app (aviso Darwin); el widget no tiene la sesión.
   - La barra de menús (`Barra.swift`) pinta el `EstadoLiveActivity` que manda la web y llama a `sbRefrescar()` al abrirse, al despertar y en `proximaFranja`. Los menús llaman a `window.sbAccion` (`useAccionesNativas`).
 

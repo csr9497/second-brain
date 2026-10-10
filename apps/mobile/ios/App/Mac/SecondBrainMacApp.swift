@@ -28,15 +28,23 @@ struct SecondBrainMacApp: App {
 final class Delegado: NSObject, NSApplicationDelegate {
     static let ventana = "principal"
     let estado = EstadoMac()
-    lazy var web = Web(estado: estado)
+    let avisos = Avisos()
+    lazy var web = Web(estado: estado, avisos: avisos)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         estado.refrescar = { [weak self] in self?.web.refrescar() }
+        Ventana.web = web
         _ = web // carga la web aunque la ventana no se abra (inicio de sesión en la Mac)
     }
 
     /// Cerrar la ventana deja la app en la barra de menús.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    /// Abrir la app ya abierta (Dock, Finder, tocar un widget) muestra la ventana.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        if !hasVisibleWindows { Ventana.mostrar() }
+        return false
+    }
 }
 
 /// La ventana muestra el WebView de la app. Con la ventana abierta hay ícono en el Dock; al cerrarla, solo la barra.

@@ -7,8 +7,12 @@ import WebKit
 final class Puente: NSObject, WKScriptMessageHandlerWithReply {
     static let nombre = "sbMac"
     let estado: EstadoMac
+    let avisos: Avisos
 
-    init(estado: EstadoMac) { self.estado = estado }
+    init(estado: EstadoMac, avisos: Avisos) {
+        self.estado = estado
+        self.avisos = avisos
+    }
 
     func userContentController(_ controller: WKUserContentController, didReceive mensaje: WKScriptMessage) async -> (Any?, String?) {
         guard let cuerpo = mensaje.body as? [String: Any], let metodo = cuerpo["metodo"] as? String else {
@@ -47,7 +51,16 @@ final class Puente: NSObject, WKScriptMessageHandlerWithReply {
         case "cerrarSesion":
             Sesion.borrar()
             estado.sesionCerrada()
+            _ = await avisos.programar([])
             return (NSNull(), nil)
+        case "programarAvisos":
+            do {
+                let datos = try JSONSerialization.data(withJSONObject: args["avisos"] ?? [])
+                let lista = try JSONDecoder().decode([Avisos.Aviso].self, from: datos)
+                return (["programados": await avisos.programar(lista)], nil)
+            } catch {
+                return (nil, "Avisos inválidos: \(error.localizedDescription)")
+            }
         default:
             return (nil, "Método desconocido: \(metodo)")
         }

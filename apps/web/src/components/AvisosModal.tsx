@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { SLOT_NOMBRE, type HabitSlot } from '@sb/shared';
 import { api, type AvisosConfig, type Dispositivo } from '../lib/api';
 import { desuscribir, endpointActual, estadoPush, suscribir, type EstadoPush } from '../lib/push';
+import { plataformaNativa } from '../lib/nativo/liveActivity';
 import { Field, Modal, ModalActions } from './Modal';
 import { useToast } from './Toast';
 import { confirmar } from './ui/Confirmar';
@@ -17,6 +18,10 @@ const MENSAJE: Record<Exclude<EstadoPush, 'activo' | 'inactivo'>, string> = {
   instalar: 'En iPhone, instala la app para recibir avisos: Compartir → «Agregar a inicio», y ábrela desde ahí.',
   bloqueado: 'Bloqueaste las notificaciones de este sitio. Actívalas en los ajustes del navegador.',
 };
+
+/** En la app de Mac los avisos los programa la propia app (useAvisosMac): no hace falta Web Push. */
+const MENSAJE_MAC =
+  'En la app de Mac, los avisos llegan como notificaciones del sistema a estas horas, aunque cierres la ventana. Si también activaste los avisos en Safari en esta Mac, desactívalos ahí para no recibirlos dos veces.';
 
 /** «iPhone · Safari», «Mac · Chrome»… a partir del user agent. */
 function nombreDispositivo(ua: string) {
@@ -107,7 +112,7 @@ export function AvisosModal({ onClose }: { onClose: () => void }) {
             Activar avisos aquí
           </button>
         ) : (
-          <p className="m-0 text-sm text-muted">{MENSAJE[visible]}</p>
+          <p className="m-0 text-sm text-muted">{visible === 'nativo' && plataformaNativa() === 'mac' ? MENSAJE_MAC : MENSAJE[visible]}</p>
         )}
       </Field>
 

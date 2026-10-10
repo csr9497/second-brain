@@ -2,7 +2,7 @@
 
 App de macOS con la web completa en una ventana, una **barra de menús** y **widgets** con los hábitos de la franja y los pasos de hoy, que se marcan con ✓ sin abrir la ventana. Es solo para la MacBook de Cesar: se firma con la cuenta gratuita (Personal Team) y no se notariza. Diseño: `docs/superpowers/specs/2026-10-10-app-mac-design.md`.
 
-Fases: **M1** (ventana y barra), **M3** (widgets, `docs/superpowers/specs/2026-10-10-mac-widgets-design.md`) y M2 (avisos nativos por franja, pendiente).
+Fases: **M1** (ventana y barra), **M2** (avisos nativos, `docs/superpowers/specs/2026-10-10-mac-avisos-design.md`) y **M3** (widgets, `docs/superpowers/specs/2026-10-10-mac-widgets-design.md`).
 
 ## 1. Requisitos
 
@@ -67,6 +67,13 @@ Comprobado el 2026-10-10:
 - **Respetan las franjas:** al llegar el cambio de franja (según la jornada), el widget deja de mostrar los hábitos de la franja anterior y pone «Actualizando…» hasta que la app trae los de la nueva, normalmente en segundos. Tras la noche tampoco muestra los pasos del día anterior. El panel de la barra hace lo mismo.
 - **Los pinta y los marca la app.** La app guarda lo que muestra la barra en el App Group y recarga los widgets. Un ✓ en el widget se encola y la app lo escribe con la misma lógica que la barra. Si la app está cerrada, el toque queda «enviando» hasta que la abres. Por eso conviene «Abrir al iniciar sesión».
 
+### Avisos
+
+- **Mismas horas que 🔔 Avisos.** A la hora de cada franja, si te quedan hábitos de esa franja, llega una notificación del sistema con el mismo texto que la Web Push («Tarde · te faltan 2» / «Agua, Leer»).
+- **Los programa la app con lo que sabe en ese momento.** Marcar los hábitos de una franja quita su aviso, y llegan aunque cierres la app. Tocar el aviso abre la ventana en Hoy.
+- **La primera vez macOS pide permiso.** Si lo negaste: Ajustes del Sistema → Notificaciones → Second Brain → Permitir notificaciones.
+- Si también activaste los avisos de Safari en esta Mac, desactívalos ahí (🔔 en Safari → «Desactivar aquí») para no recibirlos dos veces.
+
 ## 6. Checklist de prueba
 
 Probado el 2026-10-10 contra dev, con un gancho temporal que ejecutaba JS en la página y capturaba el WebView y el panel. No hay acceso a la pantalla desde la terminal.
@@ -89,9 +96,11 @@ Probado el 2026-10-10 contra dev, con un gancho temporal que ejecutaba JS en la 
 - [ ] Tocar un ✓ en el widget mediano.
 - [ ] Tocar el widget pequeño abre la ventana.
 - [ ] Cambio de franja con el widget a la vista: «Actualizando…» y luego los hábitos de la franja nueva.
+- [x] Avisos: con horas configuradas, la app programa uno por franja con pendientes y los quita al borrar la configuración.
+- [ ] Permitir las notificaciones (estaban denegadas) y ver llegar un aviso; tocarlo abre Hoy.
 
 ## 7. Limitaciones
 
-- Todavía no hay avisos nativos (M2). Los avisos siguen llegando por la PWA, porque WKWebView no tiene Web Push.
+- Los avisos de la app de Mac son locales: si la app no corrió ese día (ni «Abrir al iniciar sesión»), no hay avisos de ese día en la Mac.
 - Si la Mac está en reposo, nada se actualiza hasta que despierta.
 - `pnpm ios:build` (Capacitor) y `pnpm mac:build` comparten `apps/web/dist`: cada uno copia su build a su carpeta (`App/public` o `Mac/public`).

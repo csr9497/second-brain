@@ -7,10 +7,10 @@ import WebKit
 final class Web: NSObject, WKNavigationDelegate, WKUIDelegate {
     let vista: WKWebView
 
-    init(estado: EstadoMac) {
+    init(estado: EstadoMac, avisos: Avisos) {
         let config = WKWebViewConfiguration()
         config.setURLSchemeHandler(EsquemaApp(), forURLScheme: EsquemaApp.esquema)
-        config.userContentController.addScriptMessageHandler(Puente(estado: estado), contentWorld: .page, name: Puente.nombre)
+        config.userContentController.addScriptMessageHandler(Puente(estado: estado, avisos: avisos), contentWorld: .page, name: Puente.nombre)
         // Que WebKit no congele la página con la ventana oculta
         config.preferences.inactiveSchedulingPolicy = .none
         vista = WKWebView(frame: .zero, configuration: config)

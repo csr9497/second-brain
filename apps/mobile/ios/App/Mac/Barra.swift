@@ -11,8 +11,15 @@ private enum Color2 {
 /// Ícono de la barra: el cerebro y el % del día (✓ si no queda nada pendiente).
 struct EtiquetaBarra: View {
     let estado: EstadoMac
+    @Environment(\.openWindow) private var abrir
 
     var body: some View {
+        contenido
+            // La etiqueta existe mientras corre la app: deja `openWindow` para avisos, widgets y Dock (`Ventana`)
+            .task { Ventana.abrir = abrir }
+    }
+
+    @ViewBuilder private var contenido: some View {
         if let e = estado.estado, e.caducado(en: Date()) {
             Image(systemName: "brain")
         } else if let e = estado.estado, !e.diaCompleto {

@@ -3,7 +3,7 @@
 // (apps/mobile/ios/App/Mac/Puente.swift). En la web cada llamada fallaría con «not implemented».
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import type { EstadoLiveActivity } from '@sb/shared';
-import { detectarPlataforma, puenteMac, type ManejadorMac } from './plataforma';
+import { avisosMac, detectarPlataforma, puenteMac, type ManejadorMac } from './plataforma';
 
 export interface SesionNativa {
   url: string;
@@ -31,7 +31,10 @@ export const plataformaNativa = () => detectarPlataforma({ capacitor: Capacitor.
 
 export const esNativo = () => plataformaNativa() !== null;
 
+const manejadorMac = () => webkit()!.messageHandlers!.sbMac as ManejadorMac;
+
 export const LiveActivity: LiveActivityPlugin =
-  plataformaNativa() === 'mac'
-    ? puenteMac(webkit()!.messageHandlers!.sbMac as ManejadorMac)
-    : registerPlugin<LiveActivityPlugin>('LiveActivity');
+  plataformaNativa() === 'mac' ? puenteMac(manejadorMac()) : registerPlugin<LiveActivityPlugin>('LiveActivity');
+
+/** Avisos locales (solo en la app de Mac; null en iOS y en la web). */
+export const AvisosMac = plataformaNativa() === 'mac' ? avisosMac(manejadorMac()) : null;

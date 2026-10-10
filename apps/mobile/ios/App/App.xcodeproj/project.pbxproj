@@ -31,6 +31,7 @@
 		81138B00431411BE1EF97D97 /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 68ED4E8FE0185474B6E8E85B /* capacitor.config.json */; };
 		824177A920E5386A44CCD778 /* EstadoCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A1A0888F27CA90A354AC215 /* EstadoCard.swift */; };
 		83AE57452620DD1EA0FDB261 /* Compartido.swift in Sources */ = {isa = PBXBuildFile; fileRef = 237098B621787A24D77F1F10 /* Compartido.swift */; };
+		868AE7A1A5077171F6F6DB26 /* Avisos.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B91E2D125268AC3003A5B5 /* Avisos.swift */; };
 		8E7E63FCBBF25224370D6E99 /* Puente.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7ACB88FA2F6FE069B139334F /* Puente.swift */; };
 		9101D4FCC7E35D4A64425C4A /* Sesion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E26B346DDCD3840AD099692 /* Sesion.swift */; };
 		9303853AF2AF11CA82D0E3B6 /* Web.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D11863D0718969678088A8F /* Web.swift */; };
@@ -141,6 +142,7 @@
 		AFB3D1ED0ED54E08B001F3DA /* SecondBrainMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecondBrainMacApp.swift; sourceTree = "<group>"; };
 		B59172A2A07CDF848EFADBFE /* Comunes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Comunes.swift; sourceTree = "<group>"; };
 		B5F8EA2D2CC7593C241F2A4F /* AccionesCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccionesCard.swift; sourceTree = "<group>"; };
+		C3B91E2D125268AC3003A5B5 /* Avisos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Avisos.swift; sourceTree = "<group>"; };
 		CBD50B9E303BDF6917B3A007 /* Atributos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Atributos.swift; sourceTree = "<group>"; };
 		D068C5B7331A82D45ACB7405 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		ED2016878D44EAA9692D059F /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
@@ -279,6 +281,7 @@
 			isa = PBXGroup;
 			children = (
 				292168FBBF203E21203BA4C8 /* Assets.xcassets */,
+				C3B91E2D125268AC3003A5B5 /* Avisos.swift */,
 				6EA31948F31C2F0E3D0457AD /* Barra.swift */,
 				8D8EAB2BAB714C0FC3201EFB /* Comandos.swift */,
 				237098B621787A24D77F1F10 /* Compartido.swift */,
@@ -486,6 +489,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				868AE7A1A5077171F6F6DB26 /* Avisos.swift in Sources */,
 				76850AE33BBF9833EF6F6ACA /* Barra.swift in Sources */,
 				3B281B2682042AEA5C41FE1C /* Comandos.swift in Sources */,
 				7400ACEAF245320515B795AC /* Compartido.swift in Sources */,

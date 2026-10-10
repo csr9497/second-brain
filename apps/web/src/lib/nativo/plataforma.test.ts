@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { detectarPlataforma, ejecutarAccion, puenteMac } from './plataforma';
+import { avisosMac, detectarPlataforma, ejecutarAccion, puenteMac } from './plataforma';
 
 describe('detectarPlataforma', () => {
   it('Capacitor nativo es iOS', () => {
@@ -47,5 +47,14 @@ describe('ejecutarAccion', () => {
     expect(a.irA).toHaveBeenCalledWith('calendario');
     await expect(ejecutarAccion('ir:nada', a, vistas)).resolves.toBe(false);
     await expect(ejecutarAccion('otra', a, vistas)).resolves.toBe(false);
+  });
+});
+
+describe('avisosMac', () => {
+  it('manda los avisos a Swift', async () => {
+    const postMessage = vi.fn().mockResolvedValue({ programados: 1 });
+    const aviso = { id: '2026-10-01-tarde', franja: 'tarde' as const, cuando: '2026-10-01T22:00:00.000Z', titulo: 'Tarde · te falta 1', cuerpo: 'Agua' };
+    await expect(avisosMac({ postMessage }).programar([aviso])).resolves.toEqual({ programados: 1 });
+    expect(postMessage).toHaveBeenCalledWith({ metodo: 'programarAvisos', args: { avisos: [aviso] } });
   });
 });

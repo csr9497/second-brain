@@ -1,4 +1,5 @@
 // Partes puras del puente nativo (testeables sin Capacitor ni WebKit).
+import type { AvisoProgramado } from '@sb/shared';
 import type { LiveActivityPlugin } from './liveActivity';
 
 export type Plataforma = 'ios' | 'mac' | null;
@@ -29,6 +30,13 @@ export function puenteMac(m: ManejadorMac): LiveActivityPlugin {
     guardarSesion: async (s) => void (await llamar('guardarSesion', s)),
     leerSesion: async () => ((await llamar('leerSesion')) ?? {}) as Respuesta<'leerSesion'>,
     cerrarSesion: async () => void (await llamar('cerrarSesion')),
+  };
+}
+
+/** Avisos locales de la app de Mac (Puente.swift → UNUserNotificationCenter). Reemplaza los programados. */
+export function avisosMac(m: ManejadorMac) {
+  return {
+    programar: async (avisos: AvisoProgramado[]) => (await m.postMessage({ metodo: 'programarAvisos', args: { avisos } })) as { programados: number },
   };
 }
 

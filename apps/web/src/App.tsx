@@ -24,6 +24,7 @@ import { useWebMcp } from './lib/webmcp/registrar';
 import { useLiveActivity } from './lib/nativo/useLiveActivity';
 import { useRefresco } from './lib/nativo/useRefresco';
 import { useAccionesNativas } from './lib/nativo/useAccionesNativas';
+import { useAvisosMac } from './lib/nativo/useAvisosMac';
 import { useTiempoReal } from './lib/useTiempoReal';
 
 export function App() {
@@ -54,6 +55,8 @@ function Home() {
 
   // App nativa: la Live Activity sigue a Hoy
   useLiveActivity();
+  // App de Mac: avisos de hábitos como notificaciones del sistema
+  useAvisosMac();
   // Cambios desde otro dispositivo o la card: se ven sin recargar
   useTiempoReal();
   // App nativa: jalar hacia abajo actualiza
