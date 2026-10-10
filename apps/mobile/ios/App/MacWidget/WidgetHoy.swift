@@ -287,6 +287,41 @@ private struct Burbuja: View {
     }
 }
 
+/// Hábito en el widget grande: círculo pequeño + nombre (cabe una fila por franja sin repetir iniciales).
+private struct Pastilla: View {
+    var nombre: String
+    var hecho: Bool
+    var enviando: Bool
+    var toque: Compartido.Toque
+    var progreso: Double?
+
+    var body: some View {
+        Button(intent: MarcarDesdeWidget(toque)) {
+            HStack(spacing: 4) {
+                ZStack {
+                    Circle().fill(hecho ? Colores.bueno : enviando ? Colores.bueno.opacity(0.25) : .clear)
+                    Circle().strokeBorder(hecho || enviando ? Colores.bueno : .secondary, lineWidth: 1.5)
+                    if let progreso, !hecho {
+                        Circle().trim(from: 0, to: max(0, min(1, progreso)))
+                            .stroke(Colores.bueno, style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                            .rotationEffect(.degrees(-90))
+                    }
+                    if hecho {
+                        Image(systemName: "checkmark").font(.system(size: 7, weight: .heavy)).foregroundStyle(.black.opacity(0.7))
+                    }
+                }
+                .frame(width: 14, height: 14)
+                Text(nombre).font(.caption).lineLimit(1).truncationMode(.tail)
+                    .foregroundStyle(hecho ? .secondary : .primary)
+                    .strikethrough(hecho, color: .secondary)
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(hecho || enviando)
+        .accessibilityLabel(hecho ? "\(nombre), hecho" : "Marcar \(nombre)")
+    }
+}
+
 private struct FilaPaso: View {
     var titulo: String
     var proyecto: String?
@@ -478,10 +513,11 @@ private struct Grande: View {
                             Text(nombreFranja(f)).font(.caption.weight(f == x.franjaActual ? .semibold : .regular))
                                 .foregroundStyle(f == x.franjaActual ? .primary : .secondary)
                                 .frame(width: 58, alignment: .leading)
-                            ForEach(habitos.prefix(6), id: \.self) { h in
-                                Burbuja(nombre: h.nombre, inicial: h.inicial, hecho: h.hecho, enviando: entrada.enviando(h.id),
-                                        toque: .init(tipo: .habito, id: h.id, detalle: h.slot), tamano: 24, conNombre: false)
+                            ForEach(habitos.prefix(3), id: \.self) { h in
+                                Pastilla(nombre: h.nombre, hecho: h.hecho, enviando: entrada.enviando(h.id),
+                                         toque: .init(tipo: .habito, id: h.id, detalle: h.slot))
                             }
+                            if habitos.count > 3 { Text("+\(habitos.count - 3)").font(.caption2).foregroundStyle(.secondary) }
                             Spacer(minLength: 0)
                         }
                     }
@@ -489,10 +525,9 @@ private struct Grande: View {
                 if !x.semanales.isEmpty {
                     HStack(alignment: .center, spacing: 8) {
                         Text("Semana").font(.caption).foregroundStyle(.secondary).frame(width: 58, alignment: .leading)
-                        ForEach(x.semanales.prefix(6), id: \.self) { h in
-                            Burbuja(nombre: h.nombre, inicial: h.inicial, hecho: h.hoy, enviando: entrada.enviando(h.id),
-                                    toque: .init(tipo: .semanal, id: h.id, detalle: ""), tamano: 24, conNombre: false,
-                                    progreso: Double(h.hechas) / Double(max(1, h.meta)))
+                        ForEach(x.semanales.prefix(3), id: \.self) { h in
+                            Pastilla(nombre: "\(h.nombre) \(h.hechas)/\(h.meta)", hecho: h.hoy, enviando: entrada.enviando(h.id),
+                                     toque: .init(tipo: .semanal, id: h.id, detalle: ""), progreso: Double(h.hechas) / Double(max(1, h.meta)))
                         }
                         Spacer(minLength: 0)
                     }
