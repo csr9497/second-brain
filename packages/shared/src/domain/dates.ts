@@ -43,6 +43,19 @@ export function franjaDe(d: Date, j: Jornada = jornada): HabitSlot {
   return 'noche';
 }
 
+/** Próximo instante en que cambia la franja (o el día): la primera de `finDia`, `horaTarde`, `horaNoche` después de `ahora`. */
+export function proximaFrontera(ahora: Date, j: Jornada = jornada): Date {
+  let proxima: Date | null = null;
+  for (const dias of [0, 1]) {
+    for (const hhmm of [j.finDia, j.horaTarde, j.horaNoche]) {
+      const [h, m] = hhmm.split(':').map(Number);
+      const d = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + dias, h, m);
+      if (d > ahora && (!proxima || d < proxima)) proxima = d;
+    }
+  }
+  return proxima!;
+}
+
 const parse = (iso: string) => {
   const [y, m, d] = iso.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d));

@@ -17,6 +17,10 @@
     "db:reset:dev": ". ./.env.dev.local && supabase db reset --db-url \"$SUPABASE_DEV_DB_URL\"",
     "ios:build": "pnpm --filter @sb/web exec vite build --mode native && pnpm --filter @sb/mobile exec cap sync ios",
     "ios:open": "pnpm --filter @sb/mobile exec cap open ios",
-    "ios:gen": "cd apps/mobile/ios/App && xcodegen generate"
+    "ios:gen": "cd apps/mobile/ios/App && xcodegen generate",
+    "mac:build": "scripts/mac.sh build",
+    "mac:run": "scripts/mac.sh run",
+    "mac:install": "scripts/mac.sh install",
+    "mac:test": "scripts/mac.sh test"
   }
 }

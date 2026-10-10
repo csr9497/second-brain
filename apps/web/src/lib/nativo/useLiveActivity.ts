@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { App as AppNativa } from '@capacitor/app';
-import { estadoLiveActivity } from '@sb/shared';
+import { estadoLiveActivity, extraMac } from '@sb/shared';
 import { api } from '../api';
 import { TODAY_KEY } from '../useToday';
-import { esNativo, LiveActivity } from './liveActivity';
+import { esNativo, LiveActivity, plataformaNativa } from './liveActivity';
 
 const DEBOUNCE_MS = 300;
 
@@ -21,11 +21,13 @@ export function useLiveActivity() {
     if (!esNativo() || !data) return;
     const t = setTimeout(() => {
       const estado = estadoLiveActivity(data, new Date().toISOString());
+      // En la Mac, también el día completo para la barra y los widgets
+      const extra = plataformaNativa() === 'mac' ? extraMac(data) : undefined;
       // Sin `actualizado`: si solo cambió la hora, no hay nada que mandar
-      const clave = JSON.stringify(estado && { ...estado, actualizado: undefined });
+      const clave = JSON.stringify([estado && { ...estado, actualizado: undefined }, extra]);
       if (clave === ultimo.current) return;
       ultimo.current = clave;
-      LiveActivity.sincronizar({ estado }).then(
+      LiveActivity.sincronizar({ estado, ...(extra && { extra }) }).then(
         (r) => console.info('[LiveActivity] sincronizar', JSON.stringify(r)),
         (e: unknown) => {
           // Se reintenta con el próximo cambio de Hoy
@@ -37,9 +39,10 @@ export function useLiveActivity() {
     return () => clearTimeout(t);
   }, [data]);
 
-  // Al volver a primer plano Hoy puede haber cambiado (otro dispositivo, los botones de la card)
+  // Al volver a primer plano Hoy puede haber cambiado (otro dispositivo, los botones de la card).
+  // En la Mac lo pide Swift (`sbRefrescar`): al abrir la barra, al despertar y en cada cambio de franja.
   useEffect(() => {
-    if (!esNativo()) return;
+    if (plataformaNativa() !== 'ios') return;
     const sub = AppNativa.addListener('appStateChange', ({ isActive }) => {
       if (isActive) void qc.invalidateQueries({ queryKey: TODAY_KEY });
     });

@@ -1,23 +1,33 @@
 # Minuta
 
-Último commit registrado: efe810a (2026-10-09)
+Último commit registrado: 5052d64 (2026-10-10)
 
 ## Pendientes
 ### En curso
-- [ ] Duración de la tarea (rama `feat/duracion-tarea`): probar en el navegador, aplicar la migración `tareas_minutos_dia` en dev (`pnpm db:push:dev`) y producción (`supabase db push`), y fusionar
+- [ ] Duración de la tarea: probar en el navegador y en el iPhone (instalar desde Xcode)
 - [ ] Probar en el iPhone: color «enviando» y fallo al tocar la card, hábitos de la noche pasada la medianoche con «El día termina» configurado, y jalar hacia abajo para actualizar
-- [ ] Fusionar la rama `feat/refresco-nativo` (Team de firma en `project.yml` y jalar para actualizar)
+- [ ] App de Mac (M1–M3 y mejoras, rama `feat/mac-widgets`): fusionar el PR y probar en la Mac lo que pide la checklist de `docs/APP-MAC.md` (permitir notificaciones, widgets grande/Racha/configurable, ⌃⌥Espacio, «Marcar todos», ✓ del widget con la app cerrada, atajos)
+- [ ] Regla nueva de Hoy (tareas con pasos solo si uno cae hoy): llega a Pages y al iPhone al fusionar; reinstalar la app de iOS desde Xcode
 ### Siguiente
+- [ ] Roadmap v2 (informe `files/deep-research-report.md`): Etapas 7–21, empezando por historial + Deshacer (el agente WebMCP escribe sin undo) y la línea base de check-ins
 - [ ] App nativa, fase 2 (requiere Apple Developer de pago): la card se actualiza sola desde el servidor por APNs, push-to-start a la hora de la franja, TestFlight y avisos nativos
 ### Backlog
-- [ ] Fase 6 (pospuesta): offline básico, nudge de proyectos/deadlines, Resumen navegar a meses anteriores y tendencia
+- [ ] Fase 6 (resto): Resumen navegar a meses anteriores y tendencia; guardar cambios sin conexión (hoy solo se puede mirar)
 - [ ] Fase W: borrados con confirmación (nivel 3) en WebMCP
 - [ ] Fase W: proponer pasos en el planificador desde un agente
 - [ ] Fase W: servidor MCP (variantes B y C de `docs/MCP.md`)
 
 ## Realizado
 ### 2026-10-10
-- Duración de la tarea: `tasks.minutos_dia` («h/día», 8 h por defecto). Los pasos se miden contra días × h/día: presupuesto en el modal; un paso solo con tiempo toma el inicio de la tarea y uno con fecha sin días dura hasta el deadline; Encadenar llena el día de trabajo de la tarea y avisa de los que no caben; el calendario y el Gantt con zoom usan esa escala. El contrato para la app móvil y la de escritorio está en `docs/DATA-MODEL.md`. WebMCP aplica las mismas reglas. Tests: 187 vitest y 103 pgTAP (sin commit aún)
+- Hoy: una tarea con pasos programados solo sale si uno de sus pasos cae hoy (o vence hoy); antes salía en todo su rango y la card, la barra y los widgets la mostraban como «paso de hoy» (0e9f6ec)
+- App de Mac M2: avisos de hábitos como notificaciones del sistema con las horas de 🔔 Avisos, «Marcar todos» y «En 30 min», aviso diario de tareas que vencen y proyectos parados; el modal 🔔 y la barra avisan si las notificaciones están desactivadas (112658a, 68f2746)
+- App de Mac M3: widgets por App Group (Hoy configurable en pequeño, mediano y grande; Racha), que respetan el cambio de franja; un ✓ del widget abre la app en segundo plano y la marca «enviando» caduca a los 20 s; «Second Brain Dev» separado de producción (e97fbcb…618d390, 68f2746, 40b9cec)
+- Barra de la Mac: semanales, captura rápida (también ⌃⌥Espacio), «…» al cambiar de franja y datos guardados sin conexión; al iniciar sesión en la Mac arranca sin ventana (68f2746)
+- iOS: la card caduca en el cambio de franja (`staleDate`) y no muestra los hábitos de la franja anterior (68f2746)
+- Web: arranca sin conexión con el último Hoy guardado (c89d70f) y atajos de teclado `n c 1–4 j k x e ?` (7369b76)
+- El texto del aviso Web Push vive en `supabase/functions/recordatorios/texto.ts` con un test de contrato contra `textoAviso` (ac37d35); CI en cada PR con tests de la app de Mac en macOS (3b4ff96)
+- App de Mac M1 (target `SecondBrainMac`, sin Capacitor): `WKWebView` persistente con el build `native` por `app://localhost`, puente `sbMac` con el mismo contrato que iOS, barra de menús con el % del día, hábitos de la franja y pasos de hoy (se refresca al abrir, al despertar y en `proximaFranja`), marcas compartidas con la Live Activity (`Marcas.swift`/`EstadoCard.swift`), XCTest y runbook `docs/APP-MAC.md` (abb9679…8621bdf)
+- Duración de la tarea: `tasks.minutos_dia` («h/día», 8 h por defecto). Los pasos se miden contra días × h/día: presupuesto en el modal; un paso solo con tiempo toma el inicio de la tarea y uno con fecha sin días dura hasta el deadline; Encadenar llena el día de trabajo de la tarea y avisa de los que no caben; el calendario y el Gantt con zoom usan esa escala. El contrato para la app móvil y la de escritorio está en `docs/DATA-MODEL.md`. WebMCP aplica las mismas reglas. Migración en dev y producción; Tests: 187 vitest y 103 pgTAP (PR #7, 324c7f3)
 ### 2026-10-09
 - Card de la Live Activity: el botón pasa a «enviando» al tocar sin esperar la red, luego hecho o «fallo» 2,5 s; ediciones serializadas y timeout de 10 s (3aa360b)
 - Jornada configurable (tabla `jornada`, migración aplicada en dev y producción): inicio de tarde y noche y hora en que termina el día (≤ 06:00); antes de esa hora sigue siendo la noche del día anterior en toda la app, los triggers, los avisos y la card; se edita en Gestionar hábitos → Franjas del día; 14 tests pgTAP nuevos (3aa360b)

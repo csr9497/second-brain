@@ -8,4 +8,5 @@ export type ModalState =
   | { kind: 'habito'; habit?: HabitAdmin; volver?: boolean }
   | { kind: 'avisos' }
   | { kind: 'crear' }
+  | { kind: 'atajos' }
   | null;

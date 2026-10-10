@@ -37,6 +37,11 @@ enum SupabaseREST {
         try await escribir("PATCH", ruta: "\(tabla)?id=eq.\(id)", cuerpo: cuerpo, prefer: "return=representation")
     }
 
+    /// Captura rápida (app de Mac): una idea en la bandeja (`ideas`, estado `inbox`), como «Captura» en la web.
+    static func capturar(_ texto: String) async throws {
+        try await escribir("POST", ruta: "ideas", cuerpo: ["texto": texto], prefer: "return=representation")
+    }
+
     /// Día de calendario del dispositivo, `yyyy-MM-dd` (sin jornada: solo para estados de la card sin `fecha`).
     static func fechaLocal(_ fecha: Date = Date()) -> String {
         let f = DateFormatter()
@@ -126,5 +131,15 @@ enum SupabaseREST {
               let json = try? JSONSerialization.jsonObject(with: datos) as? [String: Any],
               let exp = json["exp"] as? Double else { return true }
         return Date(timeIntervalSince1970: exp).timeIntervalSinceNow < 60
+    }
+}
+
+/// Escrituras de los botones ✓ (card de iOS y barra de la Mac) con la sesión del Keychain.
+struct EscritorREST: EscritorMarcas {
+    func marcarHabito(id: String, slot: String, fecha: String) async throws {
+        try await SupabaseREST.marcarHabito(id: id, slot: slot, fecha: fecha)
+    }
+    func marcarPaso(id: String, tipo: String) async throws {
+        try await SupabaseREST.marcarPaso(id: id, tipo: tipo)
     }
 }

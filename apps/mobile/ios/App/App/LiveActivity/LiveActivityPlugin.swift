@@ -26,10 +26,10 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             }
             return
         }
-        let estado: SecondBrainAttributes.ContentState
+        let estado: EstadoCard
         do {
             let datos = try JSONSerialization.data(withJSONObject: crudo)
-            estado = try JSONDecoder().decode(SecondBrainAttributes.ContentState.self, from: datos)
+            estado = try JSONDecoder().decode(EstadoCard.self, from: datos)
         } catch {
             CAPLog.print("[LiveActivity] sincronizar: estado inválido: \(error)")
             call.reject("Estado inválido: \(error.localizedDescription)", "ESTADO_INVALIDO", error)
@@ -38,8 +38,8 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPLog.print("[LiveActivity] sincronizar: franja=\(estado.franja) habitos=\(estado.habitos.count) pasos=\(estado.pasos.count) masPasos=\(estado.masPasos)")
 
         Task { @MainActor in
-            AccionesCard.ultimo = estado
-            let contenido = ActivityContent(state: estado, staleDate: nil)
+            AccionesCard.destino.ultimo = estado
+            let contenido = ActivityContent(state: estado, staleDate: estado.vence)
             if let actual = Activity<SecondBrainAttributes>.activities.first {
                 await actual.update(contenido)
                 CAPLog.print("[LiveActivity] actualizada \(actual.id)")
@@ -100,7 +100,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @MainActor
     private static func terminarTodas() async {
-        AccionesCard.ultimo = nil
+        AccionesCard.destino.ultimo = nil
         for actividad in Activity<SecondBrainAttributes>.activities {
             await actividad.end(nil, dismissalPolicy: .immediate)
         }

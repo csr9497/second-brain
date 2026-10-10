@@ -1,4 +1,5 @@
 import type { HabitSlot, TodayPayload } from '../index';
+import { proximaFrontera } from './dates';
 import { pasosDelPeriodo } from './pasos';
 
 export interface EstadoLiveActivity {
@@ -11,6 +12,8 @@ export interface EstadoLiveActivity {
   pasos: { id: string; titulo: string; tipo: 'paso' | 'tarea' }[];
   masPasos: number;
   actualizado: string;
+  /** ISO del próximo cambio de franja (jornada): la app de Mac vuelve a pedir Hoy a esa hora. La card de iOS lo ignora. */
+  proximaFranja: string;
 }
 
 const MAX_HABITOS = 4;
@@ -57,5 +60,6 @@ export function estadoLiveActivity(today: TodayPayload, ahoraISO: string): Estad
     pasos: pasosTodos.slice(0, MAX_PASOS),
     masPasos: pasosTodos.length - Math.min(pasosTodos.length, VISIBLES),
     actualizado: ahoraISO,
+    proximaFranja: proximaFrontera(new Date(ahoraISO)).toISOString(),
   };
 }

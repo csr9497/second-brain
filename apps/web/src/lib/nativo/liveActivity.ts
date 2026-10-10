@@ -1,7 +1,9 @@
-// Puente con el plugin Swift local `LiveActivity` (apps/mobile/ios/App/App/LiveActivity/LiveActivityPlugin.swift).
-// Solo existe en la app nativa; en la web cada llamada fallaría con «not implemented».
+// Puente con la parte nativa: en iOS, el plugin Swift local `LiveActivity`
+// (apps/mobile/ios/App/App/LiveActivity/LiveActivityPlugin.swift); en la Mac, los mensajes `sbMac`
+// (apps/mobile/ios/App/Mac/Puente.swift). En la web cada llamada fallaría con «not implemented».
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import type { EstadoLiveActivity } from '@sb/shared';
+import type { EstadoLiveActivity, ExtraMac } from '@sb/shared';
+import { avisosMac, detectarPlataforma, puenteMac, type ManejadorMac } from './plataforma';
 
 export interface SesionNativa {
   url: string;
@@ -11,8 +13,8 @@ export interface SesionNativa {
 }
 
 export interface LiveActivityPlugin {
-  /** Crea o actualiza la actividad; con `estado` null la termina. */
-  sincronizar(opts: { estado: EstadoLiveActivity | null }): Promise<{ activa: boolean; id: string | null }>;
+  /** Crea o actualiza la actividad; con `estado` null la termina. `extra` solo lo usa la app de Mac (barra y widgets). */
+  sincronizar(opts: { estado: EstadoLiveActivity | null; extra?: ExtraMac }): Promise<{ activa: boolean; id: string | null }>;
   /** Guarda la sesión en el Keychain para los botones de la card. */
   guardarSesion(sesion: SesionNativa): Promise<void>;
   /** Lee la sesión del Keychain (puede haberla renovado un botón de la card); `{}` si no hay. */
@@ -21,6 +23,18 @@ export interface LiveActivityPlugin {
   cerrarSesion(): Promise<void>;
 }
 
-export const esNativo = () => Capacitor.isNativePlatform();
+type ConWebkit = { webkit?: { messageHandlers?: Record<string, unknown> } };
+const webkit = () => (window as unknown as ConWebkit).webkit;
 
-export const LiveActivity = registerPlugin<LiveActivityPlugin>('LiveActivity');
+/** 'ios' (Capacitor), 'mac' (SecondBrainMac, apps/mobile/ios/App/Mac) o null (navegador). */
+export const plataformaNativa = () => detectarPlataforma({ capacitor: Capacitor.isNativePlatform(), webkit: webkit() });
+
+export const esNativo = () => plataformaNativa() !== null;
+
+const manejadorMac = () => webkit()!.messageHandlers!.sbMac as ManejadorMac;
+
+export const LiveActivity: LiveActivityPlugin =
+  plataformaNativa() === 'mac' ? puenteMac(manejadorMac()) : registerPlugin<LiveActivityPlugin>('LiveActivity');
+
+/** Avisos locales (solo en la app de Mac; null en iOS y en la web). */
+export const AvisosMac = plataformaNativa() === 'mac' ? avisosMac(manejadorMac()) : null;

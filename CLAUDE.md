@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `docs/API.md`: diseño REST original; ya no hay API propia
 - `design/mockup.html`: referencia visual; sus tokens CSS están en `apps/web/src/index.css`
 
-Estado: Fases 0–5 sobre la pantalla Hoy (incluye los avisos Web Push) y PWA instalable. Faltan lo offline, los avisos de proyectos y deadlines y las métricas (Fase 6).
+Estado: Fases 0–5 sobre la pantalla Hoy (incluye los avisos Web Push), PWA instalable, prototipo iOS con Live Activity y app de Mac (ventana, barra de menús, avisos y widgets). Faltan lo offline, los avisos de proyectos y deadlines y las métricas (Fase 6).
 
 Producción:
 - Frontend estático en **GitHub Pages**: https://csr9497.github.io/second-brain/ (repo `csr9497/second-brain`).
@@ -40,7 +40,7 @@ pnpm dev                # Vite :5173 contra Supabase dev (nube) — usuario: dev
 pnpm dev:local          # Vite :5173 contra Supabase local (Docker)
 pnpm db:push:dev        # aplica migraciones pendientes al proyecto dev
 pnpm db:reset:dev       # recrea la DB dev desde migraciones + seed
-pnpm test               # vitest de packages/shared
+pnpm test               # vitest de packages/shared y de apps/web (solo funciones puras)
 supabase test db        # tests pgTAP de RLS y triggers (supabase/tests/database)
 pnpm typecheck          # web + service worker (src/sw/tsconfig.json)
 node scripts/vapid-keys.mjs   # genera VAPID_KEYS (secret) y VITE_VAPID_PUBLIC_KEY
@@ -49,6 +49,9 @@ pnpm build              # apps/web/dist
 pnpm ios:build          # app iOS: vite build --mode native (apps/web/.env.native.local) + cap sync ios
 pnpm ios:gen            # xcodegen: regenera App.xcodeproj desde apps/mobile/ios/App/project.yml
 pnpm ios:open           # abre el proyecto en Xcode (ver docs/APP-NATIVA.md)
+pnpm mac:run            # app de Mac: build native + xcodebuild Debug y la abre (`scripts/mac.sh run dev` = contra Supabase dev)
+pnpm mac:install        # build Release en /Applications/Second Brain.app (ver docs/APP-MAC.md)
+pnpm mac:test           # XCTest de SecondBrainMacTests (Marcas, EstadoCard, Compartido)
 
 # un solo test
 pnpm --filter @sb/shared exec vitest run src/domain/domain.test.ts -t "computeStreak"
@@ -89,11 +92,18 @@ Studio local: http://127.0.0.1:54323. Deploy: cada push a `main` ejecuta `.githu
   - Sesión: `useSession`. Si no hay sesión, se muestra `<Login>`.
   - Formularios: no hay `<select>` nativos; se usa `components/ui/Select.tsx` (Radix) con las opciones de `lib/options.ts`.
   - `vite.config.ts` usa `base: './'`, para servir igual en `/` (local) y en `/second-brain/` (Pages).
-- **`apps/mobile`** (prototipo iOS; runbook en `docs/APP-NATIVA.md`): Capacitor 8 por SPM que carga el build de `apps/web` hecho con `vite build --mode native` (sin service worker ni PWA; en la web, `esNativo()` de `lib/nativo/`).
+- **`apps/mobile`** (prototipo iOS; runbook en `docs/APP-NATIVA.md`): Capacitor 8 por SPM que carga el build de `apps/web` hecho con `vite build --mode native` (sin service worker ni PWA; en la web, `esNativo()` de `lib/nativo/`; `plataformaNativa()` distingue `'ios'` y `'mac'`).
   - El proyecto Xcode sale de XcodeGen: `apps/mobile/ios/App/project.yml` y el `App.xcodeproj` commiteado. Tras tocar `project.yml`, `pnpm ios:gen`.
   - Plugin Swift local `LiveActivity` (`App/LiveActivity/`): `sincronizar`, `guardarSesion`, `leerSesion` y `cerrarSesion`. La web lo usa desde `lib/nativo/`: `useLiveActivity` sincroniza la card con `['today']` vía `estadoLiveActivity` (`@sb/shared`), y `useSession` copia la sesión al Keychain.
   - Extensión `SecondBrainLiveActivity` (SwiftUI): pinta la card. Sus botones son App Intents que corren en el proceso de la app y escriben por PostgREST (`SupabaseREST.swift`) con la sesión del Keychain.
   - Supabase rota el refresh token: si un botón lo renueva, el almacenamiento de supabase-js en nativo (`almacenNativo`) toma los tokens del Keychain al cargar la sesión.
+  - La lógica de los botones ✓ («enviando» → hecho o «fallo») es `Marcas.swift`, sobre un `DestinoEstado` (la Live Activity en iOS, `EstadoMac` en la Mac); el estado es `EstadoCard.swift` (sin ActivityKit).
+- **App de Mac** (target `SecondBrainMac` en el mismo `project.yml`, fuentes en `apps/mobile/ios/App/Mac/`; runbook en `docs/APP-MAC.md`): sin Capacitor.
+  - Un `WKWebView` que vive mientras corre la app (cerrar la ventana no lo destruye) carga el build `native` copiado a `Mac/public` por `app://localhost` (`EsquemaApp`).
+  - La web detecta `window.webkit.messageHandlers.sbMac` y usa `puenteMac` (`lib/nativo/plataforma.ts`), con el mismo contrato que el plugin de iOS: `useLiveActivity` y la sesión funcionan igual. En la Mac, `supabase.ts` mantiene la renovación del token con la página oculta.
+  - Avisos (M2): `useAvisosMac` calcula con `avisosDelDia` (`@sb/shared`) los de hoy y los manda con `programarAvisos`; `Mac/Avisos.swift` los programa como notificaciones locales (reemplaza los `aviso-*`).
+  - Widgets (`MacWidget/`, extensión `SecondBrainMacWidget`): leen la instantánea que la app guarda en el App Group (`Mac/Compartido.swift`) y sus ✓ se encolan para que los escriba la app (aviso Darwin); el widget no tiene la sesión.
+  - La barra de menús (`Barra.swift`) pinta el `EstadoLiveActivity` que manda la web y llama a `sbRefrescar()` al abrirse, al despertar y en `proximaFranja`. Los menús llaman a `window.sbAccion` (`useAccionesNativas`).
 
 ## Reglas de dominio no obvias
 
@@ -108,8 +118,8 @@ Studio local: http://127.0.0.1:54323. Deploy: cada push a `main` ejecuta `.githu
 - **Listas de tareas (`bucketTasks`):**
   - Las hechas solo se ven el día en que se completaron.
   - Las vencidas sin terminar van **solo** a `incumplimiento`.
-  - `hoy` = hoy cae entre `start_date` y `deadline` (todos los días del rango), o deadline hoy, o `start_date` hoy (sin deadline), o un paso pendiente que cubre hoy.
-  - `semana` = hoy + deadline hasta el domingo, o `start_date` dentro de la semana (lun–dom), o un paso pendiente en algún día de la semana.
+  - `hoy` = deadline hoy; o, **con pasos programados**, alguno (hecho o no) cubre hoy (aunque hoy caiga en su rango, sin paso hoy no sale); o, sin pasos programados, hoy cae entre `start_date` y `deadline` o `start_date` es hoy. De esta lista salen la card de iOS, la barra y los widgets de la Mac.
+  - `semana` = hoy + hoy en su rango + deadline hasta el domingo, o `start_date` dentro de la semana (lun–dom), o un paso pendiente en algún día de la semana.
 - **Pasos programados:** `steps.start_date` + `duracion_dias` (ambos o ninguno, CHECK); el fin es inclusivo (`finPaso` = inicio + días − 1). Un paso fuera del rango `start_date`–`deadline` de su tarea se permite y se marca "fuera de plazo" (`fueraDePlazo`); sin programar no sale en el Gantt.
 - **Duración de un paso:** o un rango de fechas (`start_date` + `duracion_dias`), o un **tiempo estimado** (`duracion_min`, en horas o minutos en el formulario) en un solo día (CHECK: `duracion_dias = 1`, máx. 24 h). No hay hora de inicio: los pasos por tiempo de un mismo día van en el orden de la lista (`tramosDelDia`). «⛓ Encadenar» (`encadenar(pasos, desde, minutosDia(t))`) los pone seguidos desde el inicio de la tarea, en el mismo día mientras quepan en el **día de trabajo de la tarea**, salta al día siguiente si no y avisa de los que quedan después del deadline. Toda la lógica por días los trata como pasos de un día.
 - **Duración de la tarea** = días (`start_date`–`deadline`) × `tasks.minutos_dia` («h/día» en la cabecera del modal; null = `JORNADA_MIN` = 8 h; CHECK `tasks_minutos_dia`: 15–1440, de 15 en 15). Los pasos se miden contra ella: presupuesto (`presupuestoTarea`, «2 días 3 h de 5 días», en rojo si excede), escala del día en el calendario y en el Gantt con zoom (`geometriaPaso(..., minutosDia(t))`). `completarPaso` (lo usan `programacion(s, tarea)` del modal y `programarPaso(..., tarea)` de WebMCP) hace dos cosas: a un paso solo con tiempo le pone el **inicio de la tarea**, y a uno con fecha y sin días le da duración **hasta el deadline**. Es un contrato para todos los clientes (móvil, escritorio): ver `docs/DATA-MODEL.md`, «Duración de la tarea y de sus pasos».

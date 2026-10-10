@@ -3,13 +3,18 @@
 // Con { prueba: true } y el JWT del usuario manda un aviso de prueba solo a los suyos.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import * as webpush from 'jsr:@negrel/webpush@0.5';
+import { type Franja, textoAviso } from './texto.ts';
 
-type Franja = 'manana' | 'tarde' | 'noche';
 interface Aviso { titulo: string; body: string; url: string; tag: string }
 interface Fila { user_id: string; fecha: string; franja: Franja; habitos: string[] }
 
-const FRANJA: Record<Franja, string> = { manana: 'Mañana', tarde: 'Tarde', noche: 'Noche' };
 const ORDEN: Franja[] = ['manana', 'tarde', 'noche'];
+
+/** El texto sale de texto.ts (el mismo que los avisos de la app de Mac, ver `textoAviso` en @sb/shared). */
+function aviso(franja: Franja, habitos: string[]): Aviso {
+  const { titulo, cuerpo } = textoAviso(franja, habitos);
+  return { titulo, body: cuerpo, url: './#/', tag: `recordatorio-${franja}` };
+}
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-timezone',
@@ -31,12 +36,6 @@ async function servidor() {
   return app;
 }
 
-/** «Tarde · te faltan 2» / «Agua, Leer»; hasta 4 nombres y luego +n. */
-function textoAviso(franja: Franja, habitos: string[]): Aviso {
-  const n = habitos.length;
-  const body = n > 4 ? `${habitos.slice(0, 4).join(', ')} +${n - 4}` : habitos.join(', ');
-  return { titulo: `${FRANJA[franja]} · te falta${n === 1 ? '' : 'n'} ${n}`, body, url: './#/', tag: `recordatorio-${franja}` };
-}
 
 /** Manda `aviso` a cada dispositivo del usuario; borra los que ya no existen. Devuelve cuántos lo recibieron. */
 async function enviar(userId: string, aviso: Aviso) {
@@ -77,7 +76,7 @@ async function ronda() {
   for (const [userId, propias] of porUsuario) {
     // Un aviso tarde no sirve: si varias franjas vencen a la vez (config guardada tarde), solo cuenta la más reciente
     const ultima = propias.sort((a, b) => ORDEN.indexOf(a.franja) - ORDEN.indexOf(b.franja)).at(-1);
-    if (ultima?.habitos.length) avisos += await enviar(userId, textoAviso(ultima.franja, ultima.habitos)).catch((err) => (console.error(err), 0));
+    if (ultima?.habitos.length) avisos += await enviar(userId, aviso(ultima.franja, ultima.habitos)).catch((err) => (console.error(err), 0));
   }
   return { franjas: filas.length, avisos };
 }

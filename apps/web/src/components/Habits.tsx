@@ -130,6 +130,7 @@ export function Habits({ habits }: { habits: TodayPayload['habits'] }) {
             <button
               key={`${c.id}-${c.slot}`}
               aria-pressed={c.done}
+              data-atajo="marcar"
               aria-disabled={toggle.isPending}
               aria-label={`${c.nombre}, ${c.done ? 'hecho' : 'pendiente'}${otraFranja ? `, hecho por ${POR[otraFranja]}` : ''}`}
               onClick={() => {
@@ -154,6 +155,7 @@ export function Habits({ habits }: { habits: TodayPayload['habits'] }) {
               <button
                 key={h.id}
                 aria-pressed={h.hoy}
+                data-atajo="marcar"
                 aria-disabled={toggleSemanal.isPending}
                 aria-label={`${h.nombre}: ${h.hechas} de ${h.meta} esta semana${h.hoy ? ', hecho hoy' : ''}`}
                 onClick={() => {

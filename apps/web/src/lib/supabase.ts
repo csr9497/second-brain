@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { esNativo } from './nativo/liveActivity';
+import { esNativo, plataformaNativa } from './nativo/liveActivity';
 import { almacenNativo } from './nativo/sesion';
 
 // Proyecto de producción (el que usa GitHub Pages). En desarrollo nunca debe usarse.
@@ -27,3 +27,12 @@ export const sb = createClient(url, anonKey, {
   global: { headers: { 'x-timezone': Intl.DateTimeFormat().resolvedOptions().timeZone } },
   ...(esNativo() && { auth: { storage: almacenNativo } }),
 });
+
+// En la Mac la página sigue viva con la ventana cerrada (oculta) y la barra de menús depende de ella: supabase-js deja
+// de renovar el token al ocultarse la página, así que se vuelve a encender después de su propio manejador.
+if (plataformaNativa() === 'mac') {
+  void sb.auth.startAutoRefresh();
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) setTimeout(() => void sb.auth.startAutoRefresh(), 0);
+  });
+}

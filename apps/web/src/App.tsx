@@ -17,12 +17,17 @@ import { HoyView } from './components/HoyView';
 import { ResumenView } from './components/resumen/ResumenView';
 import { GanttView } from './components/gantt/GanttView';
 import { ConfirmHost } from './components/ui/Confirmar';
-import { useVista, hrefVista, listaVistas, puedeSalir, VISTAS } from './lib/useVista';
+import { SinConexion } from './components/SinConexion';
+import { AtajosModal } from './components/AtajosModal';
+import { useAtajos } from './lib/useAtajos';
+import { useVista, hrefVista, listaVistas, puedeSalir, VISTAS, type Vista } from './lib/useVista';
 import type { ModalState } from './lib/modal';
 import { todayISO } from '@sb/shared';
 import { useWebMcp } from './lib/webmcp/registrar';
 import { useLiveActivity } from './lib/nativo/useLiveActivity';
 import { useRefresco } from './lib/nativo/useRefresco';
+import { useAccionesNativas } from './lib/nativo/useAccionesNativas';
+import { useAvisosMac } from './lib/nativo/useAvisosMac';
 import { useTiempoReal } from './lib/useTiempoReal';
 
 export function App() {
@@ -53,24 +58,46 @@ function Home() {
 
   // App nativa: la Live Activity sigue a Hoy
   useLiveActivity();
+  // App de Mac: avisos de hábitos como notificaciones del sistema
+  useAvisosMac();
   // Cambios desde otro dispositivo o la card: se ven sin recargar
   useTiempoReal();
   // App nativa: jalar hacia abajo actualiza
   useRefresco();
 
-  // Herramientas de interfaz de WebMCP: no pisan un modal abierto; cambiar de vista respeta la guardia
+  // Cambiar de vista desde fuera (agente, menús nativos) respeta la guardia
+  const irA = async (v: Vista) => {
+    if (!(await puedeSalir())) return false;
+    window.location.hash = hrefVista(v);
+    return true;
+  };
+
+  // Herramientas de interfaz de WebMCP: no pisan un modal abierto
   useWebMcp({
     abrirTarea: (task) => (modal ? false : (setModal({ kind: 'tarea', task }), true)),
     nuevaTarea: (inicial) => (modal ? false : (setModal({ kind: 'tarea', inicial }), true)),
-    irA: async (v) => {
-      if (!(await puedeSalir())) return false;
-      window.location.hash = hrefVista(v);
-      return true;
-    },
+    irA,
+  });
+
+  // Teclado: n, c, 1–4, j/k, x, e y ? (lib/atajos.ts)
+  useAtajos({
+    nuevaTarea: () => setModal({ kind: 'tarea' }),
+    crear: () => setModal({ kind: 'crear' }),
+    irA: (v) => void irA(v),
+    ayuda: () => setModal({ kind: 'atajos' }),
+    hayModal: modal !== null,
+  });
+
+  // App de Mac: menús Archivo y Ver
+  useAccionesNativas({
+    nuevaTarea: () => (modal ? false : (setModal({ kind: 'tarea' }), true)),
+    crear: () => (modal ? false : (setModal({ kind: 'crear' }), true)),
+    irA,
   });
 
   return (
     <div className="mx-auto max-w-[1040px] px-4 pt-[26px] pb-28 sm:pb-[72px]">
+      <SinConexion />
       <header>
         <div className="text-xs font-semibold tracking-[.08em] text-faint uppercase">{headerDate(todayISO())}</div>
         <div className="flex items-start justify-between gap-3">
@@ -144,6 +171,7 @@ function Home() {
       )}
       {modal?.kind === 'habito' && <HabitModal habit={modal.habit} onClose={modal.volver ? backToHabits : close} />}
       {modal?.kind === 'crear' && <CrearModal onSelect={setModal} onClose={close} />}
+      {modal?.kind === 'atajos' && <AtajosModal onClose={close} />}
       <button
         onClick={() => setModal({ kind: 'crear' })}
         aria-label="Crear"

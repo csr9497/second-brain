@@ -65,6 +65,7 @@ targets:
     sources:
       - path: SecondBrainLiveActivity
       - path: App/LiveActivity/Atributos.swift
+      - path: App/LiveActivity/EstadoCard.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.csr9497.secondbrain.LiveActivity
@@ -78,6 +79,85 @@ targets:
         # En la extensión, perform() de los intents no escribe (lo hace la app; ver Intents.swift)
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) WIDGET_EXTENSION
         LD_RUNPATH_SEARCH_PATHS: ["$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks"]
+  # App de Mac: la web en un WKWebView que vive mientras corre la app + barra de menús (docs/APP-MAC.md)
+  SecondBrainMac:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: Mac
+        excludes: [public]
+      - path: Mac/public
+        type: folder
+        buildPhase: resources
+        optional: true
+      - path: App/LiveActivity/EstadoCard.swift
+      - path: App/LiveActivity/Marcas.swift
+      - path: App/LiveActivity/Sesion.swift
+      - path: App/LiveActivity/SupabaseREST.swift
+    dependencies:
+      - target: SecondBrainMacWidget
+        embed: true
+    settings:
+      base:
+        # «Second Brain Dev» (scripts/mac.sh … dev) pasa SB_SUFIJO=.dev y SB_NOMBRE=" Dev": otro bundle id, widget,
+        # App Group y Keychain, para que el build de desarrollo nunca toque los datos de la app de producción.
+        SB_SUFIJO: ""
+        SB_NOMBRE: ""
+        PRODUCT_BUNDLE_IDENTIFIER: com.csr9497.secondbrain.mac$(SB_SUFIJO)
+        PRODUCT_NAME: Second Brain$(SB_NOMBRE)
+        PRODUCT_MODULE_NAME: SecondBrainMac
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Second Brain$(SB_NOMBRE)
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
+        INFOPLIST_KEY_NSHumanReadableCopyright: ""
+        CODE_SIGN_ENTITLEMENTS: Mac/SecondBrainMac.entitlements
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_HARDENED_RUNTIME: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+  # Widgets de la app de Mac (WidgetKit). Leen lo que la app guarda en el App Group (Mac/Compartido.swift) y encolan los ✓.
+  SecondBrainMacWidget:
+    type: app-extension
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: MacWidget
+        excludes: [Info.plist, "*.entitlements"]
+      - path: Mac/Compartido.swift
+      - path: Mac/ExtraMac.swift
+      - path: App/LiveActivity/EstadoCard.swift
+    settings:
+      base:
+        SB_SUFIJO: ""
+        SB_NOMBRE: ""
+        PRODUCT_BUNDLE_IDENTIFIER: com.csr9497.secondbrain.mac$(SB_SUFIJO).widget
+        PRODUCT_NAME: SecondBrainMacWidget
+        INFOPLIST_FILE: MacWidget/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_ENTITLEMENTS: MacWidget/SecondBrainMacWidget.entitlements
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_HARDENED_RUNTIME: YES
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SKIP_INSTALL: YES
+        LD_RUNPATH_SEARCH_PATHS: ["$(inherited)", "@executable_path/../Frameworks", "@executable_path/../../../../Frameworks"]
+  SecondBrainMacTests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: MacTests
+      - path: App/LiveActivity/EstadoCard.swift
+      - path: App/LiveActivity/Marcas.swift
+      - path: Mac/Compartido.swift
+      - path: Mac/ExtraMac.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.csr9497.secondbrain.mac.tests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_STYLE: Automatic
 schemes:
   App:
     build:
@@ -85,5 +165,16 @@ schemes:
         App: all
     run:
       config: Debug
+    archive:
+      config: Release
+  SecondBrainMac:
+    build:
+      targets:
+        SecondBrainMac: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets: [SecondBrainMacTests]
     archive:
       config: Release

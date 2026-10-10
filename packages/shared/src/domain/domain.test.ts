@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, daysBetween, diaDe, franjaDe, todayISO, weekRange, weekday } from './dates';
+import { addDays, daysBetween, diaDe, franjaDe, proximaFrontera, todayISO, weekRange, weekday } from './dates';
 import { positionBetween } from './ordering';
 import { bucketTasks, computeStreak, pct } from './metrics';
 
@@ -83,6 +83,35 @@ describe('computeStreak', () => {
   it('un día sin hábitos vigentes corta la racha', () => {
     const totalOn = (d: string) => (d >= '2026-09-25' ? 1 : 0); // el hábito existe desde el 25
     expect(computeStreak(logs({ '2026-09-25': 1, '2026-09-24': 1 }), today, totalOn)).toBe(1);
+  });
+});
+
+describe('bucketTasks: tareas con pasos programados', () => {
+  const today = '2026-10-10';
+  const weekEnd = '2026-10-11';
+  const paso = (startDate: string | null, done = false) => ({ done, startDate, duracionDias: startDate ? 1 : null });
+  const t = (id: string, o: { startDate?: string; deadline?: string; steps?: ReturnType<typeof paso>[] }) => ({
+    id, status: 'por_hacer', completedAt: null, startDate: o.startDate ?? null, deadline: o.deadline ?? null, steps: o.steps ?? [],
+  });
+  const ids = (xs: { id: string }[]) => xs.map((x) => x.id);
+  const hoy = (tasks: ReturnType<typeof t>[]) => ids(bucketTasks(tasks, today, weekEnd, () => false).hoy);
+
+  it('en su rango pero ningún paso hoy: no está en Hoy', () => {
+    expect(hoy([t('setup', { startDate: '2026-10-01', deadline: '2026-10-19', steps: [paso('2026-10-05'), paso('2026-10-14')] })])).toEqual([]);
+  });
+  it('con un paso hoy (pendiente o ya hecho): sí', () => {
+    expect(hoy([t('a', { startDate: '2026-10-01', deadline: '2026-10-19', steps: [paso('2026-10-05'), paso(today)] })])).toEqual(['a']);
+    expect(hoy([t('b', { startDate: '2026-10-01', deadline: '2026-10-19', steps: [paso(today, true)] })])).toEqual(['b']);
+  });
+  it('vence hoy: siempre, aunque sus pasos sean otro día', () => {
+    expect(hoy([t('v', { deadline: today, steps: [paso('2026-10-08')] })])).toEqual(['v']);
+  });
+  it('solo pasos sin fecha: cuenta como tarea sin pasos (su rango)', () => {
+    expect(hoy([t('s', { startDate: '2026-10-01', deadline: '2026-10-19', steps: [paso(null)] })])).toEqual(['s']);
+  });
+  it('sigue en la semana si su rango la cubre', () => {
+    const b = bucketTasks([t('setup', { startDate: '2026-10-01', deadline: '2026-10-19', steps: [paso('2026-10-14')] })], today, weekEnd, () => false);
+    expect(ids(b.semana)).toEqual(['setup']);
   });
 });
 
@@ -180,5 +209,28 @@ describe('bucketTasks: tareas con rango', () => {
       expect(ids(bucketTasks([t('r', today, '2026-10-09')], dia, weekEnd, () => false).hoy)).toEqual(['r']);
     }
     expect(ids(bucketTasks([t('r', today, '2026-10-09')], '2026-10-10', weekEnd, () => false).hoy)).toEqual([]);
+  });
+});
+
+describe('proximaFrontera', () => {
+  const j = (finDia: string) => ({ finDia, horaTarde: '12:00', horaNoche: '19:00' });
+  const local = (d: number, h: number, m = 0) => new Date(2026, 9, d, h, m);
+
+  it('la siguiente hora de la jornada del mismo día', () => {
+    expect(proximaFrontera(local(1, 9), j('00:00'))).toEqual(local(1, 12));
+    expect(proximaFrontera(local(1, 14, 30), j('00:00'))).toEqual(local(1, 19));
+  });
+
+  it('pasada la noche, el fin del día de mañana', () => {
+    expect(proximaFrontera(local(1, 20), j('00:00'))).toEqual(local(2, 0));
+    expect(proximaFrontera(local(1, 20), j('02:00'))).toEqual(local(2, 2));
+  });
+
+  it('pasada la medianoche con fin_dia, el fin del día de hoy', () => {
+    expect(proximaFrontera(local(2, 1), j('02:00'))).toEqual(local(2, 2));
+  });
+
+  it('justo en una frontera, la siguiente', () => {
+    expect(proximaFrontera(local(1, 12), j('00:00'))).toEqual(local(1, 19));
   });
 });

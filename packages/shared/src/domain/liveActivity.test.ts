@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { HabitChip, HabitSlot, Step, Task, TodayPayload } from '../index';
+import { proximaFrontera } from './dates';
 import { estadoLiveActivity } from './liveActivity';
 
 const AHORA = '2026-10-01T20:00:00.000Z';
@@ -54,6 +55,11 @@ const today = (tarde: HabitChip[], hoy: Task[] = [], pctDia = 50, extra: Partial
 });
 
 describe('estadoLiveActivity', () => {
+  it('proximaFranja: el próximo cambio de franja en ISO', () => {
+    const e = estadoLiveActivity(today([chip('a')]), AHORA)!;
+    expect(e.proximaFranja).toBe(proximaFrontera(new Date(AHORA)).toISOString());
+  });
+
   it('franja con pendientes: solo las fichas sin hacer', () => {
     const e = estadoLiveActivity(today([chip('a'), chip('b', { done: true, doneIn: 'tarde' })], [], 40), AHORA)!;
     expect(e.franja).toBe('tarde');
